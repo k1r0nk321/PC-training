@@ -171,7 +171,21 @@ export default function CaseDetailPage({ params }) {
   const patient = caseData.patient_data
 
   // ===== 採点結果画面 =====
-  if (step === 'scoring' && scoring) {
+  if (step === 'scoring' && scoring && !scoring.error) {
+    if (step === 'scoring' && scoring && scoring.error) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', maxWidth: '500px', textAlign: 'center' }}>
+        <p style={{ color: '#dc2626', fontSize: '16px', marginBottom: '16px' }}>採点エラー：{scoring.error}</p>
+        <button onClick={function() { setStep('treatment') }}
+          style={{ padding: '10px 24px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+          治療方針に戻る
+        </button>
+      </div>
+    </div>
+  )
+}
+
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '24px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
