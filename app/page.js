@@ -17,20 +17,17 @@ export default function Home() {
       setUser(session?.user ?? null)
       setLoading(false)
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       function(_event, session) {
         setUser(session?.user ?? null)
       }
     )
-
     return function() { subscription.unsubscribe() }
   }, [])
 
   async function handleAuth() {
     setAuthLoading(true)
     setMessage('')
-
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) {
@@ -72,10 +69,7 @@ export default function Home() {
         backgroundColor: '#f0f9ff',
         padding: '24px'
       }}>
-        <div style={{
-          maxWidth: '800px',
-          margin: '0 auto'
-        }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -124,9 +118,7 @@ export default function Home() {
               fontWeight: 'bold',
               color: '#1e40af',
               marginBottom: '8px'
-            }}>
-              外来シミュレーションへようこそ
-            </h2>
+            }}>外来シミュレーションへようこそ</h2>
             <p style={{ color: '#1e40af', fontSize: '14px' }}>
               実際の外来診療を想定した3回受診シミュレーションで、
               プライマリケアの診療スキルを磨きましょう。
@@ -145,28 +137,20 @@ export default function Home() {
               border: '1px solid #e2e8f0',
               opacity: '0.6'
             }}>
-              <div style={{
-                fontSize: '32px',
-                marginBottom: '12px'
-              }}>🏥</div>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏥</div>
               <h3 style={{
                 fontSize: '16px',
                 fontWeight: 'bold',
                 color: '#1e293b',
                 marginBottom: '8px'
               }}>症例トレーニング</h3>
-              <p style={{
-                fontSize: '13px',
-                color: '#64748b'
-              }}>
+              <p style={{ fontSize: '13px', color: '#64748b' }}>
                 高血圧・糖尿病・脂質異常症など、
                 プライマリケアの代表疾患を学ぶ
               </p>
-              <p style={{
-                fontSize: '12px',
-                color: '#94a3b8',
-                marginTop: '12px'
-              }}>準備中</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
+                準備中
+              </p>
             </div>
 
             <div style={{
@@ -176,28 +160,20 @@ export default function Home() {
               border: '1px solid #e2e8f0',
               opacity: '0.6'
             }}>
-              <div style={{
-                fontSize: '32px',
-                marginBottom: '12px'
-              }}>📊</div>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
               <h3 style={{
                 fontSize: '16px',
                 fontWeight: 'bold',
                 color: '#1e293b',
                 marginBottom: '8px'
               }}>成績確認</h3>
-              <p style={{
-                fontSize: '13px',
-                color: '#64748b'
-              }}>
+              <p style={{ fontSize: '13px', color: '#64748b' }}>
                 これまでのトレーニング結果と
                 フィードバックを確認する
               </p>
-              <p style={{
-                fontSize: '12px',
-                color: '#94a3b8',
-                marginTop: '12px'
-              }}>準備中</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
+                準備中
+              </p>
             </div>
 
             <div style={{
@@ -207,28 +183,20 @@ export default function Home() {
               border: '1px solid #e2e8f0',
               opacity: '0.6'
             }}>
-              <div style={{
-                fontSize: '32px',
-                marginBottom: '12px'
-              }}>👥</div>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>👥</div>
               <h3 style={{
                 fontSize: '16px',
                 fontWeight: 'bold',
                 color: '#1e293b',
                 marginBottom: '8px'
               }}>グループ</h3>
-              <p style={{
-                fontSize: '13px',
-                color: '#64748b'
-              }}>
+              <p style={{ fontSize: '13px', color: '#64748b' }}>
                 研修グループを作成・参加して
                 メンバーの成績を比較する
               </p>
-              <p style={{
-                fontSize: '12px',
-                color: '#94a3b8',
-                marginTop: '12px'
-              }}>準備中</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
+                準備中
+              </p>
             </div>
           </div>
         </div>
@@ -320,3 +288,57 @@ export default function Home() {
 
         {message && (
           <div style={{
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            backgroundColor: message.includes('エラー') ? '#fef2f2' : '#f0fdf4',
+            color: message.includes('エラー') ? '#dc2626' : '#16a34a',
+            fontSize: '13px'
+          }}>
+            {message}
+          </div>
+        )}
+
+        <button
+          onClick={handleAuth}
+          disabled={authLoading}
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: authLoading ? '#93c5fd' : '#0369a1',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '15px',
+            fontWeight: 'bold',
+            cursor: authLoading ? 'not-allowed' : 'pointer',
+            marginBottom: '16px'
+          }}
+        >
+          {authLoading ? '処理中...' : (isSignUp ? '新規登録' : 'ログイン')}
+        </button>
+
+        <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+          {isSignUp ? 'すでにアカウントをお持ちの方は' : 'アカウントをお持ちでない方は'}
+          <button
+            onClick={function() {
+              setIsSignUp(!isSignUp)
+              setMessage('')
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#0369a1',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              marginLeft: '4px'
+            }}
+          >
+            {isSignUp ? 'ログイン' : '新規登録'}
+          </button>
+        </p>
+      </div>
+    </div>
+  )
+}
