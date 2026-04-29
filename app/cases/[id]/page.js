@@ -186,6 +186,7 @@ export default function CaseDetailPage({ params }) {
   )
 }
 
+if (step === 'scoring' && scoring && !scoring.error) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '24px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
