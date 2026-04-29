@@ -96,7 +96,8 @@ ${medicationText}
     })
 
     const responseText = message.content[0].text
-    const caseData = JSON.parse(responseText)
+    const cleanText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+const caseData = JSON.parse(cleanText)
 
     const { data: newCase, error } = await supabase
       .from('cases')
