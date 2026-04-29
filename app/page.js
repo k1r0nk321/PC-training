@@ -130,28 +130,40 @@ export default function Home() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: '16px'
           }}>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '24px',
-              border: '1px solid #e2e8f0',
-              opacity: '0.6'
-            }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏥</div>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#1e293b',
-                marginBottom: '8px'
-              }}>症例トレーニング</h3>
-              <p style={{ fontSize: '13px', color: '#64748b' }}>
-                高血圧・糖尿病・脂質異常症など、
-                プライマリケアの代表疾患を学ぶ
-              </p>
-              <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
-                準備中
-              </p>
-            </div>
+<div
+  onClick={function() { window.location.href = '/cases' }}
+  style={{
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '24px',
+    border: '2px solid #0369a1',
+    cursor: 'pointer'
+  }}
+>
+  <div style={{
+    fontSize: '32px',
+    marginBottom: '12px'
+  }}>🏥</div>
+  <h3 style={{
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: '8px'
+  }}>症例トレーニング</h3>
+  <p style={{
+    fontSize: '13px',
+    color: '#64748b'
+  }}>
+    高血圧・糖尿病・脂質異常症など、
+    プライマリケアの代表疾患を学ぶ
+  </p>
+  <p style={{
+    fontSize: '12px',
+    color: '#0369a1',
+    fontWeight: 'bold',
+    marginTop: '12px'
+  }}>クリックして開始 →</p>
+</div>
 
             <div style={{
               backgroundColor: 'white',
