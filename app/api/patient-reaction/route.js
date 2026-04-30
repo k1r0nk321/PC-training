@@ -97,4 +97,85 @@ export async function POST(req) {
 
 ○ 普通の説得：
   - ある程度の説明はあるが患者の核心的な懸念には答えていない
-  → acceptance_levelを1段階改善すること
+  → acceptance_levelを1段階改善することがある
+
+× 低品質な説得：
+  - 命令的・一方的・「必要です」だけ
+  - 10文字以下など短すぎる
+  → 変化なし（むしろ悪化することもある）
+
+患者の性格別の説得されやすさ：
+- cooperative（従順）：普通の説得でも受け入れる
+- anxious（不安）：共感の言葉があれば受け入れる
+- resistant（懐疑的）：高品質な説得で1段階改善。2回目以降は更に改善しやすくなる
+- lazy（面倒嫌い）：「簡単」「続けやすい」強調で改善
+- angry（怒りっぽい）：冷静・共感的対応で徐々に改善。怒りに乗らない対応が大事
+
+アドヒアランス（${hidden.adherence_level}）の影響：
+- high：説得されやすく、partial以上に達したら次の説得でacceptedになりやすい
+- medium：普通
+- low：改善しにくいが、累積説得回数（${persuasionCount}回目）が増えると徐々に軟化する
+
+【必ず acceptance_level を改善してください（高品質な説得の場合）】
+` : `
+【初回反応のルール】
+患者の特性に基づいたリアルな初回反応を生成する。
+- medication_attitude=positive かつ adherence=high → accepted または partial
+- personality=cooperative → partial または accepted
+- personality=resistant かつ medication_attitude=very_negative → rejected
+- strictness=none → 基本的に accepted
+- strictness=very_strict かつ lifestyle_motivation=low → rejected の可能性高い
+`
+
+    const prompt = `あなたは外来診療シミュレーションの患者AIです。
+研修医が治療方針を提示・説明した際の患者の反応をJSONのみで返してください。
+
+【患者プロフィール】
+名前：${patient.name}（${patient.age}歳・${patient.gender}）
+職業：${patient.occupation}
+生活歴：${patient.social_history}
+
+【患者の特性】
+性格：${personalityDesc[hidden.personality_type] || '普通'}
+薬への態度：${medicationAttitudeDesc[hidden.medication_attitude] || '普通'}
+食習慣：${eatingHabitDesc[hidden.eating_habit] || '普通'}
+アドヒアランス：${adherenceDesc[hidden.adherence_level]}
+生活改善意欲：${hidden.lifestyle_motivation === 'high' ? '高い' : hidden.lifestyle_motivation === 'medium' ? '普通' : '低い'}
+ストレス：${hidden.stress_level === 'high' ? '高い（余裕なし）' : hidden.stress_level === 'medium' ? '普通' : '低い'}
+仕事の忙しさ：${hidden.work_busyness === 'high' ? '非常に忙しい' : hidden.work_busyness === 'medium' ? '普通' : '余裕あり'}
+
+【研修医が提示した内容】
+種別：${selectionTypeDesc[selectionType] || selectionType}
+内容：${selectedItem.label || selectedItem.device_name || selectedItem.instruction_key || ''}
+${selectedItem.description ? '説明：' + selectedItem.description : ''}
+${selectedItem.strictness ? '厳しさ：' + selectedItem.strictness : ''}
+${extraContext ? '補足：' + extraContext : ''}
+
+${previousText}
+${persuasionText}
+${persuasionInstruction}
+
+JSONのみで返すこと（前後のテキスト不要）：
+{
+  "reaction": "患者の発言（自然な口語・40〜80文字）",
+  "acceptance_level": "accepted"または"partial"または"rejected"または"negotiating",
+  "emotion": "relieved"または"anxious"または"resistant"または"neutral"または"angry"または"convinced",
+  "key_concern": "患者が最も気にしていること（15文字以内、なければ空文字）"
+}`
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const responseText = message.content[0].text
+    const cleanText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const result = JSON.parse(cleanText)
+
+    return Response.json(result)
+
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 })
+  }
+}
