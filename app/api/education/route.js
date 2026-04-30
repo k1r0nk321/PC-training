@@ -19,7 +19,7 @@ export async function GET(req) {
     const supabase = getAdminClient()
     const { data, error } = await supabase
       .from('patient_education')
-      .select('id, category, instruction_key, instruction_detail, difficulty, evidence_level, guideline_ref, adherence_impact')
+      .select('id, category, instruction_key, instruction_detail, difficulty, evidence_level, guideline_ref, adherence_impact, sub_options')
       .eq('disease_id', diseaseId)
       .eq('is_active', true)
       .order('sort_order')
