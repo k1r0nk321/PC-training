@@ -35,16 +35,40 @@ const STRICTNESS_LABEL = {
 function groupSubOptions(subOptions) {
   const groups = {}
   const categoryLabels = {
-    calorie: 'カロリー制限', salt: '塩分制限', eating_out: '外食制限',
-    night_eating: '夜食・間食', alcohol: '飲酒制限', diet_type: '食事スタイル',
+    calorie: 'カロリー制限', salt: '塩分制限',
+    eating_out: '外食制限', night_eating: '夜食・間食制限',
+    alcohol: '飲酒制限', diet_type: '食事スタイル',
     aerobic: '有酸素運動', resistance: '筋力トレーニング',
     flexibility: 'ストレッチ', lifestyle: '日常活動',
-    education: '服薬説明', strategy: '服薬戦略', tool: '服薬ツール', social: '社会的支援',
-    monitoring: 'モニタリング方法',
-    mental: '心理的ケア', referral: '専門機関紹介',
-    weight_goal: '体重目標',
-    none: 'その他',
+    education: '服薬説明', strategy: '服薬戦略',
+    tool: '服薬ツール', social: '社会的支援',
+    monitoring: 'モニタリング方法', mental: '心理的ケア',
+    referral: '専門機関紹介', weight_goal: '体重目標', none: 'その他',
   }
+  // 表示順を定義
+  const categoryOrder = [
+    'calorie', 'salt', 'eating_out', 'night_eating', 'alcohol',
+    'diet_type', 'aerobic', 'resistance', 'flexibility', 'lifestyle',
+    'education', 'strategy', 'tool', 'social', 'monitoring',
+    'mental', 'referral', 'weight_goal', 'none'
+  ]
+  if (!subOptions) return groups
+  subOptions.forEach(function(sub) {
+    const cat = sub.category || 'none'
+    if (!groups[cat]) groups[cat] = { label: categoryLabels[cat] || cat, items: [], order: categoryOrder.indexOf(cat) }
+    groups[cat].items.push(sub)
+  })
+  // 順序でソートして返す
+  const sorted = {}
+  Object.keys(groups)
+    .sort(function(a, b) {
+      const oa = groups[a].order >= 0 ? groups[a].order : 99
+      const ob = groups[b].order >= 0 ? groups[b].order : 99
+      return oa - ob
+    })
+    .forEach(function(k) { sorted[k] = groups[k] })
+  return sorted
+}
   if (!subOptions) return groups
   subOptions.forEach(function(sub) {
     const cat = sub.category || 'none'
