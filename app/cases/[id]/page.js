@@ -41,7 +41,7 @@ export default function CaseDetailPage({ params }) {
         .eq('id', params.id)
         .eq('user_id', userId)
         .single()
-      if (error || !data) { window.location.href = '/cases'; return }
+      if (error || !data) { console.error('fetch error', error); setLoading(false); return }
       setCaseData(data)
       setMessages([{
         role: 'assistant',
