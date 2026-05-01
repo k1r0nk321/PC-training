@@ -32,6 +32,15 @@ export async function POST(req) {
 const randomAge = ageGroups[Math.floor(Math.random() * ageGroups.length)]
 const chiefComplaints = ['健診で血圧高値を指摘された', '頭痛が続いている', 'めまいがする', '肩こりがひどい', '動悸がする', '息切れがある', '疲れやすい', '目がかすむ', '鼻血が出た', '胸が重い感じがする']
 const randomComplaint = chiefComplaints[Math.floor(Math.random() * chiefComplaints.length)]
+
+    const ageNum = parseInt(randomAge.split('から')[0])
+const ageContext = ageNum >= 75
+  ? '高齢者（75歳以上）。フレイル・認知機能低下・ADL低下のリスクあり。家族や介護者のサポートが重要。独居の場合は特に注意。服薬管理が難しい場合がある。'
+  : ageNum >= 65
+  ? '前期高齢者（65〜74歳）。身体機能は比較的保たれているが、社会的孤立・活動量低下に注意。退職後の生活リズムの変化がある場合も。'
+  : ageNum >= 55
+  ? '壮年期（55〜64歳）。定年前後で生活リズムが変化しやすい。仕事のストレスや運動不足が問題になりやすい。'
+  : '若年〜中年（35〜54歳）。仕事・育児で多忙なことが多い。生活習慣改善への時間的制約がある。自己管理能力は比較的高い。'
     
     const prompt = `プライマリケア研修医向け外来シミュレーションの${diseaseName}初診患者の症例をJSONで生成。JSON以外不要。
 毎回異なる患者背景・年齢・性別・職業・主訴・生活歴を生成すること。
@@ -56,15 +65,21 @@ const randomComplaint = chiefComplaints[Math.floor(Math.random() * chiefComplain
       "weight": "体重（50〜95の範囲でランダム、数値のみ）",
       "bmi": "BMI（小数点1桁、身長と体重から計算）"
     },
-    "hidden_params": {
+"hidden_params": {
       "adherence_level": "high・medium・lowからランダムに選択",
       "lifestyle_motivation": "high・medium・lowからランダムに選択",
       "social_background": "独居・家族同居・その他からランダムに選択",
       "stress_level": "high・medium・lowからランダムに選択",
-      "work_busyness": "high・medium・lowからランダムに選択",
+      "work_busyness": "high・medium・lowからランダムに選択（高齢者は基本low）",
       "personality_type": "cooperative・anxious・resistant・lazy・angryからランダムに選択",
       "eating_habit": "home_cooking・eating_out・night_eating・irregularからランダムに選択",
-      "medication_attitude": "positive・neutral・negative・very_negativeからランダムに選択"
+      "medication_attitude": "positive・neutral・negative・very_negativeからランダムに選択",
+      "age_group_context": "${ageContext}",
+      "frailty_risk": "${ageNum >= 75 ? 'high・medium・lowからランダムに選択' : 'low'}",
+      "cognitive_level": "${ageNum >= 75 ? 'normal・mild_decline・moderate_declineからランダムに選択' : 'normal'}",
+      "adl_level": "${ageNum >= 70 ? 'independent・partially_dependent・dependentからランダムに選択' : 'independent'}",
+      "social_isolation_risk": "${ageNum >= 65 ? 'high・medium・lowからランダムに選択' : 'low'}",
+      "needs_social_support": "${ageNum >= 75 ? 'true' : ageNum >= 65 ? 'ランダムにtrueまたはfalse' : 'false'}"
     }
   },
   "scenario": {
