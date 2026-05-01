@@ -446,27 +446,19 @@ async function handleScoring() {
               </button>
             </div>
           </div>
-          {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
-            <div>
-              <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '12px', textAlign: 'center' }}>
-                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>総合スコア</p>
-                <p style={{ fontSize: '56px', fontWeight: 'bold', color: scoring.totalScore >= 80 ? '#16a34a' : scoring.totalScore >= 60 ? '#d97706' : '#dc2626' }}>{scoring.totalScore}</p>
-                <p style={{ fontSize: '14px', color: '#64748b' }}>/ 100点</p>
-                <p style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', marginTop: '8px' }}>{scoring.overallComment}</p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                {scoring.details && scoring.details.map(function(detail, i) {
-                  return (
-                    <div key={i} style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b' }}>{detail.category}</p>
-                        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1' }}>{detail.score}<span style={{ fontSize: '11px', color: '#64748b' }}>/{detail.maxScore}</span></p>
-                      </div>
-                      <p style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.5' }}>{detail.comment}</p>
-                    </div>
-                  )
-                })}
-              </div>
+         {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
+  <div>
+    <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+      <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
+        {scoring}
+      </div>
+    </div>
+    <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd' }}>
+      <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>📋 次のステップ</p>
+      <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>「Visit 2へ進む」をクリックして4週後の再診をシミュレーションしてください。</p>
+    </div>
+  </div>
+)}              </div>
               {scoring.guidelineReferences && scoring.guidelineReferences.length > 0 && (
                 <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '16px', border: '1px solid #bae6fd' }}>
                   <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', marginBottom: '10px' }}>📚 ガイドライン参照</h3>
