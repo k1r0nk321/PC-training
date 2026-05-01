@@ -41,6 +41,15 @@ const ageContext = ageNum >= 75
   : ageNum >= 55
   ? '壮年期（55〜64歳）。定年前後で生活リズムが変化しやすい。仕事のストレスや運動不足が問題になりやすい。'
   : '若年〜中年（35〜54歳）。仕事・育児で多忙なことが多い。生活習慣改善への時間的制約がある。自己管理能力は比較的高い。'
+
+    // 年齢層別の体重・BMI設定
+const bmiProfile = ageNum >= 75
+  ? { heightRange: [148, 168], weightRange: [42, 62], bmiNote: 'やせ〜普通体型が多い。BMI18〜23程度。低栄養・サルコペニアに注意。' }
+  : ageNum >= 65
+  ? { heightRange: [150, 170], weightRange: [48, 72], bmiNote: 'BMI20〜25程度。肥満は少なめ。' }
+  : ageNum >= 55
+  ? { heightRange: [153, 175], weightRange: [52, 82], bmiNote: 'BMI21〜27程度。中等度肥満まで。' }
+  : { heightRange: [155, 178], weightRange: [50, 88], bmiNote: 'BMI19〜30程度。肥満合併例も多い。' }
     
     const prompt = `プライマリケア研修医向け外来シミュレーションの${diseaseName}初診患者の症例をJSONで生成。JSON以外不要。
 毎回異なる患者背景・年齢・性別・職業・主訴・生活歴を生成すること。
@@ -56,14 +65,14 @@ const ageContext = ageNum >= 75
     "past_history": "既往歴（なし・糖尿病・脂質異常症・痛風・喘息など多様に）",
     "family_history": "家族歴（高血圧・脳卒中・心筋梗塞・糖尿病など多様に）",
     "social_history": "生活歴（飲酒習慣・喫煙歴・運動習慣・食事習慣・外食頻度・夜食習慣を具体的に記載）",
-    "vitals": {
-      "bp": "血圧（140〜180/80〜110の範囲でランダム。例：152/94 mmHg）",
-      "hr": "脈拍（60〜90 bpmの範囲でランダム）",
+"vitals": {
+      "bp": "${ageNum >= 75 ? '140〜190/70〜100の範囲（脈圧が広い収縮期高血圧が多い）' : '140〜180/85〜110の範囲'}でランダムな血圧（例：158/96 mmHg）",
+      "hr": "脈拍（55〜88 bpmの範囲でランダム）",
       "temp": "体温（36.2〜36.8℃の範囲でランダム）",
       "spo2": "SpO2（96〜99%の範囲でランダム）",
-      "height": "身長（150〜180の範囲でランダム、数値のみ）",
-      "weight": "体重（50〜95の範囲でランダム、数値のみ）",
-      "bmi": "BMI（小数点1桁、身長と体重から計算）"
+      "height": "身長（${bmiProfile.heightRange[0]}〜${bmiProfile.heightRange[1]}の範囲でランダム、数値のみ）",
+      "weight": "体重（${bmiProfile.weightRange[0]}〜${bmiProfile.weightRange[1]}の範囲でランダム、数値のみ。${bmiProfile.bmiNote}）",
+      "bmi": "BMI（小数点1桁、身長と体重から正確に計算すること）"
     },
 "hidden_params": {
       "adherence_level": "high・medium・lowからランダムに選択",
