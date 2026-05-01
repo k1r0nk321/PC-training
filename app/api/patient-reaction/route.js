@@ -18,25 +18,12 @@ export async function POST(req) {
     const patient = patientData
     const hidden = patient.hidden_params
     const persuasionCount = previousReactions ? Math.floor(previousReactions.length / 2) : 0
-
-    const personalityAcceptance = {
-      cooperative: { base: 'partial', withGoodPersuasion: 'accepted', withGreatPersuasion: 'accepted' },
-      anxious: { base: 'partial', withGoodPersuasion: 'accepted', withGreatPersuasion: 'accepted' },
-      resistant: { base: 'rejected', withGoodPersuasion: 'negotiating', withGreatPersuasion: 'partial' },
-      lazy: { base: 'negotiating', withGoodPersuasion: 'partial', withGreatPersuasion: 'accepted' },
-      angry: { base: 'rejected', withGoodPersuasion: 'negotiating', withGreatPersuasion: 'partial' },
-    }
-
-    const adherenceBonus = {
-      high: 1,
-      medium: 0,
-      low: -1,
-    }
+    const isPersuasion = !!(persuasionMessage && previousReactions && previousReactions.length > 0)
 
     const personalityDesc = {
       cooperative: '従順で素直。医師の言うことを基本的に聞こうとする。',
       anxious: '不安が強く心配しがち。共感と丁寧な説明で安心する。',
-      resistant: '医療に懐疑的で指示に従いたがらない。ただし誠実な説明には少しずつ心が動く。',
+      resistant: '医療に懐疑的だが、誠実な説明には少しずつ心が動く。',
       lazy: '面倒なことを嫌う。簡単・続けやすいことを強調すると動く。',
       angry: '怒りっぽいが、冷静・共感的な対応で徐々に軟化する。'
     }
@@ -79,52 +66,67 @@ export async function POST(req) {
       ? '【今回の研修医の説明・説得】\n' + persuasionMessage
       : ''
 
-    const isPersuasion = !!(persuasionMessage && previousReactions && previousReactions.length > 0)
+    // 現在のacceptance_levelを推定（前回の患者発言から）
+    const lastPatientReaction = previousReactions && previousReactions.length > 0
+      ? previousReactions.filter(function(r) { return r.role === 'patient' }).slice(-1)[0]
+      : null
 
     const persuasionInstruction = isPersuasion ? `
-【説得への応答ルール（重要）】
-これは説得の${persuasionCount + 1}回目です。
+【説得への応答ルール（最重要）】
+これは${persuasionCount}回目の説得です。
 
-説得の質を判定して反応を変えること：
+▼ 説得の質を以下の基準で判定してください：
 
-◎ 高品質な説得（以下のいずれかを含む）：
-  - 患者の懸念・不安に直接答えている
-  - 「大変でしたね」「お気持ちわかります」など共感の言葉がある
-  - 具体的なメリット・数値を示している
-  - 患者の生活状況を考慮した現実的な提案をしている
-  → acceptance_levelを必ず1〜2段階改善すること
-     例：rejected → negotiating、negotiating → partial、partial → accepted
+【高品質な説得の条件（いずれか1つ以上を満たす）】
+・「大変ですね」「お気持ちわかります」「心配なんですね」など共感の言葉がある
+・具体的なメリット・数値・エビデンスを示している（「この薬で血圧が〇mmHg下がります」等）
+・患者の不安・懸念に直接答えている
+・患者の生活スタイルを考慮した現実的な提案をしている
+・20文字以上の丁寧な文章である
 
-○ 普通の説得：
-  - ある程度の説明はあるが患者の核心的な懸念には答えていない
-  → acceptance_levelを1段階改善することがある
+【説得の質に応じた acceptance_level の変化（必ず適用すること）】
 
-× 低品質な説得：
-  - 命令的・一方的・「必要です」だけ
-  - 10文字以下など短すぎる
-  → 変化なし（むしろ悪化することもある）
+高品質な説得の場合：
+  rejected → negotiating（必ず改善）
+  negotiating → partial（必ず改善）
+  partial → accepted（必ず改善）
 
-患者の性格別の説得されやすさ：
-- cooperative（従順）：普通の説得でも受け入れる
-- anxious（不安）：共感の言葉があれば受け入れる
-- resistant（懐疑的）：高品質な説得で1段階改善。2回目以降は更に改善しやすくなる
-- lazy（面倒嫌い）：「簡単」「続けやすい」強調で改善
-- angry（怒りっぽい）：冷静・共感的対応で徐々に改善。怒りに乗らない対応が大事
+普通の説得（10文字以上・理由あり）の場合：
+  rejected → negotiating
+  negotiating → partial
+  partial → partial（変化なし）または accepted
 
-アドヒアランス（${hidden.adherence_level}）の影響：
-- high：説得されやすく、partial以上に達したら次の説得でacceptedになりやすい
-- medium：普通
-- low：改善しにくいが、累積説得回数（${persuasionCount}回目）が増えると徐々に軟化する
+低品質・短すぎる（10文字未満・命令的）の場合：
+  変化なし
 
-【必ず acceptance_level を改善してください（高品質な説得の場合）】
+【患者の性格別・特別ルール】
+- cooperative（従順）：普通の説得でも1段階改善。高品質なら即 accepted。
+- anxious（不安）：共感の言葉があれば高品質と判定して1〜2段階改善。
+- resistant（懐疑的）：高品質でも1段階改善。${persuasionCount >= 2 ? '2回以上の説得なので更に改善しやすい。' : ''}
+- lazy（面倒嫌い）：「簡単」「続けやすい」「1日1回だけ」などの言葉で高品質と判定。
+- angry（怒りっぽい）：冷静・共感的な対応で1段階改善。怒りに乗らない対応が重要。
+
+アドヒアランス（${hidden.adherence_level}）の補正：
+- high：上記の変化に加えてさらに1段階改善しやすい
+- medium：上記の通り
+- low：1段階少なめ
+
+【重要】説得回数が増えるほど患者は徐々に軟化します。
+${persuasionCount >= 2 ? '複数回の誠実な説得で、患者は最終的に受け入れる姿勢になりやすい。' : ''}
+
+必ず acceptance_level を適切に更新し、それに合った自然な発言を生成してください。
+accepted になった場合は納得・受け入れの言葉を使うこと。
 ` : `
 【初回反応のルール】
 患者の特性に基づいたリアルな初回反応を生成する。
-- medication_attitude=positive かつ adherence=high → accepted または partial
+- medication_attitude=positive かつ adherence=high → accepted または partial が多い
+- medication_attitude=positive → partial が多い
 - personality=cooperative → partial または accepted
+- personality=cooperative かつ adherence=high → accepted の可能性が高い
 - personality=resistant かつ medication_attitude=very_negative → rejected
 - strictness=none → 基本的に accepted
-- strictness=very_strict かつ lifestyle_motivation=low → rejected の可能性高い
+- strictness=very_strict かつ lifestyle_motivation=low → rejected または negotiating
+- strictness=mild かつ adherence=medium → partial または accepted
 `
 
     const prompt = `あなたは外来診療シミュレーションの患者AIです。
@@ -155,7 +157,7 @@ ${previousText}
 ${persuasionText}
 ${persuasionInstruction}
 
-JSONのみで返すこと（前後のテキスト不要）：
+JSONのみで返すこと（前後のテキスト一切不要）：
 {
   "reaction": "患者の発言（自然な口語・40〜80文字）",
   "acceptance_level": "accepted"または"partial"または"rejected"または"negotiating",
