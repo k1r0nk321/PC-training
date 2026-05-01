@@ -380,7 +380,7 @@ export default function CaseDetailPage({ params }) {
     setActiveDeviceModal(null)
   }
 
-  async function handleScoring() {
+async function handleScoring() {
     setScoringLoading(true)
     try {
       const selectedMedData = medications.filter(function(m) { return selectedMeds.includes(m.id) })
@@ -390,23 +390,32 @@ export default function CaseDetailPage({ params }) {
       Object.entries(selectedSubOptions).forEach(function([eduId, groups]) {
         Object.values(groups).forEach(function(sub) { if (sub) allSubOptions.push(sub) })
       })
-      const res = await fetch('/api/scoring', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          caseId: params.id, diseaseId: caseData.disease_id,
-          diseaseName: caseData.disease_name, patientData: caseData.patient_data,
-          scenarioData: caseData.scenario_data, selectedMedications: selectedMedData,
-          selectedEducation: selectedEduData, selectedDevices: selectedDeviceData,
-          selectedSubOptions: allSubOptions, reactionLog, interviewMessages: messages,
+          caseId: params.id,
+          visitNumber: 1,
+          diseaseId: caseData.disease_id,
+          diseaseName: caseData.disease_name,
+          patientData: caseData.patient_data,
+          selectedMedications: selectedMedData,
+          selectedEducation: selectedEduData,
+          selectedSubOptions: allSubOptions,
+          selectedDevices: selectedDeviceData,
+          reactionLog,
+          interviewMessages: messages,
         }),
       })
       const data = await res.json()
-      if (data.error) { alert('採点エラー：' + data.error); return }
-      setScoring(data)
+      if (data.error) { alert('フィードバックエラー：' + data.error); return }
+      setScoring(data.feedback)
       setStep('scoring')
-    } catch (e) { alert('採点中にエラーが発生しました：' + e.message) }
-    finally { setScoringLoading(false) }
+    } catch (e) {
+      alert('エラーが発生しました：' + e.message)
+    } finally {
+      setScoringLoading(false)
+    }
   }
 
   if (loading) {
