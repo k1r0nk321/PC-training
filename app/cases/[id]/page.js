@@ -31,6 +31,22 @@ const STRICTNESS_LABEL = {
   very_mild: '最小限', none: 'なし'
 }
 
+function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
+  const [open, setOpen] = useState(defaultOpen !== false)
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', overflow: 'hidden' }}>
+      <div onClick={function() { setOpen(!open) }}
+        style={{ padding: '11px 14px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: open ? '1px solid #e2e8f0' : 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{title}</span>
+          {badge && <span style={{ fontSize: '10px', backgroundColor: badgeColor || '#0369a1', color: 'white', borderRadius: '8px', padding: '1px 7px', fontWeight: 'bold' }}>{badge}</span>}
+        </div>
+        <span style={{ fontSize: '12px', color: '#64748b' }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && <div style={{ padding: '12px 14px' }}>{children}</div>}
+    </div>
+  )
+}
 function groupSubOptions(subOptions) {
   const categoryLabels = {
     calorie: 'カロリー制限の目標', salt: '塩分制限の目標',
