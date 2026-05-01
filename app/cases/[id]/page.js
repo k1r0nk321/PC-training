@@ -834,10 +834,10 @@ export default function CaseDetailPage({ params }) {
     )
   }
 
-  // ===== 問診・診察画面 =====
+// ===== 問診・診察画面 =====
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px' }}>
-      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1｜初診</h1>
@@ -849,79 +849,53 @@ export default function CaseDetailPage({ params }) {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 260px) minmax(0, 1fr)', gap: '12px' }}>
-          {/* 患者情報 */}
-          <div>
-            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
-              <h2 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px', paddingBottom: '5px', borderBottom: '1px solid #e2e8f0' }}>患者基本情報</h2>
-              <div style={{ fontSize: '12px', lineHeight: '1.8' }}>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>氏名：</span><strong>{patient.name}</strong></p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>年齢：</span>{patient.age}歳・{patient.gender}</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>職業：</span>{patient.occupation}</p>
-                <p style={{ margin: '6px 0 0', color: '#dc2626', fontWeight: 'bold' }}>「{patient.chief_complaint}」</p>
-              </div>
-            </div>
-            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
-              <h2 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px', paddingBottom: '5px', borderBottom: '1px solid #e2e8f0' }}>バイタルサイン</h2>
-              <div style={{ fontSize: '12px', lineHeight: '1.9' }}>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>血圧：</span><strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong></p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>脈拍：</span>{patient.vitals.hr}</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>体温：</span>{patient.vitals.temp}</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>SpO2：</span>{patient.vitals.spo2}</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>身長：</span>{patient.vitals.height}cm　体重：{patient.vitals.weight}kg</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>BMI：</span>{patient.vitals.bmi}</p>
-              </div>
-            </div>
-            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0' }}>
-              <h2 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px', paddingBottom: '5px', borderBottom: '1px solid #e2e8f0' }}>既往・生活歴</h2>
-              <div style={{ fontSize: '11px', lineHeight: '1.7', color: '#475569' }}>
-                <p style={{ margin: '0 0 3px' }}><span style={{ color: '#64748b' }}>既往歴：</span>{patient.past_history}</p>
-                <p style={{ margin: '0 0 3px' }}><span style={{ color: '#64748b' }}>家族歴：</span>{patient.family_history}</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>生活歴：</span>{patient.social_history}</p>
-              </div>
-            </div>
-          </div>
+        {/* 患者情報カード（折りたたみ式） */}
+        <PatientInfoCard
+          patient={patient}
+          diseaseName={caseData.disease_name}
+          collapsed={patientCardCollapsed}
+          onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
+        />
 
-          {/* 対話 */}
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '600px' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
-              <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>問診・診察・検査指示を入力してください</p>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {messages.map(function(msg, i) {
-                return (
-                  <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ maxWidth: '80%', padding: '8px 12px', borderRadius: msg.role === 'user' ? '12px 12px 0 12px' : '12px 12px 12px 0', backgroundColor: msg.role === 'user' ? '#0369a1' : '#f1f5f9', color: msg.role === 'user' ? 'white' : '#1e293b', fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                      {msg.content}
-                    </div>
+        {/* 対話エリア（1列・全幅） */}
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '65vh', minHeight: '400px' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
+            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>問診・診察・検査指示を入力してください（Enterで送信）</p>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {messages.map(function(msg, i) {
+              return (
+                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0', backgroundColor: msg.role === 'user' ? '#0369a1' : '#f1f5f9', color: msg.role === 'user' ? 'white' : '#1e293b', fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                    {msg.content}
                   </div>
-                )
-              })}
-              {aiLoading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div style={{ padding: '8px 12px', borderRadius: '12px 12px 12px 0', backgroundColor: '#f1f5f9', color: '#94a3b8', fontSize: '13px' }}>入力中...</div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-            <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                <input type="text" value={input}
-                  onChange={function(e) { setInput(e.target.value) }}
-                  onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                  placeholder="質問や診察・検査の指示を入力（Enterで送信）"
-                  style={{ flex: 1, padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
-                <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                  style={{ padding: '9px 16px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                  送信
-                </button>
+              )
+            })}
+            {aiLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{ padding: '10px 14px', borderRadius: '14px 14px 14px 0', backgroundColor: '#f1f5f9', color: '#94a3b8', fontSize: '13px' }}>入力中...</div>
               </div>
-              <button onClick={function() { setStep('treatment') }}
-                style={{ width: '100%', padding: '9px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                治療方針を決定する →
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <input type="text" value={input}
+                onChange={function(e) { setInput(e.target.value) }}
+                onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                placeholder="患者への質問や診察・検査の指示を入力..."
+                style={{ flex: 1, padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
+              <button onClick={handleSend} disabled={aiLoading || !input.trim()}
+                style={{ padding: '10px 20px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                送信
               </button>
             </div>
+            <button onClick={function() { setStep('treatment') }}
+              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+              治療方針を決定する →
+            </button>
           </div>
         </div>
       </div>
