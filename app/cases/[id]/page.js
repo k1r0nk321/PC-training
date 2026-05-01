@@ -32,7 +32,7 @@ const STRICTNESS_LABEL = {
 }
 
 function groupSubOptions(subOptions) {
-  const categoryLabels = {
+const categoryLabels = {
     calorie: 'カロリー制限の目標',
     salt: '塩分制限の目標',
     eating_out: '外食の制限',
@@ -41,15 +41,18 @@ function groupSubOptions(subOptions) {
     aerobic: '有酸素運動',
     resistance: '筋力トレーニング',
     flexibility: 'ストレッチ・柔軟',
-    lifestyle: '日常活動',
-    education: '服薬説明',
-    strategy: '服薬戦略',
-    tool: '服薬ツール',
-    social: '社会的サポート',
+    lifestyle: '生活習慣',
+    education: '服薬指導の説明',
+    strategy: '服薬の工夫・戦略',
+    tool: '服薬サポートツール',
+    social: '周囲のサポート',
     monitoring: 'モニタリング方法',
     mental: '心理的ケア',
     referral: '専門機関紹介',
     weight_goal: '体重目標',
+    emergency_education: '緊急時の説明',
+    emergency_tool: '緊急時ツール',
+    emergency_social: '家族への説明',
     none: 'その他',
   }
   const categoryOrder = [
