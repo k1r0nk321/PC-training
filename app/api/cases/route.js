@@ -29,36 +29,37 @@ export async function POST(req) {
       : ''
 
     const prompt = `プライマリケア研修医向け外来シミュレーションの${diseaseName}初診患者の症例をJSONで生成。JSON以外不要。
+毎回異なる患者背景・年齢・性別・職業・主訴・生活歴を生成すること。
 
 {
   "patient": {
     "name": "架空の日本人名",
-    "age": 40から75の整数,
-    "gender": "男性"または"女性",
-    "occupation": "職業",
-    "chief_complaint": "主訴（患者の言葉で）",
-    "history": "現病歴（2〜3文）",
-    "past_history": "既往歴",
-    "family_history": "家族歴",
-    "social_history": "生活歴（飲酒・喫煙・運動・食事習慣・外食頻度・夜食習慣）",
+    "age": 35から80の間でランダムな整数,
+    "gender": "男性"または"女性"をランダムに選択,
+    "occupation": "会社員・自営業・主婦・農業・教師・医療職・無職・パート・管理職など多様な職業からランダムに選択",
+    "chief_complaint": "主訴（健診指摘・頭痛・めまい・肩こり・動悸・息切れ・無症状の定期受診など多様なパターンからランダムに選択）",
+    "history": "現病歴（2〜3文。発症時期・経緯・症状の特徴を多様に）",
+    "past_history": "既往歴（なし・糖尿病・脂質異常症・痛風・喘息など多様に）",
+    "family_history": "家族歴（高血圧・脳卒中・心筋梗塞・糖尿病など多様に）",
+    "social_history": "生活歴（飲酒習慣・喫煙歴・運動習慣・食事習慣・外食頻度・夜食習慣を具体的に記載）",
     "vitals": {
-      "bp": "血圧（例：158/96 mmHg）",
-      "hr": "脈拍（例：78 bpm）",
-      "temp": "体温（例：36.5℃）",
-      "spo2": "SpO2（例：98%）",
-      "height": "身長（数値のみ）",
-      "weight": "体重（数値のみ）",
-      "bmi": "BMI（小数点1桁）"
+      "bp": "血圧（140〜180/80〜110の範囲でランダム。例：152/94 mmHg）",
+      "hr": "脈拍（60〜90 bpmの範囲でランダム）",
+      "temp": "体温（36.2〜36.8℃の範囲でランダム）",
+      "spo2": "SpO2（96〜99%の範囲でランダム）",
+      "height": "身長（150〜180の範囲でランダム、数値のみ）",
+      "weight": "体重（50〜95の範囲でランダム、数値のみ）",
+      "bmi": "BMI（小数点1桁、身長と体重から計算）"
     },
     "hidden_params": {
-      "adherence_level": "high"または"medium"または"low",
-      "lifestyle_motivation": "high"または"medium"または"low",
-      "social_background": "独居"または"家族同居"または"その他",
-      "stress_level": "high"または"medium"または"low",
-      "work_busyness": "high"または"medium"または"low",
-      "personality_type": "cooperative"または"anxious"または"resistant"または"lazy"または"angry",
-      "eating_habit": "home_cooking"または"eating_out"または"night_eating"または"irregular",
-      "medication_attitude": "positive"または"neutral"または"negative"または"very_negative"
+      "adherence_level": "high・medium・lowからランダムに選択",
+      "lifestyle_motivation": "high・medium・lowからランダムに選択",
+      "social_background": "独居・家族同居・その他からランダムに選択",
+      "stress_level": "high・medium・lowからランダムに選択",
+      "work_busyness": "high・medium・lowからランダムに選択",
+      "personality_type": "cooperative・anxious・resistant・lazy・angryからランダムに選択",
+      "eating_habit": "home_cooking・eating_out・night_eating・irregularからランダムに選択",
+      "medication_attitude": "positive・neutral・negative・very_negativeからランダムに選択"
     }
   },
   "scenario": {
