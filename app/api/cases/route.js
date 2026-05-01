@@ -30,7 +30,18 @@ export async function POST(req) {
 
     const ageGroups = ['35から45', '46から55', '56から65', '66から75', '76から80']
 const randomAge = ageGroups[Math.floor(Math.random() * ageGroups.length)]
-const chiefComplaints = ['健診で血圧高値を指摘された', '頭痛が続いている', 'めまいがする', '肩こりがひどい', '動悸がする', '息切れがある', '疲れやすい', '目がかすむ', '鼻血が出た', '胸が重い感じがする']
+const chiefComplaints = [
+  '健診で血圧が高いと言われた',
+  '会社の健康診断で高血圧を指摘されてきた',
+  '家族に血圧が高いと言われて心配になってきた',
+  'かかりつけ医から血圧が高いと言われ紹介された',
+  '自分で血圧を測ったら高かったので受診した',
+  '高血圧で治療中だが血圧が下がらないので相談したい',
+  '以前から高血圧と言われていたが放置していた。そろそろ治療したい',
+  '脳ドックで動脈硬化を指摘されて血圧の管理をしたい',
+  '親が脳卒中になったので自分の血圧が心配になってきた',
+  '高血圧の薬を飲んでいるが副作用が気になって相談したい',
+]
 const randomComplaint = chiefComplaints[Math.floor(Math.random() * chiefComplaints.length)]
 
     const ageNum = parseInt(randomAge.split('から')[0])
