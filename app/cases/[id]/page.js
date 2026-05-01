@@ -434,11 +434,17 @@ async function handleScoring() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>採点結果</h1>
-            <button onClick={function() { window.location.href = '/cases' }}
-              style={{ padding: '8px 16px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
-              別の症例へ
-            </button>
+<h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>Visit 1 フィードバック</h1>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={function() { window.location.href = '/cases/' + params.id + '/visit2' }}
+                style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                Visit 2へ進む →
+              </button>
+              <button onClick={function() { window.location.href = '/cases' }}
+                style={{ padding: '8px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                別の症例へ
+              </button>
+            </div>
           </div>
           {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
             <div>
