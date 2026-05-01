@@ -16,7 +16,57 @@ export async function POST(req) {
     } = await req.json()
 
     const patient = patientData
+const age = patient.age || 60
     const hidden = patient.hidden_params
+
+    // 年齢層別の特性を定義
+    const ageProfile = age >= 75 ? {
+      label: '後期高齢者',
+      focus: '社会的サポート・服薬管理・転倒予防・家族連携が重要。認知機能・ADLを考慮した現実的な指導が必要。',
+      lifestyle_note: '運動は転倒リスクを考慮。激しい運動は禁忌の場合あり。',
+      medication_note: '多剤服用（ポリファーマシー）に注意。飲み忘れリスクが高い。家族や介護者の支援が必要なことが多い。',
+      social_note: '独居の場合は特に社会的孤立に注意。地域包括支援センターや訪問サービスの活用を検討。',
+      reaction_tendency: '穏やかだが不安が強い。「子供に迷惑をかけたくない」「施設に入りたくない」などの発言が出やすい。'
+    } : age >= 65 ? {
+      label: '前期高齢者',
+      focus: '身体機能は比較的保たれているが、社会的つながりと活動量維持が重要。',
+      lifestyle_note: '退職後の生活リズムの乱れに注意。適度な運動習慣の継続が重要。',
+      medication_note: '服薬管理は比較的自立している場合が多い。',
+      social_note: '地域活動・趣味への参加を勧めることが有効。',
+      reaction_tendency: '時間的余裕はあるが、変化を嫌う傾向がある。「今さら」「年だから」という発言が出やすい。'
+    } : age >= 55 ? {
+      label: '壮年期',
+      focus: '定年前後の生活変化への対応。仕事のストレスと運動不足が課題。',
+      lifestyle_note: '仕事量の見直しや定年後の生活設計も視野に入れる。',
+      medication_note: '仕事中の服薬を忘れやすい。',
+      social_note: '家族関係（子の独立・介護など）の変化に注意。',
+      reaction_tendency: '現実的で理解力は高い。ただし「仕事が忙しい」「もう少し落ち着いたら」という先送りが多い。'
+    } : {
+      label: '若年〜中年',
+      focus: '仕事・育児で多忙。生活習慣改善への時間的制約がある。自己管理能力は高い。',
+      lifestyle_note: '外食・不規則な食事・運動不足が課題になりやすい。',
+      medication_note: '服薬より生活習慣改善を優先したがる傾向がある。',
+      social_note: '社会的サポートよりも本人の行動変容が主軸。',
+      reaction_tendency: '理解は早いが「忙しい」「時間がない」という反応が多い。若いうちから治療することへの抵抗感がある場合も。'
+    }
+
+    const frailtyNote = hidden.frailty_risk === 'high'
+      ? 'フレイルリスクが高い。過度な制限は筋肉量低下・転倒リスクを高めるため慎重に。'
+      : ''
+    const cognitiveNote = hidden.cognitive_level === 'moderate_decline'
+      ? '認知機能の低下がある。複雑な指導は理解困難な場合あり。シンプルな指導が必要。'
+      : hidden.cognitive_level === 'mild_decline'
+      ? '軽度の認知機能低下の可能性。繰り返し確認が必要。'
+      : ''
+    const adlNote = hidden.adl_level === 'dependent'
+      ? 'ADLに制限あり。家族・介護者への説明が必須。'
+      : hidden.adl_level === 'partially_dependent'
+      ? '一部ADLに支援が必要。'
+      : ''
+    const socialNote = hidden.needs_social_support === 'true' || hidden.needs_social_support === true
+      ? '社会的サポートが必要な状況。地域包括・MSW・家族連携を積極的に考慮。'
+      : ''
+    
     const persuasionCount = previousReactions ? Math.floor(previousReactions.length / 2) : 0
     const isPersuasion = !!(persuasionMessage && previousReactions && previousReactions.length > 0)
 
@@ -134,8 +184,18 @@ accepted になった場合は納得・受け入れの言葉を使うこと。
 
 【患者プロフィール】
 名前：${patient.name}（${patient.age}歳・${patient.gender}）
+年齢層：${ageProfile.label}
 職業：${patient.occupation}
 生活歴：${patient.social_history}
+
+【年齢層別の特性】
+${ageProfile.focus}
+反応傾向：${ageProfile.reaction_tendency}
+服薬面：${ageProfile.medication_note}
+${frailtyNote}
+${cognitiveNote}
+${adlNote}
+${socialNote}
 
 【患者の特性】
 性格：${personalityDesc[hidden.personality_type] || '普通'}
