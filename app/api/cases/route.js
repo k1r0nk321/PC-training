@@ -28,16 +28,21 @@ export async function POST(req) {
       ? medications.map(function(m) { return m.drug_name_generic }).join('・')
       : ''
 
+    const ageGroups = ['35から45', '46から55', '56から65', '66から75', '76から80']
+const randomAge = ageGroups[Math.floor(Math.random() * ageGroups.length)]
+const chiefComplaints = ['健診で血圧高値を指摘された', '頭痛が続いている', 'めまいがする', '肩こりがひどい', '動悸がする', '息切れがある', '疲れやすい', '目がかすむ', '鼻血が出た', '胸が重い感じがする']
+const randomComplaint = chiefComplaints[Math.floor(Math.random() * chiefComplaints.length)]
+    
     const prompt = `プライマリケア研修医向け外来シミュレーションの${diseaseName}初診患者の症例をJSONで生成。JSON以外不要。
 毎回異なる患者背景・年齢・性別・職業・主訴・生活歴を生成すること。
 
 {
   "patient": {
     "name": "架空の日本人名",
-    "age": 35から80の間でランダムな整数,
+    "age": ${randomAge}の間でランダムな整数（必ずこの範囲内にすること）,
     "gender": "男性"または"女性"をランダムに選択,
     "occupation": "会社員・自営業・主婦・農業・教師・医療職・無職・パート・管理職など多様な職業からランダムに選択",
-    "chief_complaint": "主訴（健診指摘・頭痛・めまい・肩こり・動悸・息切れ・無症状の定期受診など多様なパターンからランダムに選択）",
+    "chief_complaint": "${randomComplaint}（この主訴を必ず使うこと）",
     "history": "現病歴（2〜3文。発症時期・経緯・症状の特徴を多様に）",
     "past_history": "既往歴（なし・糖尿病・脂質異常症・痛風・喘息など多様に）",
     "family_history": "家族歴（高血圧・脳卒中・心筋梗塞・糖尿病など多様に）",
