@@ -515,7 +515,7 @@ async function handleScoring() {
               </button>
               <button onClick={handleScoring} disabled={scoringLoading || totalSelected === 0}
                 style={{ padding: '7px 18px', backgroundColor: scoringLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: scoringLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                {scoringLoading ? '採点中...' : '採点する'}
+                {scoringLoading ? 'フィードバック生成中...' : 'フィードバックを受ける'}
               </button>
             </div>
           </div>
@@ -540,10 +540,8 @@ async function handleScoring() {
             <p style={{ fontSize: '12px', color: 'white', margin: 0 }}>
               選択済：指導 <strong>{selectedEducation.length}</strong>件　投薬 <strong>{selectedMeds.length}</strong>件　機器 <strong>{selectedDevices.length}</strong>件
             </p>
-            {totalSelected > 0 && (
-              <button onClick={handleScoring} disabled={scoringLoading}
-                style={{ padding: '5px 14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                {scoringLoading ? '採点中...' : '採点する →'}
+            totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                {scoringLoading ? '生成中...' : 'フィードバックを受ける'}
               </button>
             )}
           </div>
