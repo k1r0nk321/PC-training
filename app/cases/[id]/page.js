@@ -31,22 +31,20 @@ const STRICTNESS_LABEL = {
   very_mild: '最小限', none: 'なし'
 }
 
-function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
-  const [open, setOpen] = useState(defaultOpen !== false)
-  return (
-    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', overflow: 'hidden' }}>
-      <div onClick={function() { setOpen(!open) }}
-        style={{ padding: '11px 14px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: open ? '1px solid #e2e8f0' : 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{title}</span>
-          {badge && <span style={{ fontSize: '10px', backgroundColor: badgeColor || '#0369a1', color: 'white', borderRadius: '8px', padding: '1px 7px', fontWeight: 'bold' }}>{badge}</span>}
-        </div>
-        <span style={{ fontSize: '12px', color: '#64748b' }}>{open ? '▲' : '▼'}</span>
-      </div>
-      {open && <div style={{ padding: '12px 14px' }}>{children}</div>}
-    </div>
-  )
+function calcRecommendedCalories(patient) {
+  if (!patient) return null
+  const h = parseFloat(patient.vitals?.height) / 100
+  const age = patient.age
+  if (!h || !age) return null
+  const idealWeight = Math.round(h * h * 22 * 10) / 10
+  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+  const recCalRaw = idealWeight * actCoef
+  const recCal = Math.round(recCalRaw / 200) * 200
+  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
+  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
 }
+
 function groupSubOptions(subOptions) {
   const categoryLabels = {
     calorie: 'カロリー制限の目標', salt: '塩分制限の目標',
@@ -757,6 +755,25 @@ export default function CaseDetailPage({ params }) {
                         <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: isSelected ? '4px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                         <p style={{ fontSize: '12px', fontWeight: isSelected ? 'bold' : 'normal', color: '#1e293b', margin: 0 }}>{sub.label}</p>
                       </div>
+                      {sub.category === 'calorie' && caseData && (function() {
+                        const calc = calcRecommendedCalories(caseData.patient_data)
+                        if (!calc) return null
+                        const calNum = parseInt(sub.id.replace('cal_', '')) || 0
+                        const diff = calNum - calc.recCal
+                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        const isRecommended = calNum === calc.recCal
+                        return (
+                          <div style={{ marginLeft: '20px', marginTop: '2px' }}>
+                            {isRecommended && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✓ この患者の推奨値</span>}
+                            {isLenient && <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>◎ 緩め目標（BMI高値向け）</span>}
+                            {!isRecommended && !isLenient && calNum > 0 && diff !== 0 && (
+                              <span style={{ fontSize: '10px', color: diff > 0 ? '#16a34a' : '#dc2626', backgroundColor: diff > 0 ? '#dcfce7' : '#fef2f2', padding: '1px 5px', borderRadius: '4px' }}>
+                                推奨値より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {sub.description && <p style={{ fontSize: '10px', color: '#64748b', marginLeft: '20px', margin: '0 0 0 20px' }}>{sub.description}</p>}
                     </div>
                     <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>
@@ -858,7 +875,42 @@ export default function CaseDetailPage({ params }) {
                 <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>体温：</span>{patient.vitals.temp}</p>
                 <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>SpO2：</span>{patient.vitals.spo2}</p>
                 <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>身長：</span>{patient.vitals.height}cm　体重：{patient.vitals.weight}kg</p>
-                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>BMI：</span>{patient.vitals.bmi}</p>
+                <p style={{ margin: 0 }}><span style={{ color: '#64748b' }}>BMI：</span>{patient.vitals.bmi}
+                  {(function() {
+                    const bmi = parseFloat(patient.vitals.bmi)
+                    if (bmi >= 30) return <span style={{ fontSize: '10px', marginLeft: '6px', backgroundColor: '#fecaca', color: '#dc2626', padding: '0 4px', borderRadius: '4px' }}>高度肥満</span>
+                    if (bmi >= 25) return <span style={{ fontSize: '10px', marginLeft: '6px', backgroundColor: '#fed7aa', color: '#d97706', padding: '0 4px', borderRadius: '4px' }}>肥満</span>
+                    if (bmi < 18.5) return <span style={{ fontSize: '10px', marginLeft: '6px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0 4px', borderRadius: '4px' }}>低体重</span>
+                    return null
+                  })()}
+                </p>
+                {(function() {
+                  const h = parseFloat(patient.vitals.height) / 100
+                  const idealWeight = Math.round(h * h * 22 * 10) / 10
+                  const age = patient.age
+                  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+                  const recCalRaw = idealWeight * actCoef
+                  const recCal = Math.round(recCalRaw / 200) * 200
+                  const currentBmi = parseFloat(patient.vitals.bmi)
+                  const lenientCal = Math.round((recCalRaw + 300) / 200) * 200
+                  return (
+                    <div style={{ marginTop: '6px', padding: '6px 8px', backgroundColor: '#f0f9ff', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+                      <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 2px' }}>📊 標準体重・推奨カロリー</p>
+                      <p style={{ fontSize: '11px', color: '#1e293b', margin: '0' }}>
+                        標準体重（BMI 22）：<strong>{idealWeight}kg</strong>
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#0369a1', margin: '0' }}>
+                        推奨摂取カロリー：<strong>{recCal}kcal/日</strong>
+                        <span style={{ fontSize: '10px', color: '#64748b', marginLeft: '4px' }}>（{idealWeight}kg × {actCoef}kcal）</span>
+                      </p>
+                      {currentBmi >= 25 && (
+                        <p style={{ fontSize: '10px', color: '#d97706', margin: '2px 0 0' }}>
+                          ※BMI{patient.vitals.bmi}のため緩め目標：<strong>{lenientCal}kcal/日</strong>も有効
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
             <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0' }}>
