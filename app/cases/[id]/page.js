@@ -281,8 +281,10 @@ async function handleSend() {
     setInput('')
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
 
-    // 紹介状確認の特別処理
-    if (userMessage.includes('紹介状')) {
+   // 紹介状確認の特別処理（前医・かかりつけ医がいる場合のみ）
+    const patientText = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
+    const hasReferral = patientText.includes('紹介') || patientText.includes('かかりつけ') || patientText.includes('前医') || patientText.includes('閉院') || patientText.includes('転医') || patientText.includes('引き継ぎ')
+    if (userMessage.includes('紹介状') && hasReferral) {
       setAiLoading(true)
       try {
         const res = await fetch('/api/referral-letter', {
@@ -304,6 +306,9 @@ async function handleSend() {
       } finally {
         setAiLoading(false)
       }
+      return
+    } else if (userMessage.includes('紹介状') && !hasReferral) {
+      setMessages(function(prev) { return [...prev, { role: 'assistant', content: '前医からの紹介状はありません。' }] })
       return
     }
 
