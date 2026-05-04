@@ -106,10 +106,18 @@ function groupSubOptions(subOptions) {
 
 // 患者情報コンパクトカード（治療方針画面用）
 function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
+  const h = parseFloat(patient.vitals?.height) / 100
+  const age = patient.age
+  const idealWeight = h && age ? Math.round(h * h * 22 * 10) / 10 : null
+  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+  const recCal = idealWeight ? Math.round(idealWeight * actCoef / 200) * 200 : null
+  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const lenientCal = idealWeight && currentBmi >= 25
+    ? Math.round((idealWeight * actCoef + 300) / 200) * 200 : null
+
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div
-        onClick={onToggle}
+      <div onClick={onToggle}
         style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>👤</span>
@@ -122,27 +130,60 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
       </div>
       {!collapsed && (
         <div style={{ padding: '10px 14px' }}>
+          {/* 主訴 */}
+          <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px', marginBottom: '8px' }}>
+            <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>主訴</p>
+            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626', margin: 0 }}>「{patient.chief_complaint}」</p>
+          </div>
+          {/* バイタル2列 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>主訴</p>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626' }}>「{patient.chief_complaint}」</p>
+            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>バイタルサイン</p>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 2px' }}>血圧：{patient.vitals.bp}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>脈拍：{patient.vitals.hr}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>体温：{patient.vitals.temp}　SpO2：{patient.vitals.spo2}</p>
             </div>
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong></p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.hr}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>身体測定</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>身長：{patient.vitals.height}cm</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>体重：{patient.vitals.weight}kg</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: 0 }}>
+                BMI：{patient.vitals.bmi}
+                {currentBmi >= 30 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#fecaca', color: '#dc2626', padding: '0 4px', borderRadius: '4px' }}>高度肥満</span>}
+                {currentBmi >= 25 && currentBmi < 30 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#fed7aa', color: '#d97706', padding: '0 4px', borderRadius: '4px' }}>肥満</span>}
+                {currentBmi < 18.5 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0 4px', borderRadius: '4px' }}>低体重</span>}
+              </p>
             </div>
           </div>
+          {/* 推奨カロリー */}
+          {idealWeight && recCal && (
+            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px', marginBottom: '8px', border: '1px solid #bae6fd' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 3px' }}>📊 標準体重・推奨摂取カロリー</p>
+              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>
+                標準体重（BMI 22）：<strong>{idealWeight}kg</strong>
+                　活動係数：{actCoef}kcal/kg
+              </p>
+              <p style={{ fontSize: '12px', color: '#0369a1', fontWeight: 'bold', margin: 0 }}>
+                推奨摂取カロリー：{recCal}kcal/日
+              </p>
+              {lenientCal && (
+                <p style={{ fontSize: '11px', color: '#d97706', margin: '2px 0 0' }}>
+                  ※BMI高値のため緩め目標：{lenientCal}kcal/日も有効
+                </p>
+              )}
+            </div>
+          )}
+          {/* 既往・生活歴2列 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>既往・家族歴</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.past_history}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.family_history}</p>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>既往・家族歴</p>
+              <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 2px' }}>{patient.past_history}</p>
+              <p style={{ fontSize: '11px', color: '#475569', margin: 0 }}>{patient.family_history}</p>
             </div>
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>生活歴・職業</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.occupation}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>生活歴・職業</p>
+              <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 2px' }}>{patient.occupation}</p>
+              <p style={{ fontSize: '11px', color: '#475569', margin: 0 }}>{patient.social_history}</p>
             </div>
           </div>
         </div>
