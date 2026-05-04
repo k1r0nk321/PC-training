@@ -113,18 +113,34 @@ export async function POST(req) {
     const systolic2 = Math.max(115, systolic1 - totalBpReduction + Math.floor(Math.random() * 6) - 3)
     const diastolic2 = Math.max(68, diastolic1 - Math.round(totalBpReduction * 0.5) + Math.floor(Math.random() * 4) - 2)
 
-    // ===== 体重変化 =====
+// ===== 体重変化 =====
     const weight1 = parseFloat(patient.vitals.weight) || 70
     const height = parseFloat(patient.vitals.height) || 165
     const bmi1 = parseFloat(patient.vitals.bmi) || 25
 
-    // 肥満があって生活指導がある場合の体重減少
-    const hasWeightIntervention = calorieSubs.length > 0 || lifestyleSubs.length > 0
-    const weightLossBase = hasWeightIntervention && bmi1 >= 25 ? (1.0 + lifestyleBadness * 0.2) : 0.3
-    const weightReduction = Math.round(weightLossBase * effectiveAdherence * (0.8 + Math.random() * 0.4) * 10) / 10
+    const hm = height / 100
+    const idealWeight = Math.round(hm * hm * 22 * 10) / 10
+    const age = patient.age
+    const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+    const recCal = Math.round(idealWeight * actCoef / 200) * 200
 
-    const weight2 = Math.round((weight1 - weightReduction) * 10) / 10
-    const bmi2 = Math.round(weight2 / ((height / 100) * (height / 100)) * 10) / 10
+    const calSub = selectedSubs.find(function(s) { return s.category === 'calorie' })
+    const selectedCal = calSub ? parseInt(calSub.id.replace('cal_', '')) : null
+
+    const bmiExcess = Math.max(0, bmi1 - 22)
+    const lenientThreshold = recCal + 400
+    const calDeficit = selectedCal ? Math.max(0, lenientThreshold - selectedCal) : 0
+
+    const hasWeightIntervention = calSub !== null || lifestyleSubs.length > 0
+    const weightLossBase = hasWeightIntervention && bmi1 >= 25
+      ? (0.5 + bmiExcess * 0.15 + calDeficit * 0.0003 + lifestyleBadness * 0.15)
+      : hasWeightIntervention && bmi1 >= 23
+      ? (0.2 + lifestyleBadness * 0.05)
+      : 0.1 + Math.random() * 0.2
+
+    const weightReduction = Math.round(
+      Math.max(0, weightLossBase * effectiveAdherence * (0.8 + Math.random() * 0.4)) * 10
+    ) / 10
 
     const visit2Vitals = {
       bp: systolic2 + '/' + diastolic2 + ' mmHg',
