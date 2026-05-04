@@ -85,7 +85,7 @@ export default function CasesPage() {
       })
       const data = await res.json()
       if (data.error) { alert('症例生成エラー：' + data.error); return }
-      window.location.href = '/cases/' + data.case.id
+      window.location.href = '/cases/' + data.caseId
     } catch (e) {
       alert('エラー：' + e.message)
     } finally {
