@@ -61,9 +61,12 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit2Vitals, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, collapsed, onToggle }) {
   const bpChange = visit2Vitals?.bp_change
   const weightChange = visit2Vitals?.weight_change
+  const v1Meds = visit1Data?.selectedMedications || []
+  const v1Edu = visit1Data?.selectedEducation || []
+  const v1Subs = visit1Data?.selectedSubOptions || []
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
@@ -102,6 +105,46 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, collapsed, onTogg
               <p style={{ fontSize: '12px', color: '#475569' }}>体重：{patient.vitals.weight}kg　BMI：{patient.vitals.bmi}</p>
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
             </div>
+          </div>
+          {/* Visit 1の治療方針 */}
+          <div style={{ backgroundColor: '#fefce8', borderRadius: '8px', padding: '8px', border: '1px solid #fde047' }}>
+            <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#713f12', marginBottom: '6px' }}>📋 前回（Visit 1）の治療方針</p>
+            {v1Meds.length > 0 && (
+              <div style={{ marginBottom: '4px' }}>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>💊 投薬：</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {v1Meds.map(function(m, i) {
+                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '8px' }}>{m.drug_name_generic}</span>
+                  })}
+                </div>
+              </div>
+            )}
+            {v1Meds.length === 0 && (
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px' }}>💊 投薬：なし（生活指導のみ）</p>
+            )}
+            {v1Subs.length > 0 && (
+              <div style={{ marginBottom: '4px' }}>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {v1Subs.map(function(s, i) {
+                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{s.label}</span>
+                  })}
+                </div>
+              </div>
+            )}
+            {v1Subs.length === 0 && v1Edu.length > 0 && (
+              <div>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {v1Edu.map(function(e, i) {
+                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{e.instruction_key}</span>
+                  })}
+                </div>
+              </div>
+            )}
+            {v1Meds.length === 0 && v1Subs.length === 0 && v1Edu.length === 0 && (
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
+            )}
           </div>
         </div>
       )}
@@ -517,6 +560,7 @@ export default function Visit2Page({ params }) {
             patient={patient}
             diseaseName={caseData.disease_name}
             visit2Vitals={visit2Data.visit2Vitals}
+            visit1Data={caseData.visit1_data}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
@@ -748,6 +792,7 @@ export default function Visit2Page({ params }) {
           patient={patient}
           diseaseName={caseData.disease_name}
           visit2Vitals={visit2Data.visit2Vitals}
+          visit1Data={caseData.visit1_data}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
