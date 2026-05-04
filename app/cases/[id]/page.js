@@ -817,16 +817,25 @@ export default function CaseDetailPage({ params }) {
                         const calc = calcRecommendedCalories(caseData.patient_data)
                         if (!calc) return null
                         const calNum = parseInt(sub.id.replace('cal_', '')) || 0
-                        const diff = calNum - calc.recCal
-                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        if (calNum === 0) return null
                         const isRecommended = calNum === calc.recCal
+                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        const diff = calNum - calc.recCal
                         return (
-                          <div style={{ marginLeft: '20px', marginTop: '2px' }}>
-                            {isRecommended && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✓ この患者の推奨値</span>}
-                            {isLenient && <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>◎ 緩め目標（BMI高値向け）</span>}
-                            {!isRecommended && !isLenient && calNum > 0 && diff !== 0 && (
-                              <span style={{ fontSize: '10px', color: diff > 0 ? '#16a34a' : '#dc2626', backgroundColor: diff > 0 ? '#dcfce7' : '#fef2f2', padding: '1px 5px', borderRadius: '4px' }}>
-                                推奨値より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
+                          <div style={{ marginLeft: '20px', marginTop: '3px' }}>
+                            {isRecommended && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ✓ この患者の推奨値（{calc.idealWeight}kg × {calc.actCoef}kcal）
+                              </span>
+                            )}
+                            {isLenient && !isRecommended && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ◎ 緩め目標（BMI{calc.currentBmi}向け推奨値+300kcal）
+                              </span>
+                            )}
+                            {!isRecommended && !isLenient && diff !== 0 && (
+                              <span style={{ fontSize: '11px', color: diff > 200 ? '#16a34a' : diff < -200 ? '#dc2626' : '#d97706', backgroundColor: diff > 200 ? '#dcfce7' : diff < -200 ? '#fef2f2' : '#fef9c3', padding: '2px 6px', borderRadius: '4px' }}>
+                                推奨値（{calc.recCal}kcal）より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
                               </span>
                             )}
                           </div>
