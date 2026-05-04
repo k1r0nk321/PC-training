@@ -639,11 +639,35 @@ export default function CaseDetailPage({ params }) {
                           <button onClick={function() { setActivePersuasionId(null); setPersuasionInput('') }}
                             style={{ padding: '6px 8px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
                         </div>
-                      ) : (
-                        <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
-                          style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
-                          💬 患者を説得する
-                        </button>
+) : (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
+                            style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
+                            💬 患者を説得する
+                          </button>
+                          <button onClick={function() {
+                            setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== entry.id }) })
+                            if (entry.selectionType === 'medication') {
+                              const medId = entry.id.replace('med_', '')
+                              setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== medId }) })
+                            } else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') {
+                              const parts = entry.id.split('_')
+                              const eduId = parts[1]
+                              setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) })
+                              setSelectedSubOptions(function(prev) {
+                                const updated = Object.assign({}, prev)
+                                delete updated[eduId]
+                                return updated
+                              })
+                            } else if (entry.selectionType === 'device') {
+                              const devId = entry.id.replace('dev_', '')
+                              setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== devId }) })
+                            }
+                          }}
+                            style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>
+                            ✕ 選択を取りやめる
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
