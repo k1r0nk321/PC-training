@@ -81,7 +81,7 @@ export default function CasesPage() {
       const res = await fetch('/api/cases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diseaseId: selectedDisease.id, userId: user.id }),
+        body: JSON.stringify({ diseaseId: selectedDisease.id, diseaseName: selectedDisease.name_ja, userId: user.id }),
       })
       const data = await res.json()
       if (data.error) { alert('症例生成エラー：' + data.error); return }
