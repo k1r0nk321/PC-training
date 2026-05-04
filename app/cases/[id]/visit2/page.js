@@ -14,6 +14,19 @@ const CATEGORY_LABEL = {
 const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
 const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
 
+function calcRecommendedCalories(patient) {
+  if (!patient) return null
+  const h = parseFloat(patient.vitals?.height) / 100
+  const age = patient.age
+  if (!h || !age) return null
+  const idealWeight = Math.round(h * h * 22 * 10) / 10
+  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+  const recCalRaw = idealWeight * actCoef
+  const recCal = Math.round(recCalRaw / 200) * 200
+  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
+  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
+}
 function groupSubOptions(subOptions) {
   const categoryLabels = {
     calorie: 'カロリー制限の目標', salt: '塩分制限の目標', eating_out: '外食の制限',
@@ -754,6 +767,34 @@ export default function Visit2Page({ params }) {
                         <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: isSelected ? '4px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                         <p style={{ fontSize: '12px', fontWeight: isSelected ? 'bold' : 'normal', color: '#1e293b', margin: 0 }}>{sub.label}</p>
                       </div>
+{sub.category === 'calorie' && caseData && (function() {
+                        const calc = calcRecommendedCalories(caseData.patient_data)
+                        if (!calc) return null
+                        const calNum = parseInt(sub.id.replace('cal_', '')) || 0
+                        if (calNum === 0) return null
+                        const isRecommended = calNum === calc.recCal
+                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        const diff = calNum - calc.recCal
+                        return (
+                          <div style={{ marginLeft: '20px', marginTop: '3px' }}>
+                            {isRecommended && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ✓ この患者の推奨値（{calc.idealWeight}kg × {calc.actCoef}kcal）
+                              </span>
+                            )}
+                            {isLenient && !isRecommended && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ◎ 緩め目標（BMI{calc.currentBmi}向け推奨値+300kcal）
+                              </span>
+                            )}
+                            {!isRecommended && !isLenient && diff !== 0 && (
+                              <span style={{ fontSize: '11px', color: diff > 200 ? '#16a34a' : diff < -200 ? '#dc2626' : '#d97706', backgroundColor: diff > 200 ? '#dcfce7' : diff < -200 ? '#fef2f2' : '#fef9c3', padding: '2px 6px', borderRadius: '4px' }}>
+                                推奨値（{calc.recCal}kcal）より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {sub.description && <p style={{ fontSize: '10px', color: '#64748b', marginLeft: '20px', margin: '0 0 0 20px' }}>{sub.description}</p>}
                     </div>
                     <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>{STRICTNESS_LABEL[sub.strictness] || sub.strictness}</span>
