@@ -275,11 +275,38 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
-  async function handleSend() {
+async function handleSend() {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+
+    // 紹介状確認の特別処理
+    if (userMessage.includes('紹介状')) {
+      setAiLoading(true)
+      try {
+        const res = await fetch('/api/referral-letter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientData: caseData.patient_data }),
+        })
+        const data = await res.json()
+        if (data.letter) {
+          setMessages(function(prev) { return [...prev, {
+            role: 'system',
+            content: '【前医からの紹介状】\n\n' + data.letter
+          }] })
+        } else {
+          setMessages(function(prev) { return [...prev, { role: 'assistant', content: '紹介状の取得に失敗しました。' }] })
+        }
+      } catch (e) {
+        setMessages(function(prev) { return [...prev, { role: 'assistant', content: 'エラーが発生しました。' }] })
+      } finally {
+        setAiLoading(false)
+      }
+      return
+    }
+
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
@@ -291,7 +318,7 @@ export default function CaseDetailPage({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
