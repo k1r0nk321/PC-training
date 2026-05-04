@@ -142,6 +142,9 @@ export async function POST(req) {
       Math.max(0, weightLossBase * effectiveAdherence * (0.8 + Math.random() * 0.4)) * 10
     ) / 10
 
+    const weight2 = Math.round((weight1 - weightReduction) * 10) / 10
+    const bmi2 = Math.round(weight2 / ((height / 100) * (height / 100)) * 10) / 10
+
     const visit2Vitals = {
       bp: systolic2 + '/' + diastolic2 + ' mmHg',
       hr: patient.vitals.hr,
