@@ -985,7 +985,14 @@ async function handleSend() {
         <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '65vh', minHeight: '400px' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>問診・診察・検査指示を入力してください（Enterで送信）</p>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
+  問診・診察・検査指示を入力してください（Enterで送信）
+  {(function() {
+    const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
+    const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
+    return hasReferral ? '。「紹介状」と入力すると前医の紹介状を表示します' : ''
+  })()}
+</p>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {messages.map(function(msg, i) {
