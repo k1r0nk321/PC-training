@@ -933,7 +933,6 @@ export default function CaseDetailPage({ params }) {
             </button>
           </div>
         </div>
-        </div>
       </div>
     </div>
   )
