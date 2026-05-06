@@ -847,6 +847,8 @@ export default function CaseDetailPage({ params }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
   }
 
 
@@ -924,7 +926,6 @@ export default function CaseDetailPage({ params }) {
               治療方針を決定する →
             </button>
           </div>
-        </div>
         </div>
       </div>
     </div>
