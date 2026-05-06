@@ -491,7 +491,7 @@ export default function CaseDetailPage({ params }) {
     const totalSelected = selectedMeds.length + selectedEducation.length + selectedDevices.length
 
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px', marginBottom: '260px' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px', paddingBottom: '280px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
 
           {/* ヘッダー */}
