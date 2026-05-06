@@ -1016,12 +1016,13 @@ async function handleSend() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0' }}>
+          <div style={{ padding: '14px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', borderRadius: '0 0 10px 10px' }}>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input type="text" value={input}
                 onChange={function(e) { setInput(e.target.value) }}
                 onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="患者への質問や診察・検査の指示を入力..."
+                placeholder="💬 患者への質問・診察・検査指示を入力してください..."
+style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }}
                 style={{ flex: 1, padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
                 style={{ padding: '10px 20px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
