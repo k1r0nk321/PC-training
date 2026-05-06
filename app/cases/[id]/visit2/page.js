@@ -538,6 +538,11 @@ export default function Visit2Page({ params }) {
 
   // ===== 治療方針決定画面 =====
   if (step === 'treatment') {
+    if (!visit2Data) return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
+        <p style={{ color: '#0369a1', fontSize: '18px' }}>Visit 2データを読み込み中...</p>
+      </div>
+    )
     const eduByCategory = educationItems.reduce(function(acc, edu) {
       if (!acc[edu.category]) acc[edu.category] = []
       acc[edu.category].push(edu)
