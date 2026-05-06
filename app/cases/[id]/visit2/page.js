@@ -789,9 +789,9 @@ export default function Visit2Page({ params }) {
                 {feedbackLoading ? 'フィードバック生成中...' : '治療方針を確定 →'}
               </button>
             </div>
+            </div>
           </div>
-        </div>
-        </div>
+        )}
         </div>
       </div>
     )
