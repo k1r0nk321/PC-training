@@ -883,6 +883,5 @@ export default function Visit2Page({ params }) {
         </div>
       </div>
     </div>
-    </div>
   )
 }
