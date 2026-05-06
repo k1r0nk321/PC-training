@@ -14,6 +14,20 @@ const CATEGORY_LABEL = {
 const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
 const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
 
+function calcRecommendedCalories(patient) {
+  if (!patient) return null
+  const h = parseFloat(patient.vitals?.height) / 100
+  const age = patient.age
+  if (!h || !age) return null
+  const idealWeight = Math.round(h * h * 22 * 10) / 10
+  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+  const recCalRaw = idealWeight * actCoef
+  const recCal = Math.round(recCalRaw / 200) * 200
+  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
+  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
+}
+
 function groupSubOptions(subOptions) {
   const categoryLabels = {
     calorie: 'カロリー制限の目標', salt: '塩分制限の目標', eating_out: '外食の制限',
