@@ -720,6 +720,8 @@ export default function Visit2Page({ params }) {
               </div>
             </div>
           </div>
+        )}
+
         {/* 患者反応・治療確定（画面下部固定） */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
           <div style={{ backgroundColor: '#fef2f2', borderTop: '2px solid #dc2626', maxHeight: '180px', overflowY: 'auto' }}>
@@ -788,7 +790,7 @@ export default function Visit2Page({ params }) {
               </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     )
   }
