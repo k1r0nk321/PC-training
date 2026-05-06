@@ -200,6 +200,7 @@ export default function Visit2Page({ params }) {
   const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const messagesEndRef = useRef(null)
+  const reactionLogEndRef = useRef(null)
   const showDebug = process.env.NEXT_PUBLIC_SHOW_DEBUG === 'true'
 
   useEffect(function() {
