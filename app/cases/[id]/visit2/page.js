@@ -788,10 +788,8 @@ export default function Visit2Page({ params }) {
               </button>
             </div>
           </div>
-        </div>
         )}
       </div>
-        </div>
     )
   }
 
