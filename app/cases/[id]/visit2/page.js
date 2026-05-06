@@ -14,19 +14,6 @@ const CATEGORY_LABEL = {
 const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
 const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
 
-function calcRecommendedCalories(patient) {
-  if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
-  const age = patient.age
-  if (!h || !age) return null
-  const idealWeight = Math.round(h * h * 22 * 10) / 10
-  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
-  const recCalRaw = idealWeight * actCoef
-  const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
-  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
-  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
-}
 function groupSubOptions(subOptions) {
   const categoryLabels = {
     calorie: 'カロリー制限の目標', salt: '塩分制限の目標', eating_out: '外食の制限',
@@ -550,7 +537,7 @@ export default function Visit2Page({ params }) {
     const totalSelected = selectedMeds.length + selectedEducation.length + selectedDevices.length
 
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px', paddingBottom: '280px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
@@ -562,10 +549,7 @@ export default function Visit2Page({ params }) {
                 style={{ padding: '7px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
                 ← 問診に戻る
               </button>
-              <button onClick={handleGetFeedback} disabled={feedbackLoading || totalSelected === 0}
-                style={{ padding: '7px 18px', backgroundColor: feedbackLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: feedbackLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                {feedbackLoading ? 'フィードバック生成中...' : 'フィードバックを受ける'}
-              </button>
+              
             </div>
           </div>
 
@@ -596,106 +580,6 @@ export default function Visit2Page({ params }) {
             )}
           </div>
 
-            {/* 患者の反応（患者情報の直下） */}
-          <AccordionSection
-            title="💬 患者の反応"
-            badge={reactionLog.length > 0 ? reactionLog.length + '件' : null}
-            badgeColor="#dc2626"
-            defaultOpen={reactionLog.length > 0}>
-            {reactionLog.length === 0 && !reactionLoading && (
-              <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '16px 0' }}>治療内容を選択すると患者の反応が表示されます</p>
-            )}
-            {reactionLog.map(function(entry) {
-              const isRejected = entry.reaction.acceptance_level === 'rejected' || entry.reaction.acceptance_level === 'negotiating'
-              const isActive = activePersuasionId === entry.id
-              return (
-                <div key={entry.id} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', margin: 0 }}>{entry.labelText}</p>
-                    <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{entry.timestamp}</p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                    <span style={{ fontSize: '16px' }}>{EMOTION_ICON[entry.reaction.emotion] || '😐'}</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '12px', color: '#1e293b', fontStyle: 'italic', lineHeight: '1.5', margin: 0 }}>「{entry.reaction.reaction}」</p>
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '3px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', backgroundColor: ACCEPTANCE_COLOR[entry.reaction.acceptance_level] + '20', color: ACCEPTANCE_COLOR[entry.reaction.acceptance_level], fontWeight: 'bold' }}>
-                          {ACCEPTANCE_LABEL[entry.reaction.acceptance_level]}
-                        </span>
-                        {entry.reaction.key_concern && <span style={{ fontSize: '10px', color: '#64748b' }}>→{entry.reaction.key_concern}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  {entry.persuasionHistory.length > 1 && (
-                    <div style={{ marginLeft: '22px', marginTop: '5px', padding: '6px 8px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                      {entry.persuasionHistory.slice(1).map(function(h, i) {
-                        return (
-                          <p key={i} style={{ fontSize: '11px', color: h.role === 'doctor' ? '#0369a1' : '#475569', margin: '1px 0', lineHeight: '1.5' }}>
-                            {h.role === 'doctor' ? '研修医：' : '患者：'}{h.content}
-                          </p>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {isRejected && (
-                    <div style={{ marginLeft: '22px', marginTop: '6px' }}>
-                      {isActive ? (
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <input type="text" value={persuasionInput}
-                            onChange={function(e) { setPersuasionInput(e.target.value) }}
-                            onKeyDown={function(e) { if (e.key === 'Enter') handlePersuasion(entry.id) }}
-                            placeholder="患者への説明を入力..." autoFocus
-                            style={{ flex: 1, padding: '5px 8px', border: '1px solid #0369a1', borderRadius: '6px', fontSize: '11px', outline: 'none' }} />
-                          <button onClick={function() { handlePersuasion(entry.id) }} disabled={reactionLoading}
-                            style={{ padding: '5px 8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>
-                            {reactionLoading ? '...' : '説明'}
-                          </button>
-                          <button onClick={function() { setActivePersuasionId(null); setPersuasionInput('') }}
-                            style={{ padding: '5px 6px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
-                            style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
-                            💬 患者を説得する
-                          </button>
-                          <button onClick={function() {
-                            setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== entry.id }) })
-                            if (entry.selectionType === 'medication') {
-                              const medId = entry.id.replace('med_', '')
-                              setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== medId }) })
-                            } else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') {
-                              const parts = entry.id.split('_')
-                              const eduId = parts[1]
-                              setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) })
-                              setSelectedSubOptions(function(prev) {
-                                const updated = Object.assign({}, prev)
-                                delete updated[eduId]
-                                return updated
-                              })
-                            } else if (entry.selectionType === 'device') {
-                              const devId = entry.id.replace('dev_', '')
-                              setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== devId }) })
-                            }
-                          }}
-                            style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>
-                            ✕ 選択を取りやめる
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            {reactionLoading && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-                <span>💭</span>
-                <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>患者が反応中...</p>
-              </div>
-            )}
-          </AccordionSection>
-              
           <AccordionSection title="📋 生活指導・患者教育" badge={selectedEducation.length > 0 ? selectedEducation.length + '件' : null} defaultOpen={true}>
             {Object.entries(eduByCategory).map(function([category, items]) {
               return (
@@ -754,6 +638,7 @@ export default function Visit2Page({ params }) {
               )
             })}
           </AccordionSection>
+
         </div>
 
         {/* モーダル群 */}
@@ -807,34 +692,6 @@ export default function Visit2Page({ params }) {
                         <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: isSelected ? '4px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                         <p style={{ fontSize: '12px', fontWeight: isSelected ? 'bold' : 'normal', color: '#1e293b', margin: 0 }}>{sub.label}</p>
                       </div>
-{sub.category === 'calorie' && caseData && (function() {
-                        const calc = calcRecommendedCalories(caseData.patient_data)
-                        if (!calc) return null
-                        const calNum = parseInt(sub.id.replace('cal_', '')) || 0
-                        if (calNum === 0) return null
-                        const isRecommended = calNum === calc.recCal
-                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
-                        const diff = calNum - calc.recCal
-                        return (
-                          <div style={{ marginLeft: '20px', marginTop: '3px' }}>
-                            {isRecommended && (
-                              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                ✓ この患者の推奨値（{calc.idealWeight}kg × {calc.actCoef}kcal）
-                              </span>
-                            )}
-                            {isLenient && !isRecommended && (
-                              <span style={{ fontSize: '11px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                ◎ 緩め目標（BMI{calc.currentBmi}向け推奨値+300kcal）
-                              </span>
-                            )}
-                            {!isRecommended && !isLenient && diff !== 0 && (
-                              <span style={{ fontSize: '11px', color: diff > 200 ? '#16a34a' : diff < -200 ? '#dc2626' : '#d97706', backgroundColor: diff > 200 ? '#dcfce7' : diff < -200 ? '#fef2f2' : '#fef9c3', padding: '2px 6px', borderRadius: '4px' }}>
-                                推奨値（{calc.recCal}kcal）より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })()}
                       {sub.description && <p style={{ fontSize: '10px', color: '#64748b', marginLeft: '20px', margin: '0 0 0 20px' }}>{sub.description}</p>}
                     </div>
                     <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>{STRICTNESS_LABEL[sub.strictness] || sub.strictness}</span>
@@ -850,7 +707,76 @@ export default function Visit2Page({ params }) {
             </div>
           </div>
         )}
-      </div>
+
+        {/* 患者反応・治療確定（画面下部固定） */}
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
+          <div style={{ backgroundColor: '#fef2f2', borderTop: '2px solid #dc2626', maxHeight: '180px', overflowY: 'auto' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '6px 16px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 4px' }}>
+                💬 患者の反応
+                {reactionLog.length > 0 && <span style={{ fontSize: '10px', backgroundColor: '#dc2626', color: 'white', borderRadius: '8px', padding: '1px 6px', marginLeft: '6px' }}>{reactionLog.length}件</span>}
+                {reactionLoading && <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '8px' }}>💭 反応中...</span>}
+              </p>
+              {reactionLog.length === 0 && !reactionLoading && (
+                <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px' }}>治療内容を選択すると患者の反応が表示されます</p>
+              )}
+              {reactionLog.map(function(entry) {
+                const isRejected = entry.reaction.acceptance_level === 'rejected' || entry.reaction.acceptance_level === 'negotiating'
+                const isActive = activePersuasionId === entry.id
+                return (
+                  <div key={entry.id} style={{ marginBottom: '5px', padding: '6px 8px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', margin: 0 }}>{entry.labelText}</p>
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', backgroundColor: ACCEPTANCE_COLOR[entry.reaction.acceptance_level] + '20', color: ACCEPTANCE_COLOR[entry.reaction.acceptance_level], fontWeight: 'bold' }}>{ACCEPTANCE_LABEL[entry.reaction.acceptance_level]}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px' }}>
+                      <span style={{ fontSize: '13px' }}>{EMOTION_ICON[entry.reaction.emotion] || '😐'}</span>
+                      <p style={{ fontSize: '12px', color: '#1e293b', fontStyle: 'italic', lineHeight: '1.4', margin: 0, flex: 1 }}>「{entry.reaction.reaction}」</p>
+                    </div>
+                    {isRejected && !isActive && (
+                      <div style={{ display: 'flex', gap: '5px', marginTop: '3px', marginLeft: '18px' }}>
+                        <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
+                          style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>💬 説得する</button>
+                        <button onClick={function() {
+                          setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== entry.id }) })
+                          if (entry.selectionType === 'medication') setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('med_', '') }) })
+                          else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') { const eduId = entry.id.split('_')[1]; setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) }); setSelectedSubOptions(function(prev) { const u = Object.assign({}, prev); delete u[eduId]; return u }) }
+                          else if (entry.selectionType === 'device') setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('dev_', '') }) })
+                        }}
+                          style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>✕ 取りやめ</button>
+                      </div>
+                    )}
+                    {isRejected && isActive && (
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '3px', marginLeft: '18px' }}>
+                        <input type="text" value={persuasionInput}
+                          onChange={function(e) { setPersuasionInput(e.target.value) }}
+                          onKeyDown={function(e) { if (e.key === 'Enter') handlePersuasion(entry.id) }}
+                          placeholder="患者への説明..." autoFocus
+                          style={{ flex: 1, padding: '3px 8px', border: '1px solid #0369a1', borderRadius: '6px', fontSize: '11px', outline: 'none' }} />
+                        <button onClick={function() { handlePersuasion(entry.id) }} disabled={reactionLoading}
+                          style={{ padding: '3px 8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>{reactionLoading ? '...' : '説明'}</button>
+                        <button onClick={function() { setActivePersuasionId(null); setPersuasionInput('') }}
+                          style={{ padding: '3px 6px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              <div ref={reactionLogEndRef} />
+            </div>
+          </div>
+          <div style={{ backgroundColor: '#e0f2fe', borderTop: '2px solid #0369a1', padding: '8px 16px' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#0369a1', margin: 0, flex: 1 }}>
+                指導 <strong>{selectedEducation.length}</strong>件　投薬 <strong>{selectedMeds.length}</strong>件　機器 <strong>{selectedDevices.length}</strong>件
+              </p>
+              <button onClick={handleGetFeedback} disabled={feedbackLoading || totalSelected === 0}
+                style={{ padding: '10px 24px', backgroundColor: feedbackLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: feedbackLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                {feedbackLoading ? 'フィードバック生成中...' : '治療方針を確定 →'}
+              </button>
+            </div>
+          </div>
+        </div>      </div>
     )
   }
 
@@ -884,12 +810,12 @@ export default function Visit2Page({ params }) {
           </div>
         )}
 
-        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '65vh', minHeight: '400px' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話（Visit 2）</p>
             <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>経過確認・診察・検査指示を入力してください</p>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 320px)', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
               const isSystem = msg.role === 'system'
               return (
@@ -916,20 +842,24 @@ export default function Visit2Page({ params }) {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0' }}>
+        </div>
+
+        {/* 入力エリア（画面下部固定） */}
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input type="text" value={input}
                 onChange={function(e) { setInput(e.target.value) }}
                 onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="経過確認・診察・検査の指示を入力..."
-                style={{ flex: 1, padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
+                placeholder="💬 経過確認・診察・検査指示を入力してください..."
+                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '10px 20px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
                 送信
               </button>
             </div>
             <button onClick={function() { setStep('treatment') }}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
               治療方針を決定する →
             </button>
           </div>
