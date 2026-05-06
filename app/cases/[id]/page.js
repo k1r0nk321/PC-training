@@ -47,6 +47,7 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
     </div>
   )
 }
+
 function calcRecommendedCalories(patient) {
   if (!patient) return null
   const h = parseFloat(patient.vitals?.height) / 100
@@ -106,18 +107,10 @@ function groupSubOptions(subOptions) {
 
 // 患者情報コンパクトカード（治療方針画面用）
 function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
-  const h = parseFloat(patient.vitals?.height) / 100
-  const age = patient.age
-  const idealWeight = h && age ? Math.round(h * h * 22 * 10) / 10 : null
-  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
-  const recCal = idealWeight ? Math.round(idealWeight * actCoef / 200) * 200 : null
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
-  const lenientCal = idealWeight && currentBmi >= 25
-    ? Math.round((idealWeight * actCoef + 300) / 200) * 200 : null
-
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div onClick={onToggle}
+      <div
+        onClick={onToggle}
         style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>👤</span>
@@ -130,60 +123,27 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
       </div>
       {!collapsed && (
         <div style={{ padding: '10px 14px' }}>
-          {/* 主訴 */}
-          <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px', marginBottom: '8px' }}>
-            <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>主訴</p>
-            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626', margin: 0 }}>「{patient.chief_complaint}」</p>
-          </div>
-          {/* バイタル2列 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>バイタルサイン</p>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 2px' }}>血圧：{patient.vitals.bp}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>脈拍：{patient.vitals.hr}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>体温：{patient.vitals.temp}　SpO2：{patient.vitals.spo2}</p>
+            <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>主訴</p>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626' }}>「{patient.chief_complaint}」</p>
             </div>
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>身体測定</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>身長：{patient.vitals.height}cm</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>体重：{patient.vitals.weight}kg</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: 0 }}>
-                BMI：{patient.vitals.bmi}
-                {currentBmi >= 30 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#fecaca', color: '#dc2626', padding: '0 4px', borderRadius: '4px' }}>高度肥満</span>}
-                {currentBmi >= 25 && currentBmi < 30 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#fed7aa', color: '#d97706', padding: '0 4px', borderRadius: '4px' }}>肥満</span>}
-                {currentBmi < 18.5 && <span style={{ fontSize: '10px', marginLeft: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0 4px', borderRadius: '4px' }}>低体重</span>}
-              </p>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong></p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.hr}　BMI：{patient.vitals.bmi}</p>
             </div>
           </div>
-          {/* 推奨カロリー */}
-          {idealWeight && recCal && (
-            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px', marginBottom: '8px', border: '1px solid #bae6fd' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 3px' }}>📊 標準体重・推奨摂取カロリー</p>
-              <p style={{ fontSize: '12px', color: '#1e293b', margin: '0 0 1px' }}>
-                標準体重（BMI 22）：<strong>{idealWeight}kg</strong>
-                　活動係数：{actCoef}kcal/kg
-              </p>
-              <p style={{ fontSize: '12px', color: '#0369a1', fontWeight: 'bold', margin: 0 }}>
-                推奨摂取カロリー：{recCal}kcal/日
-              </p>
-              {lenientCal && (
-                <p style={{ fontSize: '11px', color: '#d97706', margin: '2px 0 0' }}>
-                  ※BMI高値のため緩め目標：{lenientCal}kcal/日も有効
-                </p>
-              )}
-            </div>
-          )}
-          {/* 既往・生活歴2列 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>既往・家族歴</p>
-              <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 2px' }}>{patient.past_history}</p>
-              <p style={{ fontSize: '11px', color: '#475569', margin: 0 }}>{patient.family_history}</p>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>既往・家族歴</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.past_history}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.family_history}</p>
             </div>
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>生活歴・職業</p>
-              <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 2px' }}>{patient.occupation}</p>
-              <p style={{ fontSize: '11px', color: '#475569', margin: 0 }}>{patient.social_history}</p>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>生活歴・職業</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.occupation}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
             </div>
           </div>
         </div>
@@ -275,43 +235,11 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
-async function handleSend() {
+  async function handleSend() {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
-
-   // 紹介状確認の特別処理（前医・かかりつけ医がいる場合のみ）
-    const patientText = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
-    const hasReferral = patientText.includes('紹介') || patientText.includes('かかりつけ') || patientText.includes('前医') || patientText.includes('閉院') || patientText.includes('転医') || patientText.includes('引き継ぎ')
-    if (userMessage.includes('紹介状') && hasReferral) {
-      setAiLoading(true)
-      try {
-        const res = await fetch('/api/referral-letter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patientData: caseData.patient_data }),
-        })
-        const data = await res.json()
-        if (data.letter) {
-          setMessages(function(prev) { return [...prev, {
-            role: 'system',
-            content: '【前医からの紹介状】\n\n' + data.letter
-          }] })
-        } else {
-          setMessages(function(prev) { return [...prev, { role: 'assistant', content: '紹介状の取得に失敗しました。' }] })
-        }
-      } catch (e) {
-        setMessages(function(prev) { return [...prev, { role: 'assistant', content: 'エラーが発生しました。' }] })
-      } finally {
-        setAiLoading(false)
-      }
-      return
-    } else if (userMessage.includes('紹介状') && !hasReferral) {
-      setMessages(function(prev) { return [...prev, { role: 'assistant', content: '前医からの紹介状はありません。' }] })
-      return
-    }
-
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
@@ -323,7 +251,7 @@ async function handleSend() {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role, content: m.content } }) }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
@@ -671,35 +599,11 @@ async function handleSend() {
                           <button onClick={function() { setActivePersuasionId(null); setPersuasionInput('') }}
                             style={{ padding: '6px 8px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
                         </div>
-) : (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
-                            style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
-                            💬 患者を説得する
-                          </button>
-                          <button onClick={function() {
-                            setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== entry.id }) })
-                            if (entry.selectionType === 'medication') {
-                              const medId = entry.id.replace('med_', '')
-                              setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== medId }) })
-                            } else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') {
-                              const parts = entry.id.split('_')
-                              const eduId = parts[1]
-                              setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) })
-                              setSelectedSubOptions(function(prev) {
-                                const updated = Object.assign({}, prev)
-                                delete updated[eduId]
-                                return updated
-                              })
-                            } else if (entry.selectionType === 'device') {
-                              const devId = entry.id.replace('dev_', '')
-                              setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== devId }) })
-                            }
-                          }}
-                            style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>
-                            ✕ 選択を取りやめる
-                          </button>
-                        </div>
+                      ) : (
+                        <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
+                          style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
+                          💬 患者を説得する
+                        </button>
                       )}
                     </div>
                   )}
@@ -873,25 +777,16 @@ async function handleSend() {
                         const calc = calcRecommendedCalories(caseData.patient_data)
                         if (!calc) return null
                         const calNum = parseInt(sub.id.replace('cal_', '')) || 0
-                        if (calNum === 0) return null
-                        const isRecommended = calNum === calc.recCal
-                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
                         const diff = calNum - calc.recCal
+                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        const isRecommended = calNum === calc.recCal
                         return (
-                          <div style={{ marginLeft: '20px', marginTop: '3px' }}>
-                            {isRecommended && (
-                              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                ✓ この患者の推奨値（{calc.idealWeight}kg × {calc.actCoef}kcal）
-                              </span>
-                            )}
-                            {isLenient && !isRecommended && (
-                              <span style={{ fontSize: '11px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                ◎ 緩め目標（BMI{calc.currentBmi}向け推奨値+300kcal）
-                              </span>
-                            )}
-                            {!isRecommended && !isLenient && diff !== 0 && (
-                              <span style={{ fontSize: '11px', color: diff > 200 ? '#16a34a' : diff < -200 ? '#dc2626' : '#d97706', backgroundColor: diff > 200 ? '#dcfce7' : diff < -200 ? '#fef2f2' : '#fef9c3', padding: '2px 6px', borderRadius: '4px' }}>
-                                推奨値（{calc.recCal}kcal）より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
+                          <div style={{ marginLeft: '20px', marginTop: '2px' }}>
+                            {isRecommended && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✓ この患者の推奨値</span>}
+                            {isLenient && <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>◎ 緩め目標（BMI高値向け）</span>}
+                            {!isRecommended && !isLenient && calNum > 0 && diff !== 0 && (
+                              <span style={{ fontSize: '10px', color: diff > 0 ? '#16a34a' : '#dc2626', backgroundColor: diff > 0 ? '#dcfce7' : '#fef2f2', padding: '1px 5px', borderRadius: '4px' }}>
+                                推奨値より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
                               </span>
                             )}
                           </div>
@@ -986,24 +881,24 @@ async function handleSend() {
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
 
-        {/* 対話エリア（1列・全幅） */}
-        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '65vh', minHeight: '400px' }}>
+        {/* 対話エリア（メッセージ部分） */}
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
             <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
-  問診・診察・検査指示を入力してください（Enterで送信）
-  {(function() {
-    const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
-    const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
-    return hasReferral ? '。「紹介状」と入力すると前医の紹介状を表示します' : ''
-  })()}
-</p>
+              問診・診察・検査指示を入力してください（Enterで送信）
+              {(function() {
+                const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
+                const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
+                return hasReferral ? '。「紹介状」と入力すると前医の紹介状を表示します' : ''
+              })()}
+            </p>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 320px)', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
               return (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0', backgroundColor: msg.role === 'user' ? '#0369a1' : '#f1f5f9', color: msg.role === 'user' ? 'white' : '#1e293b', fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0', backgroundColor: msg.role === 'user' ? '#0369a1' : msg.role === 'system' ? '#f0fdf4' : '#f1f5f9', color: msg.role === 'user' ? 'white' : '#1e293b', fontSize: msg.role === 'system' ? '12px' : '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap', border: msg.role === 'system' ? '1px solid #bbf7d0' : 'none', fontFamily: msg.role === 'system' ? 'monospace' : 'inherit' }}>
                     {msg.content}
                   </div>
                 </div>
@@ -1016,24 +911,28 @@ async function handleSend() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div style={{ padding: '14px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', borderRadius: '0 0 10px 10px' }}>
+        </div>
+
+        {/* 入力エリア（画面下部固定） */}
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input type="text" value={input}
                 onChange={function(e) { setInput(e.target.value) }}
                 onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
                 placeholder="💬 患者への質問・診察・検査指示を入力してください..."
-style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }}
-                style={{ flex: 1, padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
+                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '10px 20px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
                 送信
               </button>
             </div>
             <button onClick={function() { setStep('treatment') }}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
               治療方針を決定する →
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
