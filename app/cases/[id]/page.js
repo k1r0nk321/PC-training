@@ -551,7 +551,7 @@ export default function CaseDetailPage({ params }) {
           <ParameterPanel data={visitParams} />
 
           {/* DEVモード */}
-          {showDebug && (
+          {false && (
             <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
               <strong>【DEV】</strong> 服薬意欲:{patient.hidden_params.adherence_level} 生活改善:{patient.hidden_params.lifestyle_motivation} ストレス:{patient.hidden_params.stress_level} 忙しさ:{patient.hidden_params.work_busyness} 食習慣:{patient.hidden_params.eating_habit} 性格:{patient.hidden_params.personality_type} 薬の態度:{patient.hidden_params.medication_attitude}
             </div>
