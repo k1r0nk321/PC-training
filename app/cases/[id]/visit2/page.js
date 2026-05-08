@@ -615,7 +615,7 @@ export default function Visit2Page({ params }) {
           />
           <ParameterPanel data={visitParams} />
 
-          {showDebug && (
+          {false && (
             <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
               <strong>【DEV】</strong> 性格:{patient.hidden_params.personality_type} 服薬意欲:{patient.hidden_params.adherence_level} 降圧:{visit2Data.bpReduction}mmHg 減量:{visit2Data.weightReduction}kg
             </div>
