@@ -328,6 +328,26 @@ export default function Visit2Page({ params }) {
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
+      try {
+        if (visitParams && caseData && caseData.id) {
+          const evalRes = await fetch('/api/evaluate-params', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              caseId: caseData.id,
+              visitNumber: 2,
+              recentMessages: [{ role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
+              currentParams: visitParams,
+              context: 'interview',
+              personality: visitParams.personality
+            })
+          })
+          if (evalRes.ok) {
+            const evalData = await evalRes.json()
+            if (evalData.params) setVisitParams(evalData.params)
+          }
+        }
+      } catch (e) {}
     } catch (e) {
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: 'エラーが発生しました。' }] })
     } finally {
