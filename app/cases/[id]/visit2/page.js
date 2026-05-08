@@ -336,7 +336,7 @@ export default function Visit2Page({ params }) {
             body: JSON.stringify({
               caseId: caseData.id,
               visitNumber: 2,
-              recentMessages: [{ role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
+              recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
               currentParams: visitParams,
               context: 'interview',
               personality: visitParams.personality
