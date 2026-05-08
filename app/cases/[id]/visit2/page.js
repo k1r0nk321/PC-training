@@ -166,8 +166,33 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
   )
 }
 
+function ParameterPanel({ data }) {
+  if (!data) return null
+  const stars = function(n) {
+    const v = Math.max(0, Math.min(5, n || 0))
+    return '★'.repeat(v) + '☆'.repeat(5 - v)
+  }
+  const labelStyle = { fontWeight: 600, color: '#0369a1', marginRight: '4px' }
+  const rowStyle = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', padding: '10px 14px' }}>
+      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 患者特性</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '6px', columnGap: '12px' }}>
+        <div style={rowStyle}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
+        <div style={rowStyle}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}</div>
+        <div style={rowStyle}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}</div>
+        <div style={rowStyle}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function Visit2Page({ params }) {
   const [caseData, setCaseData] = useState(null)
+  const [visitParams, setVisitParams] = useState(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [visit2Data, setVisit2Data] = useState(null)
@@ -221,6 +246,13 @@ export default function Visit2Page({ params }) {
         .eq('id', params.id).eq('user_id', userId).single()
       if (error || !data) { window.location.href = '/cases'; return }
       setCaseData(data)
+      try {
+        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=2')
+        if (pr.ok) {
+          const pd = await pr.json()
+          setVisitParams(pd.params)
+        }
+      } catch (e) {}
 
       // Visit 2データを生成
       setGenerating(true)
@@ -581,6 +613,7 @@ export default function Visit2Page({ params }) {
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
+          <ParameterPanel data={visitParams} />
 
           {showDebug && (
             <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
@@ -824,6 +857,7 @@ export default function Visit2Page({ params }) {
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
+        <ParameterPanel data={visitParams} />
 
         {!labsRevealed && (
           <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', border: '1px solid #fde047', fontSize: '12px', color: '#713f12' }}>
