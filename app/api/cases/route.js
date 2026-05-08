@@ -94,6 +94,8 @@ const bmiProfile = ageNum >= 75
       "personality_type": "cooperative・anxious・resistant・lazy・angryからランダムに選択",
       "eating_habit": "home_cooking・eating_out・night_eating・irregularからランダムに選択",
       "medication_attitude": "positive・neutral・negative・very_negativeからランダムに選択",
+      "exercise_habit_label": "ほとんど運動しない・1回30分歩行・1回1時間歩行・ジムで筋トレ・水泳・ヨガ・ジョギングなどからランダムに選択",
+      "exercise_habit_comment": "頻度（例：週0回、週2回、毎日、月数回など）",
       "age_group_context": "${ageContext}",
       "frailty_risk": "${ageNum >= 75 ? 'high・medium・lowからランダムに選択' : 'low'}",
       "cognitive_level": "${ageNum >= 75 ? 'normal・mild_decline・moderate_declineからランダムに選択' : 'normal'}",
