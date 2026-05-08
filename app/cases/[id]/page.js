@@ -152,9 +152,34 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
   )
 }
 
+function ParameterPanel({ data }) {
+  if (!data) return null
+  const stars = function(n) {
+    const v = Math.max(0, Math.min(5, n || 0))
+    return '★'.repeat(v) + '☆'.repeat(5 - v)
+  }
+  const labelStyle = { fontWeight: 600, color: '#0369a1', marginRight: '4px' }
+  const rowStyle = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', padding: '10px 14px' }}>
+      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 患者特性</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '6px', columnGap: '12px' }}>
+        <div style={rowStyle}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
+        <div style={rowStyle}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}</div>
+        <div style={rowStyle}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}</div>
+        <div style={rowStyle}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function CaseDetailPage({ params }) {
   const [user, setUser] = useState(null)
   const [caseData, setCaseData] = useState(null)
+  const [visitParams, setVisitParams] = useState(null)
   const [loading, setLoading] = useState(true)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -211,6 +236,13 @@ export default function CaseDetailPage({ params }) {
         .eq('id', params.id).eq('user_id', userId).single()
       if (error || !data) { console.error('fetch error', error); setLoading(false); return }
       setCaseData(data)
+      try {
+        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=1')
+        if (pr.ok) {
+          const pd = await pr.json()
+          setVisitParams(pd.params)
+        }
+      } catch (e) {}
       setMessages([{
         role: 'assistant',
         content: data.patient_data.name + 'さん（' + data.patient_data.age + '歳・' +
@@ -516,6 +548,7 @@ export default function CaseDetailPage({ params }) {
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
+          <ParameterPanel data={visitParams} />
 
           {/* DEVモード */}
           {showDebug && (
@@ -857,6 +890,7 @@ export default function CaseDetailPage({ params }) {
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
+        <ParameterPanel data={visitParams} />
 
         {/* 対話エリア（メッセージ部分） */}
         <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
