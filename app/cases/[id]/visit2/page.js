@@ -484,7 +484,7 @@ export default function Visit2Page({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientData: caseData.patient_data, selectionType, selectedItem: item,
-          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null,
+          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages.slice(-20),
         }),
       })
       const data = await res.json()
@@ -512,7 +512,7 @@ export default function Visit2Page({ params }) {
       const res = await fetch('/api/patient-reaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, previousReactions: newHistory, persuasionMessage: persuasionInput }),
+        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
       })
       const data = await res.json()
       const updatedHistory = [...newHistory, { role: 'patient', content: data.reaction }]
