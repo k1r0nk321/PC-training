@@ -13,6 +13,7 @@ export async function POST(req) {
       previousReactions,
       persuasionMessage,
       extraContext,
+      interviewMessages,
     } = await req.json()
 
     const patient = patientData
@@ -212,6 +213,8 @@ ${socialNote}
 ${selectedItem.description ? '説明：' + selectedItem.description : ''}
 ${selectedItem.strictness ? '厳しさ：' + selectedItem.strictness : ''}
 ${extraContext ? '補足：' + extraContext : ''}
+
+${interviewMessages && interviewMessages.length > 0 ? '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n重要：問診で患者が同意・受入れ・宣言した内容（「やります」「頑張ります」「飲みます」等）がある場合、治療方針でも同じ内容が提示されたときに矛盾した反応を示してはならない。問診での合意を引き継いで反応すること。' : ''}
 
 ${previousText}
 ${persuasionText}
