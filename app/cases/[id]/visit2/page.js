@@ -166,8 +166,124 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
   )
 }
 
+function ParameterPanel({ data, caseId, visitNumber }) {
+  const prevRef = useRef(null)
+  const initialPendingRef = useRef(null)
+  const initialDoneRef = useRef(false)
+  const [changes, setChanges] = useState({})
+
+  useEffect(function() {
+    if (!data) return
+
+    // Handle initial treatment changes (only on first load)
+    if (!initialDoneRef.current) {
+      initialDoneRef.current = true
+      const ptc = data.pending_treatment_changes
+      if (ptc && typeof ptc === 'object') {
+        initialPendingRef.current = Object.assign({}, ptc)
+        const c = {}
+        if (ptc.stress) c.stress = { indicator: ptc.stress, type: 'treatment' }
+        if (ptc.busyness) c.busyness = { indicator: ptc.busyness, type: 'treatment' }
+        if (Object.keys(c).length > 0) {
+          setChanges(c)
+          const remaining = Object.assign({}, ptc)
+          delete remaining.stress
+          delete remaining.busyness
+          const newPending = Object.keys(remaining).length > 0 ? remaining : null
+          if (caseId && visitNumber) {
+            fetch('/api/visit-parameters', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ caseId: caseId, visitNumber: visitNumber, updates: { pending_treatment_changes: newPending } })
+            }).catch(function() {})
+          }
+          const t = setTimeout(function() { setChanges({}) }, 5000)
+          prevRef.current = data
+          return function() { clearTimeout(t) }
+        }
+      }
+      prevRef.current = data
+      return
+    }
+
+    // In-session changes
+    const prev = prevRef.current
+    if (prev) {
+      const ptc = initialPendingRef.current || {}
+      const c = {}
+      const eatingChanged = data.eating_habit_label !== prev.eating_habit_label || data.eating_habit_comment !== prev.eating_habit_comment
+      const exerciseChanged = data.exercise_habit_label !== prev.exercise_habit_label || data.exercise_habit_comment !== prev.exercise_habit_comment
+      if (eatingChanged) c.eating = { indicator: '更新', type: ptc.diet_treatment ? 'treatment' : 'interview' }
+      if (exerciseChanged) c.exercise = { indicator: '更新', type: ptc.exercise_treatment ? 'treatment' : 'interview' }
+      const fields = ['lifestyle_motivation', 'medication_motivation', 'trust_level']
+      for (const f of fields) {
+        if (data[f] !== prev[f]) c[f] = { indicator: data[f] > prev[f] ? '↑' : '↓', type: 'interview' }
+      }
+      if (Object.keys(c).length > 0) {
+        setChanges(c)
+        let cleared = false
+        const remaining = Object.assign({}, ptc)
+        if (eatingChanged && remaining.diet_treatment) { delete remaining.diet_treatment; cleared = true }
+        if (exerciseChanged && remaining.exercise_treatment) { delete remaining.exercise_treatment; cleared = true }
+        if (cleared) {
+          initialPendingRef.current = remaining
+          const newPending = Object.keys(remaining).length > 0 ? remaining : null
+          if (caseId && visitNumber) {
+            fetch('/api/visit-parameters', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ caseId: caseId, visitNumber: visitNumber, updates: { pending_treatment_changes: newPending } })
+            }).catch(function() {})
+          }
+        }
+        const t = setTimeout(function() { setChanges({}) }, 5000)
+        prevRef.current = data
+        return function() { clearTimeout(t) }
+      }
+    }
+    prevRef.current = data
+  }, [data, caseId, visitNumber])
+
+  if (!data) return null
+
+  const stars = function(n) {
+    const v = Math.max(0, Math.min(5, n || 0))
+    return '★'.repeat(v) + '☆'.repeat(5 - v)
+  }
+  const labelStyle = { fontWeight: 600, color: '#0369a1', marginRight: '4px' }
+  const baseRow = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', borderRadius: '4px', padding: '3px 6px', transition: 'background-color 0.6s ease' }
+  const hi = function(key) {
+    if (!changes[key]) return baseRow
+    const isT = changes[key].type === 'treatment'
+    return Object.assign({}, baseRow, {
+      backgroundColor: isT ? '#fecaca' : '#fef08a',
+      boxShadow: isT ? '0 0 0 1px #dc2626' : '0 0 0 1px #facc15'
+    })
+  }
+  const ind = function(key) { return changes[key] ? ' ' + changes[key].indicator : '' }
+  const arrowStyle = function(key) {
+    return { color: changes[key] && changes[key].type === 'treatment' ? '#dc2626' : '#d97706', fontWeight: 'bold' }
+  }
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', padding: '10px 14px' }}>
+      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 患者特性</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '4px', columnGap: '12px' }}>
+        <div style={baseRow}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
+        <div style={hi('eating')}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}<span style={arrowStyle('eating')}>{ind('eating')}</span></div>
+        <div style={hi('exercise')}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}<span style={arrowStyle('exercise')}>{ind('exercise')}</span></div>
+        <div style={hi('stress')}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span><span style={arrowStyle('stress')}>{ind('stress')}</span></div>
+        <div style={hi('busyness')}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span><span style={arrowStyle('busyness')}>{ind('busyness')}</span></div>
+        <div style={hi('lifestyle_motivation')}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span><span style={arrowStyle('lifestyle_motivation')}>{ind('lifestyle_motivation')}</span></div>
+        <div style={hi('medication_motivation')}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span><span style={arrowStyle('medication_motivation')}>{ind('medication_motivation')}</span></div>
+        <div style={hi('trust_level')}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span><span style={arrowStyle('trust_level')}>{ind('trust_level')}</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function Visit2Page({ params }) {
   const [caseData, setCaseData] = useState(null)
+  const [visitParams, setVisitParams] = useState(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [visit2Data, setVisit2Data] = useState(null)
@@ -221,6 +337,13 @@ export default function Visit2Page({ params }) {
         .eq('id', params.id).eq('user_id', userId).single()
       if (error || !data) { window.location.href = '/cases'; return }
       setCaseData(data)
+      try {
+        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=2')
+        if (pr.ok) {
+          const pd = await pr.json()
+          setVisitParams(pd.params)
+        }
+      } catch (e) {}
 
       // Visit 2データを生成
       setGenerating(true)
@@ -283,11 +406,18 @@ export default function Visit2Page({ params }) {
     try {
       const patient = caseData.patient_data
       const v2 = visit2Data
+      const v1 = caseData.visit1_data || {}
+      const v1MedsArr = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' })
+      const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
+      const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
+      const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
       const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
         '体重：' + (v2?.visit2Vitals?.weight || patient.vitals.weight) + 'kg。' +
+        '【前回(Visit 1)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
+        '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
         '患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -296,6 +426,49 @@ export default function Visit2Page({ params }) {
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
+      try {
+        const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
+        const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
+        if (isAdvice && caseData && caseData.disease_id) {
+          const tpRes = await fetch('/api/teaching-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              diseaseId: caseData.disease_id,
+              diseaseName: caseData.disease_name,
+              patientContext: (caseData.patient_data?.name || '') + '・' + (caseData.patient_data?.age || '') + '歳・' + (caseData.disease_name || ''),
+              lastPatientStatement: data.text
+            })
+          })
+          if (tpRes.ok) {
+            const tp = await tpRes.json()
+            if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
+              const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
+              setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+            }
+          }
+        }
+      } catch (tpErr) {}
+      try {
+        if (visitParams && caseData && caseData.id) {
+          const evalRes = await fetch('/api/evaluate-params', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              caseId: caseData.id,
+              visitNumber: 2,
+              recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
+              currentParams: visitParams,
+              context: 'interview',
+              personality: visitParams.personality
+            })
+          })
+          if (evalRes.ok) {
+            const evalData = await evalRes.json()
+            if (evalData.params) setVisitParams(evalData.params)
+          }
+        }
+      } catch (e) {}
     } catch (e) {
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: 'エラーが発生しました。' }] })
     } finally {
@@ -581,8 +754,9 @@ export default function Visit2Page({ params }) {
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
+          <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={2} />
 
-          {showDebug && (
+          {false && (
             <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
               <strong>【DEV】</strong> 性格:{patient.hidden_params.personality_type} 服薬意欲:{patient.hidden_params.adherence_level} 降圧:{visit2Data.bpReduction}mmHg 減量:{visit2Data.weightReduction}kg
             </div>
@@ -824,6 +998,7 @@ export default function Visit2Page({ params }) {
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
+        <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={2} />
 
         {!labsRevealed && (
           <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', border: '1px solid #fde047', fontSize: '12px', color: '#713f12' }}>
@@ -836,7 +1011,7 @@ export default function Visit2Page({ params }) {
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話（Visit 2）</p>
             <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>経過確認・診察・検査指示を入力してください</p>
           </div>
-          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 320px)', minHeight: '300px' }}>
+          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '38vh', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
               const isSystem = msg.role === 'system'
               return (

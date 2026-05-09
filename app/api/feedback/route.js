@@ -129,7 +129,7 @@ ${guidelineText}
 1. 患者の生活習慣の問題の大きさに対して、指導の強度が適切だったか（生活習慣が悪い患者への緩やかな指導も効果的な場合がある）
 2. 患者の性格・抵抗性に対して、介入数と説得の仕方が適切だったか（抵抗的な患者への多介入はドロップアウトリスクを高める）
 3. 患者が受け入れた治療の質（少ない介入でも高い同意率を得られた場合は高評価）
-4. 問診・診察の質
+4. 問診・診察の質（**問診回数の多さは丁寧で十分な情報収集として必ずプラス評価とする。回数自体を批判材料にしてはならない。重要項目の問診漏れがある場合のみマイナス評価とする**）
 
 以下の形式で日本語のフィードバックを生成してください：
 
@@ -180,6 +180,40 @@ ${guidelineText}
     }
 
     await supabase.from('cases').update(updateData).eq('id', caseId)
+
+    // Detect treatment categories from selected items and update visit_parameters flags
+    try {
+      const allItems = []
+      if (Array.isArray(selectedEducation)) allItems.push(...selectedEducation)
+      if (Array.isArray(selectedSubOptions)) allItems.push(...selectedSubOptions)
+      else if (selectedSubOptions && typeof selectedSubOptions === 'object') {
+        Object.values(selectedSubOptions).forEach(function(v) {
+          if (Array.isArray(v)) allItems.push(...v)
+          else if (v) allItems.push(v)
+        })
+      }
+      const hasCategory = function(cat) {
+        return allItems.some(function(i) {
+          if (!i) return false
+          if (i.category === cat) return true
+          if (typeof i.instruction_key === 'string' && i.instruction_key.indexOf(cat) === 0) return true
+          if (i.category_key === cat) return true
+          return false
+        })
+      }
+      const flags = {
+        social_support_given: hasCategory('psychosocial'),
+        exercise_treatment_given: hasCategory('exercise'),
+        diet_treatment_given: hasCategory('diet')
+      }
+      await supabase
+        .from('visit_parameters')
+        .update(flags)
+        .eq('case_id', caseId)
+        .eq('visit_number', visitNumber)
+    } catch (flagErr) {
+      // Non-blocking: don't fail the feedback if flag update fails
+    }
 
     return Response.json({ feedback: feedbackText })
 
