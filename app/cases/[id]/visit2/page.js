@@ -185,6 +185,7 @@ function ParameterPanel({ data }) {
         <div style={rowStyle}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span></div>
         <div style={rowStyle}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span></div>
         <div style={rowStyle}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span></div>
+        <div style={rowStyle}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span></div>
       </div>
     </div>
   )
