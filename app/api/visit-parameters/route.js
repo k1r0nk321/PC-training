@@ -34,6 +34,7 @@ function convertHiddenParams(hidden, visitNumber) {
   const adherenceStar = ENUM_TO_STARS[hidden.adherence_level] || 3
   const medAttitudeStar = MEDICATION_ATTITUDE_MAP[hidden.medication_attitude] || 3
   const medMotivation = Math.round((adherenceStar + medAttitudeStar) / 2)
+  const lifestyleMot = ENUM_TO_STARS[hidden.lifestyle_motivation] || 3
 
   return {
     visit_number: visitNumber,
@@ -44,8 +45,31 @@ function convertHiddenParams(hidden, visitNumber) {
     exercise_habit_comment: hidden.exercise_habit_comment || '',
     stress: ENUM_TO_STARS[hidden.stress_level] || 3,
     busyness: ENUM_TO_STARS[hidden.work_busyness] || 3,
-    lifestyle_motivation: ENUM_TO_STARS[hidden.lifestyle_motivation] || 3,
-    medication_motivation: medMotivation
+    lifestyle_motivation: lifestyleMot,
+    medication_motivation: medMotivation,
+    trust_level: 0,
+    initial_lifestyle_motivation: lifestyleMot,
+    initial_medication_motivation: medMotivation,
+    initial_trust_level: 0
+  }
+}
+
+function buildFromPreviousVisit(prev, visitNumber) {
+  return {
+    visit_number: visitNumber,
+    personality: prev.personality,
+    eating_habit_label: prev.eating_habit_label,
+    eating_habit_comment: prev.eating_habit_comment,
+    exercise_habit_label: prev.exercise_habit_label,
+    exercise_habit_comment: prev.exercise_habit_comment,
+    stress: prev.stress,
+    busyness: prev.busyness,
+    lifestyle_motivation: prev.lifestyle_motivation,
+    medication_motivation: prev.medication_motivation,
+    trust_level: prev.trust_level || 0,
+    initial_lifestyle_motivation: prev.lifestyle_motivation,
+    initial_medication_motivation: prev.medication_motivation,
+    initial_trust_level: prev.trust_level || 0
   }
 }
 
@@ -61,6 +85,7 @@ export async function GET(req) {
 
     const supabase = getAdminClient()
 
+    // Try to fetch existing visit_parameters row
     const { data: existing } = await supabase
       .from('visit_parameters')
       .select('*')
@@ -72,18 +97,36 @@ export async function GET(req) {
       return Response.json({ params: existing })
     }
 
-    const { data: caseData, error: caseErr } = await supabase
-      .from('cases')
-      .select('patient_data')
-      .eq('id', caseId)
-      .single()
+    let newParams = null
 
-    if (caseErr || !caseData) {
-      return Response.json({ error: 'case not found' }, { status: 404 })
+    // For Visit 2+, try to inherit from previous visit
+    if (visitNumber >= 2) {
+      const { data: prevVisit } = await supabase
+        .from('visit_parameters')
+        .select('*')
+        .eq('case_id', caseId)
+        .eq('visit_number', visitNumber - 1)
+        .maybeSingle()
+      if (prevVisit) {
+        newParams = buildFromPreviousVisit(prevVisit, visitNumber)
+      }
     }
 
-    const hidden = caseData.patient_data?.hidden_params || {}
-    const newParams = convertHiddenParams(hidden, visitNumber)
+    // Fallback: convert from hidden_params
+    if (!newParams) {
+      const { data: caseData, error: caseErr } = await supabase
+        .from('cases')
+        .select('patient_data')
+        .eq('id', caseId)
+        .single()
+
+      if (caseErr || !caseData) {
+        return Response.json({ error: 'case not found' }, { status: 404 })
+      }
+
+      const hidden = caseData.patient_data?.hidden_params || {}
+      newParams = convertHiddenParams(hidden, visitNumber)
+    }
 
     const { data: inserted, error: insErr } = await supabase
       .from('visit_parameters')
