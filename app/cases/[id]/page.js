@@ -153,25 +153,50 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
 }
 
 function ParameterPanel({ data }) {
+  const prevRef = useRef(null)
+  const [changes, setChanges] = useState({})
+  useEffect(function() {
+    if (!data) return
+    const prev = prevRef.current
+    if (prev) {
+      const c = {}
+      if (data.eating_habit_label !== prev.eating_habit_label || data.eating_habit_comment !== prev.eating_habit_comment) c.eating = '更新'
+      if (data.exercise_habit_label !== prev.exercise_habit_label || data.exercise_habit_comment !== prev.exercise_habit_comment) c.exercise = '更新'
+      const fields = ['stress', 'busyness', 'lifestyle_motivation', 'medication_motivation', 'trust_level']
+      for (const f of fields) {
+        if (data[f] !== prev[f]) c[f] = data[f] > prev[f] ? '↑' : '↓'
+      }
+      if (Object.keys(c).length > 0) {
+        setChanges(c)
+        const t = setTimeout(function() { setChanges({}) }, 3500)
+        prevRef.current = data
+        return function() { clearTimeout(t) }
+      }
+    }
+    prevRef.current = data
+  }, [data])
   if (!data) return null
   const stars = function(n) {
     const v = Math.max(0, Math.min(5, n || 0))
     return '★'.repeat(v) + '☆'.repeat(5 - v)
   }
   const labelStyle = { fontWeight: 600, color: '#0369a1', marginRight: '4px' }
-  const rowStyle = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }
+  const baseRow = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', borderRadius: '4px', padding: '3px 6px', transition: 'background-color 0.6s ease' }
+  const hi = function(key) { return changes[key] ? Object.assign({}, baseRow, { backgroundColor: '#fef08a', boxShadow: '0 0 0 1px #facc15' }) : baseRow }
+  const ind = function(key) { return changes[key] ? ' ' + changes[key] : '' }
+  const arrowStyle = { color: '#d97706', fontWeight: 'bold' }
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', padding: '10px 14px' }}>
       <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 患者特性</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '6px', columnGap: '12px' }}>
-        <div style={rowStyle}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
-        <div style={rowStyle}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}</div>
-        <div style={rowStyle}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}</div>
-        <div style={rowStyle}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span></div>
-        <div style={rowStyle}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span></div>
-        <div style={rowStyle}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span></div>
-        <div style={rowStyle}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span></div>
-        <div style={rowStyle}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '4px', columnGap: '12px' }}>
+        <div style={baseRow}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
+        <div style={hi('eating')}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}<span style={arrowStyle}>{ind('eating')}</span></div>
+        <div style={hi('exercise')}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}<span style={arrowStyle}>{ind('exercise')}</span></div>
+        <div style={hi('stress')}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span><span style={arrowStyle}>{ind('stress')}</span></div>
+        <div style={hi('busyness')}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span><span style={arrowStyle}>{ind('busyness')}</span></div>
+        <div style={hi('lifestyle_motivation')}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span><span style={arrowStyle}>{ind('lifestyle_motivation')}</span></div>
+        <div style={hi('medication_motivation')}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span><span style={arrowStyle}>{ind('medication_motivation')}</span></div>
+        <div style={hi('trust_level')}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span><span style={arrowStyle}>{ind('trust_level')}</span></div>
       </div>
     </div>
   )
@@ -926,7 +951,7 @@ export default function CaseDetailPage({ params }) {
               })()}
             </p>
           </div>
-          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 320px)', minHeight: '300px' }}>
+          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '38vh', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
               return (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
