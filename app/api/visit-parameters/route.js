@@ -30,6 +30,10 @@ const MEDICATION_ATTITUDE_MAP = {
   very_negative: 1
 }
 
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v))
+}
+
 function convertHiddenParams(hidden, visitNumber) {
   const adherenceStar = ENUM_TO_STARS[hidden.adherence_level] || 3
   const medAttitudeStar = MEDICATION_ATTITUDE_MAP[hidden.medication_attitude] || 3
@@ -55,21 +59,52 @@ function convertHiddenParams(hidden, visitNumber) {
 }
 
 function buildFromPreviousVisit(prev, visitNumber) {
+  // Apply treatment effects from previous visit
+  const pendingChanges = {}
+  let newStress = prev.stress
+  let newBusyness = prev.busyness
+  let newEatingLabel = prev.eating_habit_label
+  let newEatingComment = prev.eating_habit_comment
+  let newExerciseLabel = prev.exercise_habit_label
+  let newExerciseComment = prev.exercise_habit_comment
+
+  // Social support given in Visit 1 → reduce stress and busyness by 1
+  if (prev.social_support_given) {
+    if (newStress > 1) {
+      newStress = clamp(newStress - 1, 1, 5)
+      pendingChanges.stress = '↓'
+    }
+    if (newBusyness > 1) {
+      newBusyness = clamp(newBusyness - 1, 1, 5)
+      pendingChanges.busyness = '↓'
+    }
+  }
+
+  // Mark exercise/diet as pending change source if treatments were given
+  // (actual label changes happen during interview based on patient reports)
+  if (prev.exercise_treatment_given) {
+    pendingChanges.exercise_treatment = true
+  }
+  if (prev.diet_treatment_given) {
+    pendingChanges.diet_treatment = true
+  }
+
   return {
     visit_number: visitNumber,
     personality: prev.personality,
-    eating_habit_label: prev.eating_habit_label,
-    eating_habit_comment: prev.eating_habit_comment,
-    exercise_habit_label: prev.exercise_habit_label,
-    exercise_habit_comment: prev.exercise_habit_comment,
-    stress: prev.stress,
-    busyness: prev.busyness,
+    eating_habit_label: newEatingLabel,
+    eating_habit_comment: newEatingComment,
+    exercise_habit_label: newExerciseLabel,
+    exercise_habit_comment: newExerciseComment,
+    stress: newStress,
+    busyness: newBusyness,
     lifestyle_motivation: prev.lifestyle_motivation,
     medication_motivation: prev.medication_motivation,
     trust_level: prev.trust_level || 0,
     initial_lifestyle_motivation: prev.lifestyle_motivation,
     initial_medication_motivation: prev.medication_motivation,
-    initial_trust_level: prev.trust_level || 0
+    initial_trust_level: prev.trust_level || 0,
+    pending_treatment_changes: Object.keys(pendingChanges).length > 0 ? pendingChanges : null
   }
 }
 
@@ -85,7 +120,6 @@ export async function GET(req) {
 
     const supabase = getAdminClient()
 
-    // Try to fetch existing visit_parameters row
     const { data: existing } = await supabase
       .from('visit_parameters')
       .select('*')
@@ -99,7 +133,6 @@ export async function GET(req) {
 
     let newParams = null
 
-    // For Visit 2+, try to inherit from previous visit
     if (visitNumber >= 2) {
       const { data: prevVisit } = await supabase
         .from('visit_parameters')
@@ -112,7 +145,6 @@ export async function GET(req) {
       }
     }
 
-    // Fallback: convert from hidden_params
     if (!newParams) {
       const { data: caseData, error: caseErr } = await supabase
         .from('cases')
