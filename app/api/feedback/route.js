@@ -181,6 +181,40 @@ ${guidelineText}
 
     await supabase.from('cases').update(updateData).eq('id', caseId)
 
+    // Detect treatment categories from selected items and update visit_parameters flags
+    try {
+      const allItems = []
+      if (Array.isArray(selectedEducation)) allItems.push(...selectedEducation)
+      if (Array.isArray(selectedSubOptions)) allItems.push(...selectedSubOptions)
+      else if (selectedSubOptions && typeof selectedSubOptions === 'object') {
+        Object.values(selectedSubOptions).forEach(function(v) {
+          if (Array.isArray(v)) allItems.push(...v)
+          else if (v) allItems.push(v)
+        })
+      }
+      const hasCategory = function(cat) {
+        return allItems.some(function(i) {
+          if (!i) return false
+          if (i.category === cat) return true
+          if (typeof i.instruction_key === 'string' && i.instruction_key.indexOf(cat) === 0) return true
+          if (i.category_key === cat) return true
+          return false
+        })
+      }
+      const flags = {
+        social_support_given: hasCategory('psychosocial'),
+        exercise_treatment_given: hasCategory('exercise'),
+        diet_treatment_given: hasCategory('diet')
+      }
+      await supabase
+        .from('visit_parameters')
+        .update(flags)
+        .eq('case_id', caseId)
+        .eq('visit_number', visitNumber)
+    } catch (flagErr) {
+      // Non-blocking: don't fail the feedback if flag update fails
+    }
+
     return Response.json({ feedback: feedbackText })
 
   } catch (e) {
