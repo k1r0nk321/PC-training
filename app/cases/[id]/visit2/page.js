@@ -406,11 +406,18 @@ export default function Visit2Page({ params }) {
     try {
       const patient = caseData.patient_data
       const v2 = visit2Data
+      const v1 = caseData.visit1_data || {}
+      const v1MedsArr = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' })
+      const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
+      const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
+      const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
       const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
         '体重：' + (v2?.visit2Vitals?.weight || patient.vitals.weight) + 'kg。' +
+        '【前回(Visit 1)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
+        '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
         '患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
       const res = await fetch('/api/ai', {
         method: 'POST',
