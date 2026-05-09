@@ -377,6 +377,29 @@ export default function CaseDetailPage({ params }) {
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
       try {
+        const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
+        const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
+        if (isAdvice && caseData && caseData.disease_id) {
+          const tpRes = await fetch('/api/teaching-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              diseaseId: caseData.disease_id,
+              diseaseName: caseData.disease_name,
+              patientContext: (caseData.patient_data?.name || '') + '・' + (caseData.patient_data?.age || '') + '歳・' + (caseData.disease_name || ''),
+              lastPatientStatement: data.text
+            })
+          })
+          if (tpRes.ok) {
+            const tp = await tpRes.json()
+            if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
+              const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
+              setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+            }
+          }
+        }
+      } catch (tpErr) {}
+      try {
         if (visitParams && caseData && caseData.id) {
           const evalRes = await fetch('/api/evaluate-params', {
             method: 'POST',
