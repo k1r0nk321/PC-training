@@ -214,7 +214,7 @@ ${selectedItem.description ? '説明：' + selectedItem.description : ''}
 ${selectedItem.strictness ? '厳しさ：' + selectedItem.strictness : ''}
 ${extraContext ? '補足：' + extraContext : ''}
 
-${interviewMessages && interviewMessages.length > 0 ? '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n重要：問診で患者が同意・受入れ・宣言した内容（「やります」「頑張ります」「飲みます」等）がある場合、治療方針でも同じ内容が提示されたときに矛盾した反応を示してはならない。問診での合意を引き継いで反応すること。' : ''}
+${interviewMessages && interviewMessages.length > 0 ? '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n【問診合意と治療方針の比較ルール - 最重要】\n1. 今回提示された治療の厳しさと、問診で患者が合意・宣言したレベルを慎重に比較すること。\n2. 【スムーズ同意条件】提示治療が問診での合意・宣言と同等またはより緩い場合\n   → acceptance_levelは必ず\"accepted\"。「それならできます」「問診でお話しした通りですね」など自然に受け入れる。\n3. 【ゼロから抵抗条件】提示治療が問診での合意より明らかに厳しい場合\n   → 問診合意を無視し、治療内容の厳しさに対してゼロから戸惑い・交渉・抵抗を示す。\n4. 問診で一切触れていない治療 → 患者の性格・態度に基づく初回自然反応。\n5. 厳しさ順位（強→弱）：very_strict ＞ strict ＞ moderate ＞ mild ＞ very_mild ＞ none。\n   問診で\"moderate\"合意 → \"mild\"提示はスムーズ同意。\"strict\"提示はゼロから抵抗。' : ''}
 
 ${previousText}
 ${persuasionText}
