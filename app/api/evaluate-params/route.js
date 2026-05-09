@@ -37,8 +37,7 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `【最近の会話】\n` + convo + `\n\n` +
     `【評価ルール - 重要】\n` +
     `A. 患者の発言を強く反映する。\n` +
-    `   - 患者「やります」「頑張ります」「指導通りに」のような前向きな宣言 → lifestyle_motivation_delta=+1\n` +
-    `   - 患者「お薬飲みます」「飲み続けます」「指示通り服薬します」 → medication_motivation_delta=+1\n` +
+    `   - 患者「やります」「頑張ります」「運動します」「食事気をつけます」等、生活改善に関する前向きな宣言 → lifestyle_motivation_delta=+1\n` +
     `   - 患者の状態報告で実際の行動が変わったとき → ラベル/コメントを書き換え\n\n` +
     `B. 患者の行動報告でラベル/コメントを実態に書き換える。例：\n` +
     `   - 患者「週2回、30分歩いています」→ exercise_habit_label="1回30分歩行", exercise_habit_comment="週2回"\n` +
@@ -52,8 +51,14 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   ※ 生活改善意欲・服薬意欲が上昇した場合は、サーバー側で自動的に信頼度に+1されます。\n\n` +
     `D. 関連性のない発言・挨拶・短い相槌のみの場合は変動なし（全てnullまたは0）。\n\n` +
     `E. 変動幅の通常は -1〜+1 の整数。強い表現がある時のみ ±2。\n\n` +
-    `F. 重要：lifestyle_motivation と medication_motivation は減少しない。患者が後ろ向きでも 0 を返す。\n\n` +
-    `G. 重要：ストレス★・忙しさ★は患者本人の精神的・環境的パラメーターであり、問診や治療指導場面では変化しません。これらは別の経路（治療法選択での社会的支援）で変動します。本評価では一切扱わない（フィールド出力なし）。\n\n` +
+    `F. 重要：lifestyle_motivation は減少しない。患者が後ろ向きでも lifestyle_motivation_delta=0 を返す。\n\n` +
+    `G. 【最重要】medication_motivation_delta の特別ルール：\n` +
+    `   服薬意欲★は、医師が「服薬のメリット・デメリット・効果・副作用・リスク」を具体的に説明した時のみ変動する。\n` +
+    `   - 医師「この薬は〜の効果があります」「副作用として〜が起きることがあります」「薬を飲まないと〜のリスクがあります」→ +1\n` +
+    `   - 食事指導・運動指導・生活習慣指導のみ → medication_motivation_delta=0（変動しない）\n` +
+    `   - 患者が「薬を飲みます」等と言うだけ → medication_motivation_delta=0\n` +
+    `   - 服薬に関する医師の具体的な説明がない場合、必ず medication_motivation_delta=0 を返すこと。\n\n` +
+    `H. 重要：ストレス★・忙しさ★は患者本人の精神的・環境的パラメーターであり、問診や治療指導場面では変化しません。これらは別の経路（治療法選択での社会的支援）で変動します。本評価では一切扱わない（フィールド出力なし）。\n\n` +
     `【出力形式】JSONのみ。説明文・前後の文章・コードブロック記号は一切不要。\n` +
     `{\n` +
     `  "eating_habit_label": "新しい定型句、変化なしならnull",\n` +
@@ -61,7 +66,7 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `  "exercise_habit_label": "新しい定型句、変化なしならnull",\n` +
     `  "exercise_habit_comment": "新しいコメント、変化なしならnull",\n` +
     `  "lifestyle_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
-    `  "medication_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
+    `  "medication_motivation_delta": 整数(0または+1、医師が服薬の効果・副作用・リスクを説明した時のみ変動。それ以外は必ず0),\n` +
     `  "trust_level_delta": 整数(-2〜+2、医師の態度のみで判定),\n` +
     `  "reasoning": "1〜2文の評価理由"\n` +
     `}`
