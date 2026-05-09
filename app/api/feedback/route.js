@@ -215,6 +215,37 @@ ${guidelineText}
       // Non-blocking: don't fail the feedback if flag update fails
     }
 
+    // For existing cases: if Visit 1 has social support, directly update Visit 2's stress/busyness
+    if (visitNumber === 1 && flags.social_support_given) {
+      try {
+        const { data: v2Params } = await supabase
+          .from('visit_parameters')
+          .select('*')
+          .eq('case_id', caseId)
+          .eq('visit_number', 2)
+          .maybeSingle()
+        if (v2Params) {
+          const newStress = Math.max(1, v2Params.stress - 1)
+          const newBusyness = Math.max(1, v2Params.busyness - 1)
+          const pendingChanges = {}
+          if (newStress < v2Params.stress) pendingChanges.stress = '↓'
+          if (newBusyness < v2Params.busyness) pendingChanges.busyness = '↓'
+          if (Object.keys(pendingChanges).length > 0) {
+            const existingPending = v2Params.pending_treatment_changes || {}
+            await supabase
+              .from('visit_parameters')
+              .update({
+                stress: newStress,
+                busyness: newBusyness,
+                pending_treatment_changes: Object.assign({}, existingPending, pendingChanges)
+              })
+              .eq('case_id', caseId)
+              .eq('visit_number', 2)
+          }
+        }
+      } catch (v2Err) {}
+    }
+
     return Response.json({ feedback: feedbackText })
 
   } catch (e) {
