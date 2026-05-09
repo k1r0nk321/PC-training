@@ -17,7 +17,8 @@ function clamp(v, min, max) {
 }
 
 function buildPrompt(recentMessages, currentParams, contextType, personality) {
-  const contextLabel = contextType === 'treatment' ? '治療方針提示後の指導場面' : '問診場面'
+  const isInterview = contextType !== 'treatment'
+  const contextLabel = isInterview ? '問診場面' : '治療方針提示後の指導場面'
   const convo = recentMessages.map(function(m) {
     const role = m.role === 'user' ? '医師' : '患者'
     return role + ': ' + m.content
@@ -30,13 +31,11 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `【現在のパラメーター】\n` +
     `- 食生活習慣: ` + (currentParams.eating_habit_label || '') + ' (' + (currentParams.eating_habit_comment || '') + `)\n` +
     `- 運動習慣: ` + (currentParams.exercise_habit_label || '') + ' (' + (currentParams.exercise_habit_comment || '') + `)\n` +
-    `- ストレス★: ` + currentParams.stress + `/5（★多=悪い、減らせば改善）\n` +
-    `- 忙しさ★: ` + currentParams.busyness + `/5（★多=悪い、減らせば改善）\n` +
     `- 生活改善意欲★: ` + currentParams.lifestyle_motivation + `/5（★多=良い、増えれば改善）\n` +
     `- 服薬意欲★: ` + currentParams.medication_motivation + `/5（★多=良い、増えれば改善）\n` +
     `- 信頼度★: ` + currentParams.trust_level + `/5（★多=良い、医師への信頼度）\n\n` +
     `【最近の会話】\n` + convo + `\n\n` +
-    `【評価ルール】\n` +
+    `【評価ルール - 重要】\n` +
     `A. 患者の発言を強く反映する。\n` +
     `   - 患者「やります」「頑張ります」「指導通りに」のような前向きな宣言 → lifestyle_motivation_delta=+1\n` +
     `   - 患者「お薬飲みます」「飲み続けます」「指示通り服薬します」 → medication_motivation_delta=+1\n` +
@@ -50,23 +49,17 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   - 医師の共感的な傾聴・患者の気持ちに寄り添う発言・納得のいく説明 → trust_level_delta=+1\n` +
     `   - 医師の批判的・否定的・押付け・無関心・専門用語の押付け → trust_level_delta=-1\n` +
     `   - 中立的な普通の発言 → trust_level_delta=0\n` +
-    `   ※ 生活改善意欲・服薬意欲が上昇した場合は、サーバー側で自動的に信頼度に+1されるので、ここでは医師の態度のみを評価してください。\n\n` +
-    `D. ストレス・忙しさ★の評価（患者の発言から）：\n` +
-    `   - 患者「リラックスできてます」「ゆとりが出てきた」 → stress_delta=-1\n` +
-    `   - 患者「最近イライラして」「眠れなくて」 → stress_delta=+1\n` +
-    `   - 患者「仕事が落ち着きました」 → busyness_delta=-1\n` +
-    `   - 患者「残業続きで」「休みもなくて」 → busyness_delta=+1\n\n` +
-    `E. 関連性のない発言・挨拶・短い相槌のみの場合は変動なし（全てnullまたは0）。\n\n` +
-    `F. 変動幅の通常は -1〜+1 の整数。強い表現がある時のみ ±2。\n\n` +
-    `G. 重要：lifestyle_motivation と medication_motivation は減少しない。患者が後ろ向きでも 0 を返す。\n\n` +
+    `   ※ 生活改善意欲・服薬意欲が上昇した場合は、サーバー側で自動的に信頼度に+1されます。\n\n` +
+    `D. 関連性のない発言・挨拶・短い相槌のみの場合は変動なし（全てnullまたは0）。\n\n` +
+    `E. 変動幅の通常は -1〜+1 の整数。強い表現がある時のみ ±2。\n\n` +
+    `F. 重要：lifestyle_motivation と medication_motivation は減少しない。患者が後ろ向きでも 0 を返す。\n\n` +
+    `G. 重要：ストレス★・忙しさ★は患者本人の精神的・環境的パラメーターであり、問診や治療指導場面では変化しません。これらは別の経路（治療法選択での社会的支援）で変動します。本評価では一切扱わない（フィールド出力なし）。\n\n` +
     `【出力形式】JSONのみ。説明文・前後の文章・コードブロック記号は一切不要。\n` +
     `{\n` +
     `  "eating_habit_label": "新しい定型句、変化なしならnull",\n` +
     `  "eating_habit_comment": "新しいコメント、変化なしならnull",\n` +
     `  "exercise_habit_label": "新しい定型句、変化なしならnull",\n` +
     `  "exercise_habit_comment": "新しいコメント、変化なしならnull",\n` +
-    `  "stress_delta": 整数(-2〜+2),\n` +
-    `  "busyness_delta": 整数(-2〜+2),\n` +
     `  "lifestyle_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
     `  "medication_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
     `  "trust_level_delta": 整数(-2〜+2、医師の態度のみで判定),\n` +
@@ -140,13 +133,12 @@ export async function POST(req) {
       Math.min(5, initialTrust + 2)
     )
 
+    // Stress and busyness do NOT change in interview/treatment context (only via social support effect at next visit)
     const newParams = {
       eating_habit_label: evaluation.eating_habit_label != null ? evaluation.eating_habit_label : currentParams.eating_habit_label,
       eating_habit_comment: evaluation.eating_habit_comment != null ? evaluation.eating_habit_comment : currentParams.eating_habit_comment,
       exercise_habit_label: evaluation.exercise_habit_label != null ? evaluation.exercise_habit_label : currentParams.exercise_habit_label,
       exercise_habit_comment: evaluation.exercise_habit_comment != null ? evaluation.exercise_habit_comment : currentParams.exercise_habit_comment,
-      stress: clamp((currentParams.stress || 3) + (evaluation.stress_delta || 0), 1, 5),
-      busyness: clamp((currentParams.busyness || 3) + (evaluation.busyness_delta || 0), 1, 5),
       lifestyle_motivation: newLifestyle,
       medication_motivation: newMedication,
       trust_level: newTrust,
@@ -166,8 +158,6 @@ export async function POST(req) {
     }
 
     const deltas = {
-      stress: newParams.stress - (currentParams.stress || 3),
-      busyness: newParams.busyness - (currentParams.busyness || 3),
       lifestyle_motivation: newLifestyle - currentParams.lifestyle_motivation,
       medication_motivation: newMedication - currentParams.medication_motivation,
       trust_level: newTrust - currentTrust,
