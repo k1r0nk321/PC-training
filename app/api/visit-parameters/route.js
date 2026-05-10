@@ -36,8 +36,21 @@ function clamp(v, min, max) {
 
 function convertHiddenParams(hidden, visitNumber) {
   const adherenceStar = ENUM_TO_STARS[hidden.adherence_level] || 3
-  const medAttitudeStar = MEDICATION_ATTITUDE_MAP[hidden.medication_attitude] || 3
-  const medMotivation = Math.round((adherenceStar + medAttitudeStar) / 2)
+  const medAttitude = hidden.medication_attitude
+  // 薄薬への態度を優先して初期服薬意欲を計算
+  // very_negative / negative の患者は初期是ˇ0-2（薄薬への抵抗感を反映）
+  let medMotivation
+  if (medAttitude === 'very_negative') {
+    medMotivation = adherenceStar >= 4 ? 1 : 0
+  } else if (medAttitude === 'negative') {
+    medMotivation = adherenceStar >= 4 ? 2 : 1
+  } else if (medAttitude === 'neutral') {
+    medMotivation = adherenceStar
+  } else if (medAttitude === 'positive') {
+    medMotivation = Math.min(5, adherenceStar + 1)
+  } else {
+    medMotivation = 3
+  }
   const lifestyleMot = ENUM_TO_STARS[hidden.lifestyle_motivation] || 3
 
   return {
