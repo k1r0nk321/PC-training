@@ -1,0 +1,220 @@
+export const maxDuration = 60
+
+import { createClient } from '@supabase/supabase-js'
+import Anthropic from '@anthropic-ai/sdk'
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+}
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+export async function POST(req) {
+  try {
+    const body = await req.json()
+    const {
+      caseId,
+      selectedMedications,
+      selectedEducation,
+      selectedSubOptions,
+      selectedDevices,
+      reactionLog,
+      interviewMessages,
+      visit3Vitals,
+    } = body
+
+    if (!caseId) {
+      return Response.json({ error: 'caseId required' }, { status: 400 })
+    }
+
+    const supabase = getAdminClient()
+    const { data: caseData, error } = await supabase
+      .from('cases').select('*').eq('id', caseId).single()
+    if (error || !caseData) {
+      return Response.json({ error: 'Case not found' }, { status: 404 })
+    }
+
+    const patient = caseData.patient_data
+    const v1 = caseData.visit1_data || {}
+    const v2 = caseData.visit2_data || {}
+
+    // ===== Helper: format Visit summary for prompt =====
+    function formatVisitMeds(meds) {
+      if (!meds || meds.length === 0) return 'なし'
+      return meds.map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' }).join('、')
+    }
+    function formatVisitEdu(edu) {
+      if (!edu || edu.length === 0) return 'なし'
+      return edu.map(function(e) { return e.instruction_key }).join('、')
+    }
+    function formatVisitSubs(subs) {
+      if (!subs || subs.length === 0) return 'なし'
+      return subs.map(function(s) { return s.label || s.id }).join('、')
+    }
+    function formatMessagesShort(messages, maxLen) {
+      if (!messages || messages.length === 0) return '（記録なし）'
+      const filtered = messages.filter(function(m) { return m.role !== 'system' })
+      const lines = filtered.map(function(m) {
+        const who = m.role === 'user' ? '医師' : '患者'
+        return who + ': ' + m.content
+      })
+      const text = lines.join('\n')
+      if (maxLen && text.length > maxLen) return text.substring(0, maxLen) + '...（省略）'
+      return text
+    }
+    function summarizeReactions(log) {
+      if (!log || log.length === 0) return '（反応記録なし）'
+      const accepted = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'accepted' }).length
+      const partial = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'partial' }).length
+      const rejected = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'rejected' }).length
+      const negotiating = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'negotiating' }).length
+      return '同意 ' + accepted + ' 件・一部同意 ' + partial + ' 件・拒否 ' + rejected + ' 件・交渉中 ' + negotiating + ' 件'
+    }
+
+    const v1Vitals = patient.vitals
+    const v2Vitals = v2.vitals || {}
+
+    // ===== Build comprehensive evaluation prompt =====
+    const prompt = `あなたは医学教育における外来診療シミュレーションの指導医です。
+以下の症例について、研修医の3回の外来診察（Visit 1〜3、合計8週間）をすべて踏まえて、最終総合評価（100点満点）を行ってください。
+
+【症例情報】
+疾患：${caseData.disease_name}
+患者：${patient.name}（${patient.age}歳・${patient.gender}）
+主訴：${patient.chief_complaint}
+初診時バイタル：血圧 ${v1Vitals.bp}、体重 ${v1Vitals.weight}kg、BMI ${v1Vitals.bmi}
+
+================================================================
+【Visit 1（初診）の経過】
+問診（医師-患者対話）:
+${formatMessagesShort(v1.interviewMessages, 1500)}
+
+選択した治療：
+- 投薬：${formatVisitMeds(v1.selectedMedications)}
+- 患者教育：${formatVisitEdu(v1.selectedEducation)}
+- 詳細指導：${formatVisitSubs(v1.selectedSubOptions)}
+- 医療機器：${formatVisitEdu(v1.selectedDevices)}
+
+患者の反応：${summarizeReactions(v1.reactionLog)}
+
+================================================================
+【Visit 2（4週後）の経過】
+問診（医師-患者対話）:
+${formatMessagesShort(v2.interviewMessages, 1500)}
+
+選択した治療：
+- 投薬：${formatVisitMeds(v2.selectedMedications)}
+- 患者教育：${formatVisitEdu(v2.selectedEducation)}
+- 詳細指導：${formatVisitSubs(v2.selectedSubOptions)}
+- 医療機器：${formatVisitEdu(v2.selectedDevices)}
+
+患者の反応：${summarizeReactions(v2.reactionLog)}
+
+Visit 2 のバイタル変化：
+- 血圧：${v1Vitals.bp} → ${v2Vitals.bp || '(記録なし)'}
+- 体重：${v1Vitals.weight}kg → ${v2Vitals.weight || '(記録なし)'}kg
+
+================================================================
+【Visit 3（8週後）の経過】※今回確定された治療
+問診（医師-患者対話）:
+${formatMessagesShort(interviewMessages, 1500)}
+
+選択した治療：
+- 投薬：${formatVisitMeds(selectedMedications)}
+- 患者教育：${formatVisitEdu(selectedEducation)}
+- 詳細指導：${formatVisitSubs(selectedSubOptions)}
+- 医療機器：${formatVisitEdu(selectedDevices)}
+
+患者の反応：${summarizeReactions(reactionLog)}
+
+Visit 3 のバイタル変化：
+- 血圧：${v2Vitals.bp || v1Vitals.bp} → ${visit3Vitals?.bp || '(記録なし)'}
+- 体重：${v2Vitals.weight || v1Vitals.weight}kg → ${visit3Vitals?.weight || '(記録なし)'}kg
+
+================================================================
+【評価基準】
+各 Visit で以下の4軸を評価してください。各 Visit は約 33 点満点（合計 100 点）。
+
+評価軸（各 Visit 共通）：
+1. **問診（情報収集）**：適切な質問・症状確認・既往/家族歴/生活歴の聴取ができたか（約8点）
+2. **治療選択（薬剤・指導の妥当性）**：診断・ガイドラインに沿った治療か、患者背景を踏まえた選択か（約9点）
+3. **患者対応（コミュニケーション）**：患者の反応に対する説明・説得・共感、拒否時の対応（約8点）
+4. **アウトカム（治療効果・改善度）**：
+    - Visit 1：治療プランの妥当性が将来の改善に繋がる設計か
+    - Visit 2：Visit 1→2 の血圧・体重・検査値の改善度
+    - Visit 3：Visit 2→3 の改善度、目標達成度（血圧 < 140/90 等）（約8点）
+
+================================================================
+【出力形式】※必ずこの順番・形式で出力してください
+
+TOTAL_SCORE: [0〜100の整数]
+VISIT_1_SCORE: [0〜33の整数]
+VISIT_2_SCORE: [0〜33の整数]
+VISIT_3_SCORE: [0〜34の整数]
+
+COMMENT:
+（以下、研修医への建設的なフィードバック。具体的な強み・改善点を含めて 400〜700 文字程度。各 Visit ごとの簡潔な振り返りと、最終的な総評を含めること。Markdown は使わずプレーンテキストで。）`
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const aiResponse = message.content[0].text.trim()
+
+    // ===== Parse AI response =====
+    const totalMatch = aiResponse.match(/TOTAL_SCORE:\s*(\d+)/)
+    const v1Match = aiResponse.match(/VISIT_1_SCORE:\s*(\d+)/)
+    const v2Match = aiResponse.match(/VISIT_2_SCORE:\s*(\d+)/)
+    const v3Match = aiResponse.match(/VISIT_3_SCORE:\s*(\d+)/)
+    const commentMatch = aiResponse.match(/COMMENT:\s*([\s\S]*)/)
+
+    let totalScore = totalMatch ? parseInt(totalMatch[1]) : null
+    const breakdown = {
+      v1: v1Match ? parseInt(v1Match[1]) : 0,
+      v2: v2Match ? parseInt(v2Match[1]) : 0,
+      v3: v3Match ? parseInt(v3Match[1]) : 0,
+    }
+    // Sanity: if TOTAL not parsed but breakdown is, sum it
+    if (totalScore === null && (breakdown.v1 || breakdown.v2 || breakdown.v3)) {
+      totalScore = breakdown.v1 + breakdown.v2 + breakdown.v3
+    }
+    if (totalScore === null) totalScore = 0
+    if (totalScore > 100) totalScore = 100
+    if (totalScore < 0) totalScore = 0
+
+    const commentText = commentMatch ? commentMatch[1].trim() : aiResponse
+
+    // ===== Save to DB =====
+    const updateData = {
+      visit3_feedback: commentText,
+      visit3_data: {
+        selectedMedications: selectedMedications || [],
+        selectedEducation: selectedEducation || [],
+        selectedSubOptions: selectedSubOptions || [],
+        selectedDevices: selectedDevices || [],
+        reactionLog: reactionLog || [],
+        interviewMessages: interviewMessages || [],
+        vitals: visit3Vitals,
+        finalScore: totalScore,
+        breakdown: breakdown,
+      },
+      status: 'completed',
+    }
+
+    await supabase.from('cases').update(updateData).eq('id', caseId)
+
+    return Response.json({
+      feedback: commentText,
+      score: totalScore,
+      breakdown: breakdown,
+    })
+
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 })
+  }
+}
