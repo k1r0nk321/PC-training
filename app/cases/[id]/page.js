@@ -682,7 +682,10 @@ export default function CaseDetailPage({ params }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>Visit 1 フィードバック</h1>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={function() { window.location.href = '/cases/' + params.id + '/visit2' }}
+              <button onClick={async function() {
+                  try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
+                  window.location.href = '/cases/' + params.id + '/visit2'
+                }}
                 style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
                 Visit 2へ進む →
               </button>
