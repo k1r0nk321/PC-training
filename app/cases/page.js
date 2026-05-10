@@ -46,15 +46,25 @@ export default function CasesPage() {
 
   async function fetchInProgressCases(userId) {
     try {
+      // saved_state IS NOT NULL のフィルタはクライアント側で行う（PostgREST .not() の挙動が DB バージョン依存のため）
       const { data, error } = await supabase
         .from('cases')
         .select('id, disease_name, saved_state, record_saved_at, patient_data')
         .eq('user_id', userId)
-        .not('saved_state', 'is', null)
         .order('record_saved_at', { ascending: false })
-      if (error) { console.error('in-progress fetch error', error); return }
-      setInProgressCases(data || [])
-    } catch (e) { console.error(e) }
+        .limit(50)
+      if (error) {
+        console.error('[in-progress] fetch error:', error)
+        return
+      }
+      const filtered = (data || []).filter(function(c) {
+        return c.saved_state && typeof c.saved_state === 'object' && c.saved_state.current_visit
+      })
+      console.log('[in-progress] total fetched:', (data || []).length, '/ with saved_state:', filtered.length)
+      setInProgressCases(filtered)
+    } catch (e) {
+      console.error('[in-progress] exception:', e)
+    }
   }
 
   function resumeCase(c) {
