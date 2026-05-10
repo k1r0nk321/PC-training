@@ -420,6 +420,9 @@ export default function Visit2Page({ params }) {
         if (Array.isArray(savedV2.selected_devices)) setSelectedDevices(savedV2.selected_devices)
         if (savedV2.selected_sub_options) setSelectedSubOptions(savedV2.selected_sub_options)
         if (Array.isArray(savedV2.reaction_log)) setReactionLog(savedV2.reaction_log)
+        if (savedV2.feedback) setFeedback(savedV2.feedback)
+        if (savedV2.visit2Data) setVisit2Data(savedV2.visit2Data)
+        if (typeof savedV2.labs_revealed === 'boolean') setLabsRevealed(savedV2.labs_revealed)
         if (savedV2.step) setStep(savedV2.step)
       }
 
@@ -543,7 +546,10 @@ export default function Visit2Page({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
-            reaction_log: reactionLog
+            reaction_log: reactionLog,
+            feedback: feedback,
+            visit2Data: visit2Data,
+            labs_revealed: labsRevealed
           }
         }
         await fetch('/api/save-record', {
