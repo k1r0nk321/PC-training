@@ -32,6 +32,24 @@ export async function POST(req) {
     const selectedSubs = visit1.selectedSubOptions || []
     const reactionLog = visit1.reactionLog || []
 
+    // ===== 患者の同意が得られた介入のみを有効とする =====
+    function isConsentedItem(item, expectedType) {
+      if (!item || item.id == null) return false
+      const match = reactionLog.find(function(r) {
+        if (!r || !r.reaction || !r.item) return false
+        if (expectedType && r.selectionType !== expectedType) return false
+        return r.item.id === item.id
+      })
+      if (!match) return false
+      const acc = match.reaction.acceptance_level
+      return acc === 'accepted' || acc === 'partial'
+    }
+    const consentedMeds = selectedMeds.filter(function(m) { return isConsentedItem(m, 'medication') })
+    const consentedEdu = selectedEdu.filter(function(e) { return isConsentedItem(e, 'education') })
+    const consentedSubs = selectedSubs.filter(function(s) { return isConsentedItem(s, 'education_sub') })
+    const rejectedMedNames = selectedMeds.filter(function(m) { return !isConsentedItem(m, 'medication') }).map(function(m) { return m.drug_name_generic })
+    const rejectedSubLabels = selectedSubs.filter(function(s) { return !isConsentedItem(s, 'education_sub') }).map(function(s) { return s.label || s.id })
+
     // ===== 元の生活習慣の「悪さ」を評価（改善余地の大きさ） =====
     const lifestyleBadness = [
       hidden.eating_habit === 'eating_out' ? 2 : 0,
@@ -44,8 +62,8 @@ export async function POST(req) {
     // lifestyleBadness: 0〜9（高いほど改善余地が大きい）
 
     // ===== 介入の強度を評価 =====
-    const interventionCount = selectedSubs.length + selectedEdu.length + selectedMeds.length
-    const strictnessScore = selectedSubs.reduce(function(sum, s) {
+    const interventionCount = consentedSubs.length + consentedEdu.length + consentedMeds.length
+    const strictnessScore = consentedSubs.reduce(function(sum, s) {
       const scores = { very_strict: 3, strict: 2, moderate: 1, mild: 0.5, very_mild: 0.2, none: 0 }
       return sum + (scores[s.strictness] || 0)
     }, 0)
@@ -78,14 +96,14 @@ export async function POST(req) {
 
     // ===== 降圧効果の計算 =====
     // 投薬効果（第一選択薬かどうかに関わらず一定の効果）
-    const hasMedication = selectedMeds.length > 0
+    const hasMedication = consentedMeds.length > 0
     const medEffect = hasMedication ? (10 + Math.floor(Math.random() * 8)) : 0
 
     // 生活指導の効果
     // 食生活が悪い患者は緩やかな制限でも効果大
-    const saltSubs = selectedSubs.filter(function(s) { return s.category === 'salt' })
-    const calorieSubs = selectedSubs.filter(function(s) { return s.category === 'calorie' })
-    const lifestyleSubs = selectedSubs.filter(function(s) {
+    const saltSubs = consentedSubs.filter(function(s) { return s.category === 'salt' })
+    const calorieSubs = consentedSubs.filter(function(s) { return s.category === 'calorie' })
+    const lifestyleSubs = consentedSubs.filter(function(s) {
       return ['eating_out', 'night_eating', 'alcohol', 'aerobic', 'resistance'].includes(s.category)
     })
 
@@ -124,7 +142,7 @@ export async function POST(req) {
     const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
     const recCal = Math.round(idealWeight * actCoef / 200) * 200
 
-    const calSub = selectedSubs.find(function(s) { return s.category === 'calorie' })
+    const calSub = consentedSubs.find(function(s) { return s.category === 'calorie' })
     const selectedCal = calSub ? parseInt(calSub.id.replace('cal_', '')) : null
 
     const bmiExcess = Math.max(0, bmi1 - 22)
@@ -191,7 +209,9 @@ ${motivationChange}
 
 【Visit 1の治療】
 投薬：${selectedMeds.length > 0 ? selectedMeds.map(function(m) { return m.drug_name_generic }).join('・') : 'なし'}
+${rejectedMedNames.length > 0 ? '※同意を得ずに処方された薬：' + rejectedMedNames.join('・') + '（副作用への不安や治療方針への不同意で服用していない）' : ''}
 主な生活指導：${selectedSubs.length > 0 ? selectedSubs.map(function(s) { return s.label }).slice(0, 3).join('・') : '特になし'}
+${rejectedSubLabels.length > 0 ? '※同意を得ずに指導された生活指導：' + rejectedSubLabels.slice(0, 3).join('・') + '（本人は守れていない）' : ''}
 
 【4週間の経過】
 血圧変化：${systolic1}/${diastolic1} → ${systolic2}/${diastolic2} mmHg
