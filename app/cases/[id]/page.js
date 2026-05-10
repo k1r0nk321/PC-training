@@ -302,6 +302,10 @@ export default function CaseDetailPage({ params }) {
   const reactionLogEndRef = useRef(null)
   const showDebug = process.env.NEXT_PUBLIC_SHOW_DEBUG === 'true'
 
+  const [showKarte, setShowKarte] = useState(false)
+  const [karteTab, setKarteTab] = useState(1)
+  const [karteExtraData, setKarteExtraData] = useState(null)
+
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
@@ -592,6 +596,7 @@ export default function CaseDetailPage({ params }) {
                 style={{ padding: '8px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
                 別の症例へ
               </button>
+              <button onClick={openKarte} style={{ padding: '8px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
             </div>
           </div>
           {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
@@ -604,6 +609,55 @@ export default function CaseDetailPage({ params }) {
               <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd' }}>
                 <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>📋 次のステップ</p>
                 <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>「Visit 2へ進む」をクリックして4週後の再診をシミュレーションしてください。</p>
+              </div>
+            </div>
+          )}
+          {showKarte && (
+            <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+              <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+                  <div>
+                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>📋 カルテ</h2>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{(caseData && caseData.patient_data && caseData.patient_data.name) || ''}（{(caseData && caseData.patient_data && caseData.patient_data.age) || ''}歳・{(caseData && caseData.patient_data && caseData.patient_data.gender) || ''}）／{(caseData && caseData.disease_name) || ''}</p>
+                  </div>
+                  <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
+                </div>
+                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
+                  <button onClick={function() { setKarteTab(1) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 1 ? '#f0f9ff' : 'white', color: karteTab === 1 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 1 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 1 ? 'bold' : 'normal' }}>Visit 1（初診）</button>
+                  <button onClick={function() { setKarteTab(2) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 2 ? '#f0f9ff' : 'white', color: karteTab === 2 ? '#94a3b8' : '#64748b', border: 'none', borderBottom: karteTab === 2 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 2 ? 'bold' : 'normal' }}>Visit 2（未実施）</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontSize: '13px', lineHeight: 1.7, color: '#1e293b' }}>
+                  {karteTab === 1 && (
+                    <div>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
+                      <p style={{ margin: '0 0 12px' }}>職業：{(caseData && caseData.patient_data && caseData.patient_data.occupation) || '—'}<br />家族歴：{(caseData && caseData.patient_data && caseData.patient_data.family_history) || '—'}<br />既往歴：{(caseData && caseData.patient_data && caseData.patient_data.past_history) || '—'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見</h3>
+                      <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>治療方針</h3>
+                      <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
+                      <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
+                      {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                        <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                          {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                          })}
+                        </div>
+                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+                    </div>
+                  )}
+                  {karteTab === 2 && (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                      <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📅</p>
+                      <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px' }}>Visit 2（4週後の再診）は未実施です</p>
+                      <p style={{ fontSize: '12px', margin: 0 }}>「Visit 2へ進む」を押すと再診シミュレーションが開始されます</p>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                  <button onClick={handleExportPDF} style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🖨 PDFで出力</button>
+                  <button onClick={handleExportJSON} style={{ flex: 1, padding: '8px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>💾 JSONで保存</button>
+                </div>
               </div>
             </div>
           )}
@@ -974,6 +1028,50 @@ export default function CaseDetailPage({ params }) {
         </div>
       </div>
     )
+  }
+
+
+  async function openKarte() {
+    if (caseData && caseData.id) {
+      try {
+        await fetch('/api/save-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: caseData.id, visitNumber: 1, messages: messages, labData: null })
+        }).catch(function() {})
+        const res = await fetch('/api/save-record?caseId=' + caseData.id)
+        if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
+      } catch (e) {}
+    }
+    setShowKarte(true)
+  }
+
+  function handleExportPDF() {
+    const patient = (caseData && caseData.patient_data) || {}
+    const v1Meds = (selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
+    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Msgs = messages.filter(function(m) { return m.role !== 'system' })
+    const msgHtml = v1Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>カルテ</title><style>body{font-family:sans-serif;padding:20px;color:#1e293b}h1{color:#0369a1;font-size:18px;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{color:#0369a1;font-size:14px;margin-top:14px;border-left:3px solid #0369a1;padding-left:6px}p{font-size:12px;line-height:1.6}</style></head><body>'
+      + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
+      + '<p>疾患：' + ((caseData && caseData.disease_name)||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
+      + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '<br>家族歴：' + (patient.family_history||'') + '<br>既往歴：' + (patient.past_history||'') + '</p>'
+      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.vitals && patient.vitals.weight)||'') + 'kg　BMI：' + ((patient.vitals && patient.vitals.bmi)||'') + '</p>'
+      + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
+      + '<h2>【Visit 1 問診内容】</h2>' + msgHtml + '</body></html>'
+    var win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+    setTimeout(function() { win.print() }, 500)
+  }
+
+  function handleExportJSON() {
+    var data = { savedAt: new Date().toISOString(), patient: caseData && caseData.patient_data, diseaseName: caseData && caseData.disease_name, visit1: { selectedMedications: selectedMeds, selectedEducation: selectedEducation, messages: messages } }
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    var url = URL.createObjectURL(blob)
+    var a = document.createElement('a')
+    a.href = url; a.download = 'karte_visit1_' + ((caseData && caseData.patient_data && caseData.patient_data.name) || 'unknown') + '.json'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
 
