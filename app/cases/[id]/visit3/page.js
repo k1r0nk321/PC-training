@@ -316,6 +316,8 @@ export default function Visit3Page({ params }) {
   const [activeDeviceModal, setActiveDeviceModal] = useState(null)
 
   const [feedback, setFeedback] = useState(null)
+  const [finalScore, setFinalScore] = useState(null)
+  const [scoreBreakdown, setScoreBreakdown] = useState(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const messagesEndRef = useRef(null)
@@ -417,6 +419,8 @@ export default function Visit3Page({ params }) {
         if (savedV3.selected_sub_options) setSelectedSubOptions(savedV3.selected_sub_options)
         if (Array.isArray(savedV3.reaction_log)) setReactionLog(savedV3.reaction_log)
         if (savedV3.feedback) setFeedback(savedV3.feedback)
+        if (typeof savedV3.final_score === 'number') setFinalScore(savedV3.final_score)
+        if (savedV3.score_breakdown) setScoreBreakdown(savedV3.score_breakdown)
         if (savedV3.visit3Data) setVisit3Data(savedV3.visit3Data)
         if (typeof savedV3.labs_revealed === 'boolean') setLabsRevealed(savedV3.labs_revealed)
         if (savedV3.step) setStep(savedV3.step)
@@ -545,6 +549,8 @@ export default function Visit3Page({ params }) {
             reaction_log: reactionLog,
             feedback: feedback,
             visit3Data: visit3Data,
+            final_score: finalScore,
+            score_breakdown: scoreBreakdown,
             labs_revealed: labsRevealed
           }
         }
@@ -745,6 +751,8 @@ export default function Visit3Page({ params }) {
       const data = await res.json()
       if (data.error) { alert('フィードバック取得エラー：' + data.error); return }
       setFeedback(data.feedback)
+      if (typeof data.score === 'number') setFinalScore(data.score)
+      if (data.breakdown) setScoreBreakdown(data.breakdown)
       setStep('feedback')
     } catch (e) {
       alert('エラーが発生しました：' + e.message)
@@ -864,7 +872,25 @@ export default function Visit3Page({ params }) {
             <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
 
+          {/* 🏆 最終スコア（大きく表示） */}
+          <div style={{
+            background: 'linear-gradient(135deg, #059669 0%, #0369a1 100%)',
+            borderRadius: '16px', padding: '32px 24px', marginBottom: '16px',
+            color: 'white', textAlign: 'center', boxShadow: '0 4px 20px rgba(3,105,161,0.25)'
+          }}>
+            <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.95 }}>🏆 最終総合評価</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '64px', fontWeight: 'bold', lineHeight: 1 }}>{finalScore !== null ? finalScore : '—'}</span>
+              <span style={{ fontSize: '24px', fontWeight: 'bold', opacity: 0.85 }}>/ 100</span>
+            </div>
+            <p style={{ fontSize: '12px', margin: '8px 0 0', opacity: 0.85 }}>
+              （Visit 1〜3 を総合した3ヶ月間の診療評価）
+            </p>
+          </div>
+
+          {/* 総評コメント */}
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 12px' }}>📝 指導医からの総評</p>
             <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
               {feedback}
             </div>
