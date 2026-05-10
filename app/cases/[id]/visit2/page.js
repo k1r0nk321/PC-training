@@ -774,7 +774,7 @@ export default function Visit2Page({ params }) {
                   <div>
                     <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                       📋 カルテ
-                      <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>一時保存</span>
+                      <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>一時保存成功</span>
                     </h2>
                     <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{caseData.patient_data?.name || ''}（{caseData.patient_data?.age || ''}歳・{caseData.patient_data?.gender || ''}）／{caseData.disease_name || ''}</p>
                     <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0', fontStyle: 'italic' }}>※ カルテを開くと現在の進行状況が自動的に一時保存され、次回同じ症例を開いた際に再開できます。</p>
@@ -842,7 +842,7 @@ export default function Visit2Page({ params }) {
               <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2 フィードバック</h1>
               <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
             </div>
-            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
@@ -886,7 +886,7 @@ export default function Visit2Page({ params }) {
               style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
               症例選択へ
             </button>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
           {karteNode}
         </div>
@@ -926,7 +926,7 @@ export default function Visit2Page({ params }) {
                 style={{ padding: '7px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
                 ← 問診に戻る
               </button>
-              <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+              <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
             </div>
           </div>
 
@@ -1171,7 +1171,7 @@ export default function Visit2Page({ params }) {
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
             <button onClick={function() { window.location.href = '/cases' }}
               style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
               症例選択へ
