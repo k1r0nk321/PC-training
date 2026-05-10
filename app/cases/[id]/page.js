@@ -336,12 +336,8 @@ export default function CaseDetailPage({ params }) {
           setVisitParams(pd.params)
         }
       } catch (e) {}
-      setMessages([{
-        role: 'assistant',
-        content: data.patient_data.name + 'さん（' + data.patient_data.age + '歳・' +
-          data.patient_data.gender + '）が来院されました。\n\n主訴：「' +
-          data.patient_data.chief_complaint + '」\n\n問診・診察を始めてください。'
-      }])
+
+      // マスタデータを先に取得（再開時の復元に必要）
       const [medsRes, eduRes, devRes] = await Promise.all([
         fetch('/api/medications?diseaseId=' + data.disease_id),
         fetch('/api/education?diseaseId=' + data.disease_id),
@@ -353,6 +349,48 @@ export default function CaseDetailPage({ params }) {
       if (medsData.medications) setMedications(medsData.medications)
       if (eduData.items) setEducationItems(eduData.items)
       if (devData.devices) setDevices(devData.devices)
+
+      // ===== Phase 3: 再開ポップアップ =====
+      let resumed = false
+      try {
+        const sr = await fetch('/api/save-record?caseId=' + data.id)
+        if (sr.ok) {
+          const sd = await sr.json()
+          const savedState = sd && sd.saved_state
+          if (savedState && savedState.current_visit) {
+            const ok = window.confirm('前回の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
+            if (ok) {
+              if (savedState.current_visit === 2) {
+                window.location.href = '/cases/' + params.id + '/visit2'
+                return
+              }
+              const v1s = savedState.visit1 || {}
+              if (Array.isArray(v1s.messages)) setMessages(v1s.messages)
+              if (Array.isArray(v1s.selected_meds)) setSelectedMeds(v1s.selected_meds)
+              if (Array.isArray(v1s.selected_education)) setSelectedEducation(v1s.selected_education)
+              if (Array.isArray(v1s.selected_devices)) setSelectedDevices(v1s.selected_devices)
+              if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
+              if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
+              if (v1s.step) setStep(v1s.step)
+              resumed = true
+            } else {
+              // 新規開始: saved_state をクリア
+              try {
+                await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' })
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (!resumed) {
+        setMessages([{
+          role: 'assistant',
+          content: data.patient_data.name + 'さん（' + data.patient_data.age + '歳・' +
+            data.patient_data.gender + '）が来院されました。\n\n主訴：「' +
+            data.patient_data.chief_complaint + '」\n\n問診・診察を始めてください。'
+        }])
+      }
     } catch (e) {
       console.error('fetchCase error:', e)
     } finally {
@@ -580,6 +618,57 @@ export default function CaseDetailPage({ params }) {
   if (!caseData) return null
   const patient = caseData.patient_data
 
+  // ===== カルテモーダル（全ステップ共通） =====
+  const karteNode = showKarte && (
+    <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+      <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+          <div>
+            <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>📋 カルテ</h2>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{(caseData && caseData.patient_data && caseData.patient_data.name) || ''}（{(caseData && caseData.patient_data && caseData.patient_data.age) || ''}歳・{(caseData && caseData.patient_data && caseData.patient_data.gender) || ''}）／{(caseData && caseData.disease_name) || ''}</p>
+          </div>
+          <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
+          <button onClick={function() { setKarteTab(1) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 1 ? '#f0f9ff' : 'white', color: karteTab === 1 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 1 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 1 ? 'bold' : 'normal' }}>Visit 1（初診）</button>
+          <button onClick={function() { setKarteTab(2) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 2 ? '#f0f9ff' : 'white', color: karteTab === 2 ? '#94a3b8' : '#64748b', border: 'none', borderBottom: karteTab === 2 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 2 ? 'bold' : 'normal' }}>Visit 2（未実施）</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontSize: '13px', lineHeight: 1.7, color: '#1e293b' }}>
+          {karteTab === 1 && (
+            <div>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
+              <p style={{ margin: '0 0 12px' }}>職業：{(caseData && caseData.patient_data && caseData.patient_data.occupation) || '—'}<br />家族歴：{(caseData && caseData.patient_data && caseData.patient_data.family_history) || '—'}<br />既往歴：{(caseData && caseData.patient_data && caseData.patient_data.past_history) || '—'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見</h3>
+              <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>治療方針</h3>
+              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
+              {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                  {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                    return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                  })}
+                </div>
+              ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+            </div>
+          )}
+          {karteTab === 2 && (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+              <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📅</p>
+              <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px' }}>Visit 2（4週後の再診）は未実施です</p>
+              <p style={{ fontSize: '12px', margin: 0 }}>「Visit 2へ進む」を押すと再診シミュレーションが開始されます</p>
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+          <button onClick={handleExportPDF} style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🖨 PDFで出力</button>
+          <button onClick={handleExportJSON} style={{ flex: 1, padding: '8px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>💾 JSONで保存</button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ===== 採点結果 =====
   if (step === 'scoring') {
     return (
@@ -612,55 +701,7 @@ export default function CaseDetailPage({ params }) {
               </div>
             </div>
           )}
-          {showKarte && (
-            <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-              <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
-                  <div>
-                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>📋 カルテ</h2>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{(caseData && caseData.patient_data && caseData.patient_data.name) || ''}（{(caseData && caseData.patient_data && caseData.patient_data.age) || ''}歳・{(caseData && caseData.patient_data && caseData.patient_data.gender) || ''}）／{(caseData && caseData.disease_name) || ''}</p>
-                  </div>
-                  <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
-                </div>
-                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
-                  <button onClick={function() { setKarteTab(1) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 1 ? '#f0f9ff' : 'white', color: karteTab === 1 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 1 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 1 ? 'bold' : 'normal' }}>Visit 1（初診）</button>
-                  <button onClick={function() { setKarteTab(2) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 2 ? '#f0f9ff' : 'white', color: karteTab === 2 ? '#94a3b8' : '#64748b', border: 'none', borderBottom: karteTab === 2 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 2 ? 'bold' : 'normal' }}>Visit 2（未実施）</button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontSize: '13px', lineHeight: 1.7, color: '#1e293b' }}>
-                  {karteTab === 1 && (
-                    <div>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
-                      <p style={{ margin: '0 0 12px' }}>職業：{(caseData && caseData.patient_data && caseData.patient_data.occupation) || '—'}<br />家族歴：{(caseData && caseData.patient_data && caseData.patient_data.family_history) || '—'}<br />既往歴：{(caseData && caseData.patient_data && caseData.patient_data.past_history) || '—'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見</h3>
-                      <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>治療方針</h3>
-                      <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-                      <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
-                      {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
-                        <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                          {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
-                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
-                          })}
-                        </div>
-                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
-                    </div>
-                  )}
-                  {karteTab === 2 && (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                      <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📅</p>
-                      <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px' }}>Visit 2（4週後の再診）は未実施です</p>
-                      <p style={{ fontSize: '12px', margin: 0 }}>「Visit 2へ進む」を押すと再診シミュレーションが開始されます</p>
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                  <button onClick={handleExportPDF} style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🖨 PDFで出力</button>
-                  <button onClick={handleExportJSON} style={{ flex: 1, padding: '8px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>💾 JSONで保存</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {karteNode}
         </div>
       </div>
     )
@@ -700,9 +741,11 @@ export default function CaseDetailPage({ params }) {
                 style={{ padding: '7px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
                 ← 問診に戻る
               </button>
-              
+              <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
             </div>
           </div>
+
+          {karteNode}
 
           {/* 患者情報カード */}
           <PatientInfoCard
@@ -1034,10 +1077,22 @@ export default function CaseDetailPage({ params }) {
   async function openKarte() {
     if (caseData && caseData.id) {
       try {
+        const savedState = {
+          current_visit: 1,
+          visit1: {
+            step: step,
+            messages: messages,
+            selected_meds: selectedMeds,
+            selected_education: selectedEducation,
+            selected_devices: selectedDevices,
+            selected_sub_options: selectedSubOptions,
+            reaction_log: reactionLog
+          }
+        }
         await fetch('/api/save-record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caseId: caseData.id, visitNumber: 1, messages: messages, labData: null })
+          body: JSON.stringify({ caseId: caseData.id, visitNumber: 1, messages: messages, labData: null, savedState: savedState })
         }).catch(function() {})
         const res = await fetch('/api/save-record?caseId=' + caseData.id)
         if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
@@ -1084,11 +1139,16 @@ export default function CaseDetailPage({ params }) {
             <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1｜初診</h1>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
-          <button onClick={function() { window.location.href = '/cases' }}
-            style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-            症例選択へ
-          </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+            <button onClick={function() { window.location.href = '/cases' }}
+              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              症例選択へ
+            </button>
+          </div>
         </div>
+
+        {karteNode}
 
         {/* 患者情報カード（折りたたみ式） */}
         <PatientInfoCard
