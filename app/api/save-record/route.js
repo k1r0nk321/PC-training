@@ -11,7 +11,7 @@ function getAdminClient() {
 
 export async function POST(req) {
   try {
-    const { caseId, visitNumber, messages, labData } = await req.json()
+    const { caseId, visitNumber, messages, labData, savedState } = await req.json()
     if (!caseId || !visitNumber) {
       return Response.json({ error: 'caseId and visitNumber required' }, { status: 400 })
     }
@@ -23,6 +23,9 @@ export async function POST(req) {
     } else {
       updates.visit2_messages = messages || []
       if (labData !== undefined) updates.visit2_lab_data = labData
+    }
+    if (savedState !== undefined) {
+      updates.saved_state = savedState
     }
     const { error } = await supabase.from('cases').update(updates).eq('id', caseId)
     if (error) return Response.json({ error: error.message }, { status: 500 })
@@ -39,7 +42,7 @@ export async function POST(req) {
         const toRemove = saved.slice(5).map(function(c) { return c.id })
         await supabase.from('cases').update({
           record_saved_at: null, visit1_messages: null, visit2_messages: null,
-          visit1_lab_data: null, visit2_lab_data: null
+          visit1_lab_data: null, visit2_lab_data: null, saved_state: null
         }).in('id', toRemove)
       }
     }
@@ -57,11 +60,29 @@ export async function GET(req) {
     const supabase = getAdminClient()
     const { data, error } = await supabase
       .from('cases')
-      .select('visit1_messages, visit2_messages, visit1_lab_data, visit2_lab_data, visit1_data, patient_data, disease_name, record_saved_at')
+      .select('visit1_messages, visit2_messages, visit1_lab_data, visit2_lab_data, visit1_data, patient_data, disease_name, record_saved_at, saved_state')
       .eq('id', caseId)
       .single()
     if (error) return Response.json({ error: error.message }, { status: 500 })
     return Response.json(data)
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 })
+  }
+}
+
+// Phase 3: saved_state クリア用 (再開ポップアップで「新規開始」を選んだとき)
+export async function DELETE(req) {
+  try {
+    const url = new URL(req.url)
+    const caseId = url.searchParams.get('caseId')
+    if (!caseId) return Response.json({ error: 'caseId required' }, { status: 400 })
+    const supabase = getAdminClient()
+    const { error } = await supabase
+      .from('cases')
+      .update({ saved_state: null })
+      .eq('id', caseId)
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+    return Response.json({ success: true })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
   }
