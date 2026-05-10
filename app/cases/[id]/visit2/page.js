@@ -763,6 +763,66 @@ export default function Visit2Page({ params }) {
             </button>
             <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
           </div>
+          {showKarte && (
+            <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+              <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+                  <div>
+                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>📋 カルテ</h2>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{caseData.patient_data?.name || ''}（{caseData.patient_data?.age || ''}歳・{caseData.patient_data?.gender || ''}）／{caseData.disease_name || ''}</p>
+                  </div>
+                  <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
+                </div>
+                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
+                  <button onClick={function() { setKarteTab(1) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 1 ? '#f0f9ff' : 'white', color: karteTab === 1 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 1 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 1 ? 'bold' : 'normal' }}>Visit 1（初診）</button>
+                  <button onClick={function() { setKarteTab(2) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 2 ? '#f0f9ff' : 'white', color: karteTab === 2 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 2 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 2 ? 'bold' : 'normal' }}>Visit 2（再診）</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontSize: '13px', lineHeight: 1.7, color: '#1e293b' }}>
+                  {karteTab === 1 && (
+                    <div>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
+                      <p style={{ margin: '0 0 12px' }}>職業：{caseData.patient_data?.occupation || '—'}<br />家族歴：{caseData.patient_data?.family_history || '—'}<br />既往歴：{caseData.patient_data?.past_history || '—'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見</h3>
+                      <p style={{ margin: '0 0 12px' }}>血圧：{caseData.patient_data?.vitals?.bp || '—'}　体重：{caseData.patient_data?.vitals?.weight || '—'}kg　BMI：{caseData.patient_data?.vitals?.bmi || '—'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>治療方針</h3>
+                      <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit1_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
+                      <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit1_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
+                      {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                        <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                          {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                          })}
+                        </div>
+                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+                    </div>
+                  )}
+                  {karteTab === 2 && (
+                    <div>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見（4週後）</h3>
+                      <p style={{ margin: '0 0 12px' }}>血圧：{visit2Data?.visit2Vitals?.bp || '—'}　体重：{visit2Data?.visit2Vitals?.weight || '—'}kg</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>検査所見</h3>
+                      <p style={{ margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>{karteExtraData?.visit2_lab_data || '記録なし'}</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>患者特性</h3>
+                      <p style={{ margin: '0 0 12px' }}>生活改善意欲：{'★'.repeat(visitParams?.lifestyle_motivation || 0)}{'☆'.repeat(5 - (visitParams?.lifestyle_motivation || 0))}（{visitParams?.lifestyle_motivation || 0}/5）<br />服薬意欲：{'★'.repeat(visitParams?.medication_motivation || 0)}{'☆'.repeat(5 - (visitParams?.medication_motivation || 0))}（{visitParams?.medication_motivation || 0}/5）<br />信頼度：{'★'.repeat(visitParams?.trust_level || 0)}{'☆'.repeat(5 - (visitParams?.trust_level || 0))}（{visitParams?.trust_level || 0}/5）</p>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
+                      {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                        <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                          {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                          })}
+                        </div>
+                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                  <button onClick={handleExportPDF} style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🖨 PDFで出力</button>
+                  <button onClick={handleExportJSON} style={{ flex: 1, padding: '8px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>💾 JSONで保存</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
