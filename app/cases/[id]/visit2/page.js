@@ -351,13 +351,9 @@ export default function Visit2Page({ params }) {
           const savedState = sd && sd.saved_state
           if (savedState && savedState.current_visit) {
             if (savedState.current_visit === 1) {
-              const goBack = window.confirm('Visit 1 の続きから再開しますか？\nVisit 1 ページへ戻ります。\n\n（「キャンセル」を押すと Visit 2 を新規開始します）')
-              if (goBack) {
-                window.location.href = '/cases/' + params.id
-                return
-              } else {
-                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
-              }
+              // Visit 1 で完了して Visit 2 ページに来た = Visit 1 の saved_state は不要
+              // ポップアップを出さずに静かにクリア（無限ループ回避）
+              try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
             } else if (savedState.current_visit === 2 && savedState.visit2) {
               const ok = window.confirm('Visit 2 の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
               if (ok) {
@@ -883,7 +879,10 @@ export default function Visit2Page({ params }) {
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              onClick={function() { window.location.href = '/cases/' + params.id + '/visit3' }}
+              onClick={async function() {
+                try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
+                window.location.href = '/cases/' + params.id + '/visit3'
+              }}
               style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
               Visit 3（8週後）へ進む →
             </button>
