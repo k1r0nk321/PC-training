@@ -776,7 +776,48 @@ export default function Visit3Page({ params }) {
   if (!caseData || !visit3Data) return null
   const patient = caseData.patient_data
 
-  // ===== カルテモーダル（Visit 1/2/3 の 3 タブ構成） =====
+  // ===== カルテ用：患者特性のレンダリング（Phase E） =====
+  function renderParamsBlock(params, prevParams) {
+    if (!params) {
+      return <p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>
+    }
+    const stars = function(n) {
+      const v = Math.max(0, Math.min(5, n || 0))
+      return '★'.repeat(v) + '☆'.repeat(5 - v)
+    }
+    const numChange = function(key) {
+      if (!prevParams) return null
+      const cur = params[key]; const prev = prevParams[key]
+      if (cur == null || prev == null || cur === prev) return null
+      const diff = (cur || 0) - (prev || 0)
+      const color = diff > 0 ? '#16a34a' : '#dc2626'
+      return <span style={{ color, fontSize: '10px', fontWeight: 'bold', marginLeft: '4px' }}>{diff > 0 ? '↑' : '↓'}{Math.abs(diff)}</span>
+    }
+    const textChange = function(key) {
+      if (!prevParams) return null
+      if (params[key] !== prevParams[key]) return <span style={{ color: '#d97706', fontSize: '10px', marginLeft: '4px' }}>（変化）</span>
+      return null
+    }
+    return (
+      <div style={{ fontSize: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', backgroundColor: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
+        <div><b>性格：</b>{params.personality || '—'}{textChange('personality')}</div>
+        <div><b>食生活：</b>{params.eating_habit_label || '—'}{params.eating_habit_comment ? '（' + params.eating_habit_comment + '）' : ''}{textChange('eating_habit_label')}</div>
+        <div><b>運動：</b>{params.exercise_habit_label || '—'}{params.exercise_habit_comment ? '（' + params.exercise_habit_comment + '）' : ''}{textChange('exercise_habit_label')}</div>
+        <div><b>ストレス：</b><span style={{ color: '#dc2626' }}>{stars(params.stress)}</span>{numChange('stress')}</div>
+        <div><b>忙しさ：</b><span style={{ color: '#dc2626' }}>{stars(params.busyness)}</span>{numChange('busyness')}</div>
+        <div><b>生活改善意欲：</b><span style={{ color: '#16a34a' }}>{stars(params.lifestyle_motivation)}</span>{numChange('lifestyle_motivation')}</div>
+        <div><b>服薬意欲：</b><span style={{ color: '#16a34a' }}>{stars(params.medication_motivation)}</span>{numChange('medication_motivation')}</div>
+        <div><b>信頼度：</b><span style={{ color: '#0369a1' }}>{stars(params.trust_level)}</span>{numChange('trust_level')}</div>
+      </div>
+    )
+  }
+
+  // ===== カルテモーダル（全ステップ共通・3タブ・患者特性付き） =====
+  // Phase E: visit_parameters を取り出す
+  const allParams = (karteExtraData && karteExtraData.visit_parameters) || []
+  const v1Params = allParams.find(function(p) { return p.visit_number === 1 }) || null
+  const v2Params = allParams.find(function(p) { return p.visit_number === 2 }) || null
+  const v3Params = allParams.find(function(p) { return p.visit_number === 3 }) || null
   const karteNode = showKarte && (
     <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
       <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
@@ -786,7 +827,7 @@ export default function Visit3Page({ params }) {
               📋 カルテ
               <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>一時保存成功</span>
             </h2>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{caseData.patient_data?.name || ''}（{caseData.patient_data?.age || ''}歳・{caseData.patient_data?.gender || ''}）／{caseData.disease_name || ''}</p>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{(caseData && caseData.patient_data && caseData.patient_data.name) || ''}（{(caseData && caseData.patient_data && caseData.patient_data.age) || ''}歳・{(caseData && caseData.patient_data && caseData.patient_data.gender) || ''}）／{(caseData && caseData.disease_name) || ''}</p>
             <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0', fontStyle: 'italic' }}>※ カルテを開くと現在の進行状況が自動的に一時保存され、次回同じ症例を開いた際に再開できます。</p>
           </div>
           <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
@@ -800,16 +841,18 @@ export default function Visit3Page({ params }) {
           {karteTab === 1 && (
             <div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
-              <p style={{ margin: '0 0 12px' }}>職業：{caseData.patient_data?.occupation || '—'}<br />家族歴：{caseData.patient_data?.family_history || '—'}<br />既往歴：{caseData.patient_data?.past_history || '—'}</p>
+              <p style={{ margin: '0 0 12px' }}>職業：{(caseData && caseData.patient_data && caseData.patient_data.occupation) || '—'}<br />家族歴：{(caseData && caseData.patient_data && caseData.patient_data.family_history) || '—'}<br />既往歴：{(caseData && caseData.patient_data && caseData.patient_data.past_history) || '—'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>初診時バイタル</h3>
-              <p style={{ margin: '0 0 12px' }}>血圧：{caseData.patient_data?.vitals?.bp || '—'}　体重：{caseData.patient_data?.vitals?.weight || '—'}kg　BMI：{caseData.patient_data?.vitals?.bmi || '—'}</p>
+              <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 治療方針</h3>
-              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit1_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit1_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 患者特性（初診時の見立て）</h3>
+              <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v1Params, null)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 問診内容</h3>
-              {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+              {(karteExtraData && karteExtraData.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
                 <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                  {(karteExtraData && karteExtraData.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
                     return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
                   })}
                 </div>
@@ -823,10 +866,12 @@ export default function Visit3Page({ params }) {
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 治療方針</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit2_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit2_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
+              <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v2Params, v1Params)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 問診内容</h3>
-              {(karteExtraData?.visit2_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+              {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
                 <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {(karteExtraData?.visit2_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                  {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
                     return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
                   })}
                 </div>
@@ -840,6 +885,8 @@ export default function Visit3Page({ params }) {
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針（現在の選択）</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
+              <div style={{ marginBottom: '12px' }}>{renderParamsBlock(visitParams || v3Params, v2Params)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 問診内容</h3>
               {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
                 <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
