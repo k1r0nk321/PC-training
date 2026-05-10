@@ -340,6 +340,36 @@ export default function Visit2Page({ params }) {
         .eq('id', params.id).eq('user_id', userId).single()
       if (error || !data) { window.location.href = '/cases'; return }
       setCaseData(data)
+
+      // ===== Phase 3: 再開ポップアップ =====
+      let resumed = false
+      let savedV2 = null
+      try {
+        const sr = await fetch('/api/save-record?caseId=' + data.id)
+        if (sr.ok) {
+          const sd = await sr.json()
+          const savedState = sd && sd.saved_state
+          if (savedState && savedState.current_visit) {
+            if (savedState.current_visit === 1) {
+              const goBack = window.confirm('Visit 1 の続きから再開しますか？\nVisit 1 ページへ戻ります。\n\n（「キャンセル」を押すと Visit 2 を新規開始します）')
+              if (goBack) {
+                window.location.href = '/cases/' + params.id
+                return
+              } else {
+                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
+              }
+            } else if (savedState.current_visit === 2 && savedState.visit2) {
+              const ok = window.confirm('Visit 2 の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
+              if (ok) {
+                savedV2 = savedState.visit2
+                resumed = true
+              } else {
+                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
+              }
+            }
+          }
+        }
+      } catch (e) {}
       try {
         const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=2')
         if (pr.ok) {
@@ -381,6 +411,17 @@ export default function Visit2Page({ params }) {
       if (medsData.medications) setMedications(medsData.medications)
       if (eduData.items) setEducationItems(eduData.items)
       if (devData.devices) setDevices(devData.devices)
+
+      // 再開時の状態復元
+      if (resumed && savedV2) {
+        if (Array.isArray(savedV2.messages)) setMessages(savedV2.messages)
+        if (Array.isArray(savedV2.selected_meds)) setSelectedMeds(savedV2.selected_meds)
+        if (Array.isArray(savedV2.selected_education)) setSelectedEducation(savedV2.selected_education)
+        if (Array.isArray(savedV2.selected_devices)) setSelectedDevices(savedV2.selected_devices)
+        if (savedV2.selected_sub_options) setSelectedSubOptions(savedV2.selected_sub_options)
+        if (Array.isArray(savedV2.reaction_log)) setReactionLog(savedV2.reaction_log)
+        if (savedV2.step) setStep(savedV2.step)
+      }
 
     } catch (e) {
       console.error('fetchCase error:', e)
@@ -493,6 +534,23 @@ export default function Visit2Page({ params }) {
   async function openKarte() {
     if (caseData && caseData.id) {
       try {
+        const savedState = {
+          current_visit: 2,
+          visit2: {
+            step: step,
+            messages: messages,
+            selected_meds: selectedMeds,
+            selected_education: selectedEducation,
+            selected_devices: selectedDevices,
+            selected_sub_options: selectedSubOptions,
+            reaction_log: reactionLog
+          }
+        }
+        await fetch('/api/save-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: caseData.id, visitNumber: 2, messages: messages, savedState: savedState })
+        }).catch(function() {})
         const res = await fetch('/api/save-record?caseId=' + caseData.id)
         if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
       } catch (e) {}
@@ -708,62 +766,8 @@ export default function Visit2Page({ params }) {
   if (!caseData || !visit2Data) return null
   const patient = caseData.patient_data
 
-  // ===== フィードバック画面 =====
-  if (step === 'feedback') {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2 フィードバック</h1>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
-              {feedback}
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#f0f9ff', borderRadius: '12px', padding: '16px', border: '1px solid #bae6fd', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 Visit 2の結果サマリー</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>血圧（4週後）</p>
-                <p style={{ fontWeight: 'bold', color: visit2Data.bpControlled ? '#16a34a' : '#dc2626', margin: 0 }}>
-                  {visit2Data.visit2Vitals.bp}
-                  <span style={{ fontSize: '11px', marginLeft: '6px' }}>
-                    （{visit2Data.bpReduction > 0 ? '↓' + visit2Data.bpReduction + 'mmHg' : '変化なし'}）
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>体重（4週後）</p>
-                <p style={{ fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
-                  {visit2Data.visit2Vitals.weight}kg
-                  <span style={{ fontSize: '11px', color: '#16a34a', marginLeft: '6px' }}>
-                    （{visit2Data.weightReduction > 0 ? '↓' + visit2Data.weightReduction + 'kg' : '変化なし'}）
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={function() { window.location.href = '/cases/' + params.id + '/visit3' }}
-              style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
-              Visit 3（8週後）へ進む →
-            </button>
-            <button
-              onClick={function() { window.location.href = '/cases' }}
-              style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
-              症例選択へ
-            </button>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
-          </div>
-          {showKarte && (
+  // ===== カルテモーダル（全ステップ共通） =====
+  const karteNode = showKarte && (
             <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
               <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
@@ -822,7 +826,65 @@ export default function Visit2Page({ params }) {
                 </div>
               </div>
             </div>
-          )}
+          )
+
+  // ===== フィードバック画面 =====
+  if (step === 'feedback') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2 フィードバック</h1>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
+            </div>
+            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+          </div>
+
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
+              {feedback}
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#f0f9ff', borderRadius: '12px', padding: '16px', border: '1px solid #bae6fd', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 Visit 2の結果サマリー</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+              <div>
+                <p style={{ color: '#64748b', margin: '0 0 2px' }}>血圧（4週後）</p>
+                <p style={{ fontWeight: 'bold', color: visit2Data.bpControlled ? '#16a34a' : '#dc2626', margin: 0 }}>
+                  {visit2Data.visit2Vitals.bp}
+                  <span style={{ fontSize: '11px', marginLeft: '6px' }}>
+                    （{visit2Data.bpReduction > 0 ? '↓' + visit2Data.bpReduction + 'mmHg' : '変化なし'}）
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#64748b', margin: '0 0 2px' }}>体重（4週後）</p>
+                <p style={{ fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
+                  {visit2Data.visit2Vitals.weight}kg
+                  <span style={{ fontSize: '11px', color: '#16a34a', marginLeft: '6px' }}>
+                    （{visit2Data.weightReduction > 0 ? '↓' + visit2Data.weightReduction + 'kg' : '変化なし'}）
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={function() { window.location.href = '/cases/' + params.id + '/visit3' }}
+              style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+              Visit 3（8週後）へ進む →
+            </button>
+            <button
+              onClick={function() { window.location.href = '/cases' }}
+              style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
+              症例選択へ
+            </button>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
+          </div>
+          {karteNode}
         </div>
       </div>
     )
@@ -860,9 +922,11 @@ export default function Visit2Page({ params }) {
                 style={{ padding: '7px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
                 ← 問診に戻る
               </button>
-              
+              <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
             </div>
           </div>
+
+          {karteNode}
 
           <PatientInfoCard
             patient={patient}
@@ -1102,11 +1166,16 @@ export default function Visit2Page({ params }) {
             <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2｜4週後の再診</h1>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
-          <button onClick={function() { window.location.href = '/cases' }}
-            style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-            症例選択へ
-          </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
+            <button onClick={function() { window.location.href = '/cases' }}
+              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              症例選択へ
+            </button>
+          </div>
         </div>
+
+        {karteNode}
 
         <PatientInfoCard
           patient={patient}
