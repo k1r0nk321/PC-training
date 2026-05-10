@@ -72,61 +72,6 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
       </div>
       {open && <div style={{ padding: '12px 14px' }}>{children}</div>}
     </div>
-
-    {showKarte && (
-      <div onClick={function(e) { if (e.target === e.currentTarget) setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '20px' }}>
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '700px', padding: '24px', margin: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#0369a1' }}>📋 カルテ　{caseData.patient_data?.name}（{caseData.patient_data?.age}歳・{caseData.patient_data?.gender}）</span>
-            <button onClick={function() { setShowKarte(false) }} style={{ padding: '4px 12px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', background: 'white', fontSize: '13px' }}>✕ 閉じる</button>
-          </div>
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '2px solid #e2e8f0' }}>
-            {[1, 2].map(function(v) { return (
-              <button key={v} onClick={function() { setKarteTab(v) }} style={{ padding: '6px 18px', border: 'none', borderBottom: karteTab === v ? '3px solid #0369a1' : '3px solid transparent', background: 'none', color: karteTab === v ? '#0369a1' : '#888', fontWeight: karteTab === v ? 600 : 400, cursor: 'pointer', fontSize: '13px', marginBottom: '-2px' }}>
-                Visit {v}（{v === 1 ? '初診' : '再診'}）
-              </button>
-            )})}
-          </div>
-          {(function() {
-            const sec = { marginBottom: '14px' }
-            const secTitle = { fontSize: '11px', fontWeight: 600, color: 'white', backgroundColor: '#0369a1', padding: '2px 8px', borderRadius: '4px', marginBottom: '6px', display: 'inline-block' }
-            const txt = { fontSize: '13px', color: '#333', lineHeight: 1.7, margin: 0 }
-            const stars = function(n) { var v = Math.max(0, Math.min(5, n||0)); return '★'.repeat(v) + '☆'.repeat(5-v) }
-            const boxStyle = { border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px', maxHeight: '200px', overflowY: 'auto', fontSize: '12px' }
-            if (karteTab === 1) {
-              const v1 = caseData.visit1_data || {}
-              const v1Meds = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' }).join('、') || 'なし'
-              const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
-              const v1Msgs = (karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' })
-              return (
-                <div>
-                  <div style={sec}><span style={secTitle}>診察所見</span><p style={txt}>血圧：{caseData.patient_data?.vitals?.bp}　体重：{caseData.patient_data?.vitals?.weight}kg　BMI：{caseData.patient_data?.vitals?.bmi}</p></div>
-                  <div style={sec}><span style={secTitle}>検査所見</span><p style={txt}>{karteExtraData?.visit1_lab_data || '（記録なし）'}</p></div>
-                  <div style={sec}><span style={secTitle}>治療方針</span><p style={txt}>処方薬：{v1Meds}<br />生活指導：{v1Edu}</p></div>
-                  <div style={sec}><span style={secTitle}>問診内容</span><div style={boxStyle}>{v1Msgs.length > 0 ? v1Msgs.map(function(m, i) { return <div key={i} style={{ marginBottom: '4px', color: m.role === 'user' ? '#0369a1' : '#333' }}><b>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div> }) : <span style={{ color: '#999' }}>（会話ログ未保存）</span>}</div></div>
-                </div>
-              )
-            } else {
-              const v2Msgs = messages.filter(function(m) { return m.role !== 'system' })
-              const params = visitParams || {}
-              return (
-                <div>
-                  <div style={sec}><span style={secTitle}>診察所見</span><p style={txt}>血圧：{visit2Data?.visit2Vitals?.bp || caseData.patient_data?.vitals?.bp}　体重：{visit2Data?.visit2Vitals?.weight || caseData.patient_data?.vitals?.weight}kg</p></div>
-                  <div style={sec}><span style={secTitle}>検査所見</span><pre style={{ ...txt, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{karteExtraData?.visit2_lab_data || '（記録なし）'}</pre></div>
-                  <div style={sec}><span style={secTitle}>患者特性</span><p style={txt}>生活改善意欲：{stars(params.lifestyle_motivation)}　服薬意欲：{stars(params.medication_motivation)}　信頼度：{stars(params.trust_level)}<br />ストレス：{stars(params.stress)}　忙しさ：{stars(params.busyness)}</p></div>
-                  <div style={sec}><span style={secTitle}>問診内容</span><div style={boxStyle}>{v2Msgs.length > 0 ? v2Msgs.map(function(m, i) { return <div key={i} style={{ marginBottom: '4px', color: m.role === 'user' ? '#0369a1' : '#333' }}><b>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div> }) : <span style={{ color: '#999' }}>（会話なし）</span>}</div></div>
-                </div>
-              )
-            }
-          })()}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid #e2e8f0', alignItems: 'center' }}>
-            <button onClick={handleExportPDF} style={{ padding: '8px 16px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>🖨️ PDF保存（印刷）</button>
-            <button onClick={handleExportJSON} style={{ padding: '8px 14px', border: '1px solid #0369a1', color: '#0369a1', backgroundColor: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>📥 JSON</button>
-            <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#999' }}>{karteExtraData?.record_saved_at ? '保存：' + new Date(karteExtraData.record_saved_at).toLocaleString('ja-JP') : ''}</span>
-          </div>
-        </div>
-      </div>
-    )}
   )
 }
 
