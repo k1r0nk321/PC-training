@@ -371,6 +371,7 @@ export default function CaseDetailPage({ params }) {
               if (Array.isArray(v1s.selected_devices)) setSelectedDevices(v1s.selected_devices)
               if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
               if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
+              if (v1s.scoring) setScoring(v1s.scoring)
               if (v1s.step) setStep(v1s.step)
               resumed = true
             } else {
@@ -1090,7 +1091,8 @@ export default function CaseDetailPage({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
-            reaction_log: reactionLog
+            reaction_log: reactionLog,
+            scoring: scoring
           }
         }
         await fetch('/api/save-record', {
