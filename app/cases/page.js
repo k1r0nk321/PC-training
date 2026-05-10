@@ -1,1257 +1,419 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../../lib/supabase'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
-const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
-const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
-const ACCEPTANCE_LABEL = { accepted: '同意', partial: '一部同意', rejected: '拒否', negotiating: '交渉中' }
-const CATEGORY_LABEL = {
-  diet: '食事指導', exercise: '運動指導', medication: '服薬指導',
-  monitoring: 'モニタリング', lifestyle: '生活習慣',
-  psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防'
+const DIFFICULTY_STAR = { 1: '★☆☆', 2: '★★☆', 3: '★★★' }
+const DIFFICULTY_COLOR = { 1: '#16a34a', 2: '#d97706', 3: '#dc2626' }
+const DIFFICULTY_LABEL = { 1: '初級', 2: '中級', 3: '上級' }
+
+const PERSONALITY_LABEL = {
+  cooperative: '従順', anxious: '不安が強い',
+  resistant: '抵抗的', lazy: '面倒嫌い', angry: '怒りっぽい'
 }
-const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
-const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
-
-function calcRecommendedCalories(patient) {
-  if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
-  const age = patient.age
-  if (!h || !age) return null
-  const idealWeight = Math.round(h * h * 22 * 10) / 10
-  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
-  const recCalRaw = idealWeight * actCoef
-  const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
-  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
-  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
+const PERSONALITY_COLOR = {
+  cooperative: '#16a34a', anxious: '#d97706',
+  resistant: '#dc2626', lazy: '#64748b', angry: '#dc2626'
+}
+const ADL_LABEL = {
+  independent: '自立', partially_dependent: '一部介助', dependent: '要介助'
+}
+const COGNITIVE_LABEL = {
+  normal: '正常', mild_decline: '軽度低下', moderate_decline: '中等度低下'
 }
 
-function groupSubOptions(subOptions) {
-  const categoryLabels = {
-    calorie: 'カロリー制限の目標', salt: '塩分制限の目標', eating_out: '外食の制限',
-    night_eating: '夜食・間食の制限', alcohol: '飲酒制限の目標', aerobic: '有酸素運動',
-    resistance: '筋力トレーニング', flexibility: 'ストレッチ・柔軟', lifestyle: '生活習慣',
-    education: '服薬指導の説明', strategy: '服薬の工夫・戦略', tool: '服薬サポートツール',
-    social: '周囲のサポート', monitoring: 'モニタリング方法', mental: '心理的ケア',
-    referral: '専門機関紹介', weight_goal: '体重目標',
-    emergency_education: '緊急時の説明', emergency_tool: '緊急時ツール', emergency_social: '家族への説明',
-    none: 'その他',
-  }
-  const categoryOrder = [
-    'calorie','salt','eating_out','night_eating','alcohol',
-    'aerobic','resistance','flexibility','lifestyle',
-    'education','strategy','tool','social','monitoring',
-    'mental','referral','weight_goal',
-    'emergency_education','emergency_tool','emergency_social','none'
-  ]
-  const groups = {}
-  if (!subOptions) return groups
-  subOptions.forEach(function(sub) {
-    const cat = sub.category || 'none'
-    if (!groups[cat]) groups[cat] = { label: categoryLabels[cat] || cat, items: [], order: categoryOrder.indexOf(cat) >= 0 ? categoryOrder.indexOf(cat) : 99 }
-    groups[cat].items.push(sub)
-  })
-  const sorted = {}
-  Object.keys(groups).sort(function(a, b) { return groups[a].order - groups[b].order }).forEach(function(k) { sorted[k] = groups[k] })
-  return sorted
-}
-
-function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
-  const [open, setOpen] = useState(defaultOpen !== false)
-  return (
-    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', overflow: 'hidden' }}>
-      <div onClick={function() { setOpen(!open) }}
-        style={{ padding: '11px 14px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: open ? '1px solid #e2e8f0' : 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{title}</span>
-          {badge && <span style={{ fontSize: '10px', backgroundColor: badgeColor || '#0369a1', color: 'white', borderRadius: '8px', padding: '1px 7px', fontWeight: 'bold' }}>{badge}</span>}
-        </div>
-        <span style={{ fontSize: '12px', color: '#64748b' }}>{open ? '▲' : '▼'}</span>
-      </div>
-      {open && <div style={{ padding: '12px 14px' }}>{children}</div>}
-    </div>
-  )
-}
-
-function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, collapsed, onToggle }) {
-  const bpChange = visit2Vitals?.bp_change
-  const weightChange = visit2Vitals?.weight_change
-  const v1Meds = visit1Data?.selectedMedications || []
-  const v1Edu = visit1Data?.selectedEducation || []
-  const v1Subs = visit1Data?.selectedSubOptions || []
-  return (
-    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div onClick={onToggle} style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>👤</span>
-          <div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1' }}>{patient.name}</span>
-            <span style={{ fontSize: '12px', color: '#0369a1', marginLeft: '6px' }}>{patient.age}歳・{patient.gender}・{diseaseName}</span>
-          </div>
-        </div>
-        <span style={{ fontSize: '12px', color: '#0369a1' }}>{collapsed ? '▼ 詳細' : '▲ 閉じる'}</span>
-      </div>
-      {!collapsed && (
-        <div style={{ padding: '10px 14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>本日のバイタル（4週後）</p>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: visit2Vitals && parseInt(visit2Vitals.bp) < 140 ? '#16a34a' : '#dc2626' }}>
-                血圧：{visit2Vitals ? visit2Vitals.bp : patient.vitals.bp}
-              </p>
-              {bpChange !== undefined && (
-                <p style={{ fontSize: '11px', color: bpChange > 0 ? '#16a34a' : '#dc2626' }}>
-                  {bpChange > 0 ? '↓' : '→'} {Math.abs(bpChange)}mmHg {bpChange > 0 ? '低下' : '変化なし'}
-                </p>
-              )}
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : patient.vitals.weight}kg　BMI：{visit2Vitals ? visit2Vitals.bmi : patient.vitals.bmi}</p>
-              {weightChange !== undefined && (
-                <p style={{ fontSize: '11px', color: weightChange < 0 ? '#16a34a' : '#64748b' }}>
-                  {weightChange < 0 ? '↓' : '→'} {Math.abs(weightChange)}kg {weightChange < 0 ? '減少' : '変化なし'}
-                </p>
-              )}
-            </div>
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>初診時バイタル</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>体重：{patient.vitals.weight}kg　BMI：{patient.vitals.bmi}</p>
-              <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
-            </div>
-          </div>
-          {/* Visit 1の治療方針 */}
-          <div style={{ backgroundColor: '#fefce8', borderRadius: '8px', padding: '8px', border: '1px solid #fde047' }}>
-            <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#713f12', marginBottom: '6px' }}>📋 前回（Visit 1）の治療方針</p>
-            {v1Meds.length > 0 && (
-              <div style={{ marginBottom: '4px' }}>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>💊 投薬：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Meds.map(function(m, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '8px' }}>{m.drug_name_generic}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Meds.length === 0 && (
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px' }}>💊 投薬：なし（生活指導のみ）</p>
-            )}
-            {v1Subs.length > 0 && (
-              <div style={{ marginBottom: '4px' }}>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Subs.map(function(s, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{s.label}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Subs.length === 0 && v1Edu.length > 0 && (
-              <div>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Edu.map(function(e, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{e.instruction_key}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Meds.length === 0 && v1Subs.length === 0 && v1Edu.length === 0 && (
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ParameterPanel({ data, caseId, visitNumber }) {
-  const prevRef = useRef(null)
-  const initialPendingRef = useRef(null)
-  const initialDoneRef = useRef(false)
-  const [changes, setChanges] = useState({})
-
-  useEffect(function() {
-    if (!data) return
-
-    // Handle initial treatment changes (only on first load)
-    if (!initialDoneRef.current) {
-      initialDoneRef.current = true
-      const ptc = data.pending_treatment_changes
-      if (ptc && typeof ptc === 'object') {
-        initialPendingRef.current = Object.assign({}, ptc)
-        const c = {}
-        if (ptc.stress) c.stress = { indicator: ptc.stress, type: 'treatment' }
-        if (ptc.busyness) c.busyness = { indicator: ptc.busyness, type: 'treatment' }
-        if (Object.keys(c).length > 0) {
-          setChanges(c)
-          const remaining = Object.assign({}, ptc)
-          delete remaining.stress
-          delete remaining.busyness
-          const newPending = Object.keys(remaining).length > 0 ? remaining : null
-          if (caseId && visitNumber) {
-            fetch('/api/visit-parameters', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ caseId: caseId, visitNumber: visitNumber, updates: { pending_treatment_changes: newPending } })
-            }).catch(function() {})
-          }
-          const t = setTimeout(function() { setChanges({}) }, 5000)
-          prevRef.current = data
-          return function() { clearTimeout(t) }
-        }
-      }
-      prevRef.current = data
-      return
-    }
-
-    // In-session changes
-    const prev = prevRef.current
-    if (prev) {
-      const ptc = initialPendingRef.current || {}
-      const c = {}
-      const eatingChanged = data.eating_habit_label !== prev.eating_habit_label || data.eating_habit_comment !== prev.eating_habit_comment
-      const exerciseChanged = data.exercise_habit_label !== prev.exercise_habit_label || data.exercise_habit_comment !== prev.exercise_habit_comment
-      if (eatingChanged) c.eating = { indicator: '更新', type: ptc.diet_treatment ? 'treatment' : 'interview' }
-      if (exerciseChanged) c.exercise = { indicator: '更新', type: ptc.exercise_treatment ? 'treatment' : 'interview' }
-      const fields = ['lifestyle_motivation', 'medication_motivation', 'trust_level']
-      for (const f of fields) {
-        if (data[f] !== prev[f]) c[f] = { indicator: data[f] > prev[f] ? '↑' : '↓', type: 'interview' }
-      }
-      if (Object.keys(c).length > 0) {
-        setChanges(c)
-        let cleared = false
-        const remaining = Object.assign({}, ptc)
-        if (eatingChanged && remaining.diet_treatment) { delete remaining.diet_treatment; cleared = true }
-        if (exerciseChanged && remaining.exercise_treatment) { delete remaining.exercise_treatment; cleared = true }
-        if (cleared) {
-          initialPendingRef.current = remaining
-          const newPending = Object.keys(remaining).length > 0 ? remaining : null
-          if (caseId && visitNumber) {
-            fetch('/api/visit-parameters', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ caseId: caseId, visitNumber: visitNumber, updates: { pending_treatment_changes: newPending } })
-            }).catch(function() {})
-          }
-        }
-        const t = setTimeout(function() { setChanges({}) }, 5000)
-        prevRef.current = data
-        return function() { clearTimeout(t) }
-      }
-    }
-    prevRef.current = data
-  }, [data, caseId, visitNumber])
-
-  if (!data) return null
-
-  const stars = function(n) {
-    const v = Math.max(0, Math.min(5, n || 0))
-    return '★'.repeat(v) + '☆'.repeat(5 - v)
-  }
-  const labelStyle = { fontWeight: 600, color: '#0369a1', marginRight: '4px' }
-  const baseRow = { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', borderRadius: '4px', padding: '3px 6px', transition: 'background-color 0.6s ease' }
-  const hi = function(key) {
-    if (!changes[key]) return baseRow
-    const isT = changes[key].type === 'treatment'
-    return Object.assign({}, baseRow, {
-      backgroundColor: isT ? '#fecaca' : '#fef08a',
-      boxShadow: isT ? '0 0 0 1px #dc2626' : '0 0 0 1px #facc15'
-    })
-  }
-  const ind = function(key) { return changes[key] ? ' ' + changes[key].indicator : '' }
-  const arrowStyle = function(key) {
-    return { color: changes[key] && changes[key].type === 'treatment' ? '#dc2626' : '#d97706', fontWeight: 'bold' }
-  }
-  return (
-    <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', padding: '10px 14px' }}>
-      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 患者特性</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', rowGap: '4px', columnGap: '12px' }}>
-        <div style={baseRow}><span style={labelStyle}>性格:</span>{data.personality || '-'}</div>
-        <div style={hi('eating')}><span style={labelStyle}>食生活:</span>{data.eating_habit_label || '-'}{data.eating_habit_comment ? ' (' + data.eating_habit_comment + ')' : ''}<span style={arrowStyle('eating')}>{ind('eating')}</span></div>
-        <div style={hi('exercise')}><span style={labelStyle}>運動:</span>{data.exercise_habit_label || '-'}{data.exercise_habit_comment ? ' (' + data.exercise_habit_comment + ')' : ''}<span style={arrowStyle('exercise')}>{ind('exercise')}</span></div>
-        <div style={hi('stress')}><span style={labelStyle}>ストレス:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.stress)}</span><span style={arrowStyle('stress')}>{ind('stress')}</span></div>
-        <div style={hi('busyness')}><span style={labelStyle}>忙しさ:</span><span style={{ color: '#dc2626', letterSpacing: '1px' }}>{stars(data.busyness)}</span><span style={arrowStyle('busyness')}>{ind('busyness')}</span></div>
-        <div style={hi('lifestyle_motivation')}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span><span style={arrowStyle('lifestyle_motivation')}>{ind('lifestyle_motivation')}</span></div>
-        <div style={hi('medication_motivation')}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span><span style={arrowStyle('medication_motivation')}>{ind('medication_motivation')}</span></div>
-        <div style={hi('trust_level')}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span><span style={arrowStyle('trust_level')}>{ind('trust_level')}</span></div>
-      </div>
-    </div>
-  )
-}
-
-export default function Visit2Page({ params }) {
-  const [caseData, setCaseData] = useState(null)
-  const [visitParams, setVisitParams] = useState(null)
+export default function CasesPage() {
+  const [user, setUser] = useState(null)
+  const [diseases, setDiseases] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedDisease, setSelectedDisease] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+  const [modelCases, setModelCases] = useState([])
+  const [modelLoading, setModelLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [visit2Data, setVisit2Data] = useState(null)
-  const [step, setStep] = useState('interview') // interview | treatment | feedback
-  const [patientCardCollapsed, setPatientCardCollapsed] = useState(false)
-
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [labsRevealed, setLabsRevealed] = useState(false)
-
-  const [medications, setMedications] = useState([])
-  const [educationItems, setEducationItems] = useState([])
-  const [devices, setDevices] = useState([])
-  const [selectedMeds, setSelectedMeds] = useState([])
-  const [selectedEducation, setSelectedEducation] = useState([])
-  const [selectedDevices, setSelectedDevices] = useState([])
-  const [selectedSubOptions, setSelectedSubOptions] = useState({})
-
-  const [reactionLog, setReactionLog] = useState([])
-  const [reactionLoading, setReactionLoading] = useState(false)
-  const [showKarte, setShowKarte] = useState(false)
-  const [karteTab, setKarteTab] = useState(2)
-  const [karteExtraData, setKarteExtraData] = useState(null)
-  const [persuasionInput, setPersuasionInput] = useState('')
-  const [activePersuasionId, setActivePersuasionId] = useState(null)
-
-  const [activeEduModal, setActiveEduModal] = useState(null)
-  const [activeSubGroupModal, setActiveSubGroupModal] = useState(null)
-  const [activeDeviceModal, setActiveDeviceModal] = useState(null)
-
-  const [feedback, setFeedback] = useState(null)
-  const [feedbackLoading, setFeedbackLoading] = useState(false)
-
-  const messagesEndRef = useRef(null)
-  const reactionLogEndRef = useRef(null)
-  const showDebug = process.env.NEXT_PUBLIC_SHOW_DEBUG === 'true'
+  const [mode, setMode] = useState(null) // 'model' | 'random'
+  const [selectedModelCase, setSelectedModelCase] = useState(null)
+  const [inProgressCases, setInProgressCases] = useState([])
 
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
-      fetchCase(session.user.id)
+      setUser(session.user)
+      fetchDiseases()
+      fetchInProgressCases(session.user.id)
     })
   }, [])
 
-  useEffect(function() {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  async function fetchCase(userId) {
+  async function fetchInProgressCases(userId) {
     try {
       const { data, error } = await supabase
-        .from('cases').select('*')
-        .eq('id', params.id).eq('user_id', userId).single()
-      if (error || !data) { window.location.href = '/cases'; return }
-      setCaseData(data)
+        .from('cases')
+        .select('id, disease_name, saved_state, record_saved_at, patient_data')
+        .eq('user_id', userId)
+        .not('saved_state', 'is', null)
+        .order('record_saved_at', { ascending: false })
+      if (error) { console.error('in-progress fetch error', error); return }
+      setInProgressCases(data || [])
+    } catch (e) { console.error(e) }
+  }
 
-      // ===== Phase 3: 再開ポップアップ =====
-      let resumed = false
-      let savedV2 = null
-      try {
-        const sr = await fetch('/api/save-record?caseId=' + data.id)
-        if (sr.ok) {
-          const sd = await sr.json()
-          const savedState = sd && sd.saved_state
-          if (savedState && savedState.current_visit) {
-            if (savedState.current_visit === 1) {
-              const goBack = window.confirm('Visit 1 の続きから再開しますか？\nVisit 1 ページへ戻ります。\n\n（「キャンセル」を押すと Visit 2 を新規開始します）')
-              if (goBack) {
-                window.location.href = '/cases/' + params.id
-                return
-              } else {
-                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
-              }
-            } else if (savedState.current_visit === 2 && savedState.visit2) {
-              const ok = window.confirm('Visit 2 の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
-              if (ok) {
-                savedV2 = savedState.visit2
-                resumed = true
-              } else {
-                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
-              }
-            }
-          }
-        }
-      } catch (e) {}
-      try {
-        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=2')
-        if (pr.ok) {
-          const pd = await pr.json()
-          setVisitParams(pd.params)
-        }
-      } catch (e) {}
+  function resumeCase(c) {
+    const visit = (c.saved_state && c.saved_state.current_visit) || 1
+    if (visit === 2) {
+      window.location.href = '/cases/' + c.id + '/visit2'
+    } else {
+      window.location.href = '/cases/' + c.id
+    }
+  }
 
-      // Visit 2データを生成
-      setGenerating(true)
-      const res = await fetch('/api/visit2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: params.id }),
-      })
-      const v2 = await res.json()
-      if (v2.error) { alert('Visit 2の生成に失敗しました：' + v2.error); return }
-      setVisit2Data(v2)
+  async function discardCase(c) {
+    if (!window.confirm('この中断症例を削除しますか？\n（症例自体は残りますが、中断状態は破棄されます）')) return
+    try {
+      await fetch('/api/save-record?caseId=' + c.id, { method: 'DELETE' })
+      setInProgressCases(function(prev) { return prev.filter(function(x) { return x.id !== c.id }) })
+    } catch (e) { alert('削除に失敗しました：' + e.message) }
+  }
 
-      // Visit 1の治療を初期選択として引き継ぎ
-      const v1 = data.visit1_data || {}
-      if (v1.selectedMedications) setSelectedMeds(v1.selectedMedications.map(function(m) { return m.id }))
-
-      // 患者の最初のコメントをセット
-      setMessages([{
-        role: 'assistant',
-        content: '【4週間後の再診】\n\n' + v2.patientOpeningComment
-      }])
-
-      // マスタデータ取得
-      const [medsRes, eduRes, devRes] = await Promise.all([
-        fetch('/api/medications?diseaseId=' + data.disease_id),
-        fetch('/api/education?diseaseId=' + data.disease_id),
-        fetch('/api/devices?diseaseId=' + data.disease_id),
-      ])
-      const medsData = await medsRes.json()
-      const eduData = await eduRes.json()
-      const devData = await devRes.json()
-      if (medsData.medications) setMedications(medsData.medications)
-      if (eduData.items) setEducationItems(eduData.items)
-      if (devData.devices) setDevices(devData.devices)
-
-      // 再開時の状態復元
-      if (resumed && savedV2) {
-        if (Array.isArray(savedV2.messages)) setMessages(savedV2.messages)
-        if (Array.isArray(savedV2.selected_meds)) setSelectedMeds(savedV2.selected_meds)
-        if (Array.isArray(savedV2.selected_education)) setSelectedEducation(savedV2.selected_education)
-        if (Array.isArray(savedV2.selected_devices)) setSelectedDevices(savedV2.selected_devices)
-        if (savedV2.selected_sub_options) setSelectedSubOptions(savedV2.selected_sub_options)
-        if (Array.isArray(savedV2.reaction_log)) setReactionLog(savedV2.reaction_log)
-        if (savedV2.step) setStep(savedV2.step)
-      }
-
+  async function fetchDiseases() {
+    try {
+      const res = await fetch('/api/diseases')
+      const data = await res.json()
+      if (data.diseases) setDiseases(data.diseases)
     } catch (e) {
-      console.error('fetchCase error:', e)
+      console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDiseaseSelect(disease) {
+    setSelectedDisease(disease)
+    setMode(null)
+    setSelectedModelCase(null)
+    setShowModal(true)
+
+    // モデル症例を取得
+    setModelLoading(true)
+    try {
+      const res = await fetch('/api/model-cases?diseaseId=' + disease.id)
+      const data = await res.json()
+      setModelCases(data.modelCases || [])
+    } catch (e) {
+      console.error(e)
+      setModelCases([])
+    } finally {
+      setModelLoading(false)
+    }
+  }
+
+  async function handleStartRandom() {
+    if (!selectedDisease || generating) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ diseaseId: selectedDisease.id, diseaseName: selectedDisease.name_ja, userId: user.id }),
+      })
+      const data = await res.json()
+      if (data.error) { alert('症例生成エラー：' + data.error); return }
+      window.location.href = '/cases/' + data.caseId
+    } catch (e) {
+      alert('エラー：' + e.message)
+    } finally {
       setGenerating(false)
     }
   }
 
-  async function handleSend() {
-    if (!input.trim() || aiLoading) return
-    const userMessage = input.trim()
-    setInput('')
-
-    // 検査結果確認の特別処理
-    if (userMessage.includes('検査') && visit2Data?.visit2Labs && !labsRevealed) {
-      setLabsRevealed(true)
-      const labs = visit2Data.visit2Labs
-      const labText = `【血液検査結果（4週後）】\n\nNa ${labs.na} mEq/L　K ${labs.k} mEq/L\nCr ${labs.cr} mg/dL　BUN ${labs.bun} mg/dL　eGFR ${labs.egfr} mL/min\nLDL ${labs.ldl} mg/dL　HDL ${labs.hdl} mg/dL　TG ${labs.tg} mg/dL\nHbA1c ${labs.hba1c}%　UA ${labs.ua} mg/dL`
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
-      return
-    }
-
-    setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
-    setAiLoading(true)
+  async function handleStartModel() {
+    if (!selectedModelCase || generating) return
+    setGenerating(true)
     try {
-      const patient = caseData.patient_data
-      const v2 = visit2Data
-      const v1 = caseData.visit1_data || {}
-      const v1MedsArr = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' })
-      const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
-      const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
-      const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
-      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
-        '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
-        '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
-        '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
-        '体重：' + (v2?.visit2Vitals?.weight || patient.vitals.weight) + 'kg。' +
-        '【前回(Visit 1)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
-        '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
-        '患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
-      const res = await fetch('/api/ai', {
+      const res = await fetch('/api/model-cases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
+        body: JSON.stringify({ modelCaseId: selectedModelCase.id, userId: user.id }),
       })
       const data = await res.json()
-      setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
-      try {
-        const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
-        const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
-        if (isAdvice && caseData && caseData.disease_id) {
-          const tpRes = await fetch('/api/teaching-points', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              diseaseId: caseData.disease_id,
-              diseaseName: caseData.disease_name,
-              patientContext: (caseData.patient_data?.name || '') + '・' + (caseData.patient_data?.age || '') + '歳・' + (caseData.disease_name || ''),
-              lastPatientStatement: data.text
-            })
-          })
-          if (tpRes.ok) {
-            const tp = await tpRes.json()
-            if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
-              const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
-              setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
-            }
-          }
-        }
-      } catch (tpErr) {}
-      try {
-        if (caseData && caseData.id) {
-          const labMsgs = messages.filter(function(m) { return m.role === 'system' && m.content.length > 20 })
-          const labContent = labMsgs.length > 0 ? labMsgs.map(function(m) { return m.content }).join('\n') : null
-          await fetch('/api/save-record', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ caseId: caseData.id, visitNumber: 2, messages: messages, labData: labContent })
-          }).catch(function() {})
-        }
-      } catch (srErr) {}
-      try {
-        if (visitParams && caseData && caseData.id) {
-          const evalRes = await fetch('/api/evaluate-params', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              caseId: caseData.id,
-              visitNumber: 2,
-              recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
-              currentParams: visitParams,
-              context: 'interview',
-              personality: visitParams.personality
-            })
-          })
-          if (evalRes.ok) {
-            const evalData = await evalRes.json()
-            if (evalData.params) setVisitParams(evalData.params)
-          }
-        }
-      } catch (e) {}
+      if (data.error) { alert('エラー：' + data.error); return }
+      window.location.href = '/cases/' + data.case.id
     } catch (e) {
-      setMessages(function(prev) { return [...prev, { role: 'assistant', content: 'エラーが発生しました。' }] })
+      alert('エラー：' + e.message)
     } finally {
-      setAiLoading(false)
+      setGenerating(false)
     }
   }
 
-  async function openKarte() {
-    if (caseData && caseData.id) {
-      try {
-        const savedState = {
-          current_visit: 2,
-          visit2: {
-            step: step,
-            messages: messages,
-            selected_meds: selectedMeds,
-            selected_education: selectedEducation,
-            selected_devices: selectedDevices,
-            selected_sub_options: selectedSubOptions,
-            reaction_log: reactionLog
-          }
-        }
-        await fetch('/api/save-record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caseId: caseData.id, visitNumber: 2, messages: messages, savedState: savedState })
-        }).catch(function() {})
-        const res = await fetch('/api/save-record?caseId=' + caseData.id)
-        if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
-      } catch (e) {}
-    }
-    setShowKarte(true)
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    window.location.href = '/'
   }
 
-  function handleExportPDF() {
-    const patient = caseData.patient_data || {}
-    const v1 = caseData.visit1_data || {}
-    const v1Meds = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
-    const params = visitParams || {}
-    const stars = function(n) { var v = Math.max(0, Math.min(5, n||0)); return '★'.repeat(v) + '☆'.repeat(5-v) }
-    const v2Msgs = messages.filter(function(m) { return m.role !== 'system' })
-    const msgHtml = v2Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
-    const html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>カルテ</title><style>body{font-family:sans-serif;font-size:13px;padding:20px;max-width:780px;margin:0 auto}h1{font-size:15px;color:#0369a1;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{font-size:12px;background:#e0f2fe;padding:3px 8px;color:#0369a1;margin:10px 0 4px}p{margin:0 0 4px;line-height:1.7}@media print{body{font-size:11px}}</style></head><body>'
-      + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
-      + '<p>疾患：' + (caseData.disease_name||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
-      + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '</p>'
-      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + (patient.vitals?.bp||'') + '　体重：' + (patient.vitals?.weight||'') + 'kg　BMI：' + (patient.vitals?.bmi||'') + '</p>'
-      + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
-      + '<h2>【Visit 2 診察所見】</h2><p>血圧：' + (visit2Data?.visit2Vitals?.bp||'') + '　体重：' + (visit2Data?.visit2Vitals?.weight||'') + 'kg</p>'
-      + '<h2>【検査所見】</h2><p>' + ((karteExtraData?.visit2_lab_data||'記録なし').replace(/\n/g,'<br>')) + '</p>'
-      + '<h2>【患者特性（Visit 2）】</h2><p>生活改善意欲：' + stars(params.lifestyle_motivation) + '　服薬意欲：' + stars(params.medication_motivation) + '　信頼度：' + stars(params.trust_level) + '</p>'
-      + '<h2>【問診内容（Visit 2）】</h2>' + msgHtml + '</body></html>'
-    var win = window.open('', '_blank')
-    win.document.write(html)
-    win.document.close()
-    setTimeout(function() { win.print() }, 500)
-  }
-
-  function handleExportJSON() {
-    var data = { savedAt: new Date().toISOString(), patient: caseData.patient_data, diseaseName: caseData.disease_name, visit1: { treatment: caseData.visit1_data, messages: karteExtraData?.visit1_messages }, visit2: { vitals: visit2Data?.visit2Vitals, messages: messages, labData: karteExtraData?.visit2_lab_data, params: visitParams } }
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    var url = URL.createObjectURL(blob)
-    var a = document.createElement('a'); a.href = url; a.download = 'karte_v2_' + caseData.id + '.json'
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
-  }
-
-  async function addOrReplaceReaction(reactionKey, selectionType, item, labelText, extraContext) {
-    setReactionLoading(true)
-    try {
-      const res = await fetch('/api/patient-reaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientData: caseData.patient_data, selectionType, selectedItem: item,
-          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages.slice(-20),
-        }),
-      })
-      const data = await res.json()
-      const logEntry = {
-        id: reactionKey, selectionType, item, labelText, reaction: data,
-        persuasionHistory: [{ role: 'patient', content: data.reaction }],
-        timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
-      }
-      setReactionLog(function(prev) {
-        const exists = prev.find(function(e) { return e.id === reactionKey })
-        if (exists) return prev.map(function(e) { return e.id === reactionKey ? logEntry : e })
-        return [...prev, logEntry]
-      })
-    } catch (e) { console.error('reaction error:', e) }
-    finally { setReactionLoading(false) }
-  }
-
-  async function handlePersuasion(logEntryId) {
-    if (!persuasionInput.trim()) return
-    setReactionLoading(true)
-    const entry = reactionLog.find(function(e) { return e.id === logEntryId })
-    if (!entry) { setReactionLoading(false); return }
-    const newHistory = [...entry.persuasionHistory, { role: 'doctor', content: persuasionInput }]
-    try {
-      const res = await fetch('/api/patient-reaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
-      })
-      const data = await res.json()
-      const updatedHistory = [...newHistory, { role: 'patient', content: data.reaction }]
-      setReactionLog(function(prev) {
-        return prev.map(function(e) {
-          if (e.id !== logEntryId) return e
-          return Object.assign({}, e, { reaction: data, persuasionHistory: updatedHistory })
-        })
-      })
-      setPersuasionInput('')
-      setActivePersuasionId(null)
-    } catch (e) { console.error('persuasion error:', e) }
-    finally { setReactionLoading(false) }
-  }
-
-  async function handleMedSelect(med) {
-    const isSelected = selectedMeds.includes(med.id)
-    if (isSelected) {
-      setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== med.id }) })
-      setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'med_' + med.id }) })
-      return
-    }
-    const newMedCount = selectedMeds.length + 1
-    setSelectedMeds(function(prev) { return [...prev, med.id] })
-    await addOrReplaceReaction('med_' + med.id, 'medication', med, '💊 ' + med.drug_name_generic + '（' + med.typical_dose + '）',
-      newMedCount >= 2 ? '今回で処方薬が' + newMedCount + '種類になる。' : null)
-  }
-
-  async function handleEduCategorySelect(edu) {
-    const hasSubOptions = edu.sub_options && Array.isArray(edu.sub_options) && edu.sub_options.length > 0
-    if (hasSubOptions) {
-      setActiveEduModal(edu)
-    } else {
-      const isSelected = selectedEducation.includes(edu.id)
-      if (isSelected) {
-        setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== edu.id }) })
-        setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'edu_' + edu.id }) })
-      } else {
-        setSelectedEducation(function(prev) { return [...prev, edu.id] })
-        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + edu.instruction_key, null)
-      }
-    }
-  }
-
-  function openSubGroupModal(edu, groupKey, groupLabel, items) {
-    setActiveEduModal(null)
-    setActiveSubGroupModal({ edu, groupKey, groupLabel, items })
-  }
-
-  async function handleSubOptionSelect(edu, groupKey, subOption) {
-    const currentSubs = selectedSubOptions[edu.id] || {}
-    const prevSelected = currentSubs[groupKey]
-    const isSameItem = prevSelected && prevSelected.id === subOption.id
-    if (isSameItem) {
-      setSelectedSubOptions(function(prev) {
-        const updated = Object.assign({}, prev)
-        updated[edu.id] = Object.assign({}, updated[edu.id] || {})
-        delete updated[edu.id][groupKey]
-        return updated
-      })
-      setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'sub_' + edu.id + '_' + groupKey }) })
-      return
-    }
-    setSelectedSubOptions(function(prev) {
-      const updated = Object.assign({}, prev)
-      updated[edu.id] = Object.assign({}, updated[edu.id] || {})
-      updated[edu.id][groupKey] = subOption
-      return updated
-    })
-    setSelectedEducation(function(prev) { return prev.includes(edu.id) ? prev : [...prev, edu.id] })
-    await addOrReplaceReaction('sub_' + edu.id + '_' + groupKey, 'education_sub',
-      Object.assign({}, subOption, { eduKey: edu.instruction_key }),
-      '📋 ' + edu.instruction_key + '：' + subOption.label, null)
-  }
-
-  async function confirmDeviceSelect(device) {
-    const isSelected = selectedDevices.includes(device.id)
-    if (isSelected) {
-      setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== device.id }) })
-      setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'dev_' + device.id }) })
-    } else {
-      setSelectedDevices(function(prev) { return [...prev, device.id] })
-      await addOrReplaceReaction('dev_' + device.id, 'device', device, '🔧 ' + device.device_name, null)
-    }
-    setActiveDeviceModal(null)
-  }
-
-  async function handleGetFeedback() {
-    setFeedbackLoading(true)
-    try {
-      const selectedMedData = medications.filter(function(m) { return selectedMeds.includes(m.id) })
-      const selectedEduData = educationItems.filter(function(e) { return selectedEducation.includes(e.id) })
-      const selectedDeviceData = devices.filter(function(d) { return selectedDevices.includes(d.id) })
-      const allSubOptions = []
-      Object.entries(selectedSubOptions).forEach(function([eduId, groups]) {
-        Object.values(groups).forEach(function(sub) { if (sub) allSubOptions.push(sub) })
-      })
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caseId: params.id, visitNumber: 2,
-          diseaseId: caseData.disease_id, diseaseName: caseData.disease_name,
-          patientData: caseData.patient_data,
-          selectedMedications: selectedMedData,
-          selectedEducation: selectedEduData,
-          selectedSubOptions: allSubOptions,
-          selectedDevices: selectedDeviceData,
-          reactionLog, interviewMessages: messages,
-          visit2Vitals: visit2Data?.visit2Vitals,
-        }),
-      })
-      const data = await res.json()
-      if (data.error) { alert('フィードバック取得エラー：' + data.error); return }
-      setFeedback(data.feedback)
-      setStep('feedback')
-    } catch (e) {
-      alert('エラーが発生しました：' + e.message)
-    } finally {
-      setFeedbackLoading(false)
-    }
-  }
-
-  if (loading || generating) {
+  if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#0369a1', fontSize: '18px', marginBottom: '8px' }}>
-            {generating ? '4週後の状態を計算中...' : '読み込み中...'}
-          </p>
-          <p style={{ color: '#64748b', fontSize: '13px' }}>患者の経過をシミュレーションしています</p>
-        </div>
-      </div>
-    )
-  }
-  if (!caseData || !visit2Data) return null
-  const patient = caseData.patient_data
-
-  // ===== カルテモーダル（全ステップ共通） =====
-  const karteNode = showKarte && (
-            <div onClick={function() { setShowKarte(false) }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-              <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
-                  <div>
-                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      📋 カルテ
-                      <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>一時保存</span>
-                    </h2>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{caseData.patient_data?.name || ''}（{caseData.patient_data?.age || ''}歳・{caseData.patient_data?.gender || ''}）／{caseData.disease_name || ''}</p>
-                    <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0', fontStyle: 'italic' }}>※ カルテを開くと現在の進行状況が自動的に一時保存され、次回同じ症例を開いた際に再開できます。</p>
-                  </div>
-                  <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
-                </div>
-                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
-                  <button onClick={function() { setKarteTab(1) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 1 ? '#f0f9ff' : 'white', color: karteTab === 1 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 1 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 1 ? 'bold' : 'normal' }}>Visit 1（初診）</button>
-                  <button onClick={function() { setKarteTab(2) }} style={{ flex: 1, padding: '10px', backgroundColor: karteTab === 2 ? '#f0f9ff' : 'white', color: karteTab === 2 ? '#0369a1' : '#64748b', border: 'none', borderBottom: karteTab === 2 ? '2px solid #0369a1' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: karteTab === 2 ? 'bold' : 'normal' }}>Visit 2（再診）</button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontSize: '13px', lineHeight: 1.7, color: '#1e293b' }}>
-                  {karteTab === 1 && (
-                    <div>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>患者基本情報</h3>
-                      <p style={{ margin: '0 0 12px' }}>職業：{caseData.patient_data?.occupation || '—'}<br />家族歴：{caseData.patient_data?.family_history || '—'}<br />既往歴：{caseData.patient_data?.past_history || '—'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見</h3>
-                      <p style={{ margin: '0 0 12px' }}>血圧：{caseData.patient_data?.vitals?.bp || '—'}　体重：{caseData.patient_data?.vitals?.weight || '—'}kg　BMI：{caseData.patient_data?.vitals?.bmi || '—'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>治療方針</h3>
-                      <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit1_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-                      <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit1_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
-                      {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
-                        <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                          {(karteExtraData?.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
-                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
-                          })}
-                        </div>
-                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
-                    </div>
-                  )}
-                  {karteTab === 2 && (
-                    <div>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>バイタル・身体所見（4週後）</h3>
-                      <p style={{ margin: '0 0 12px' }}>血圧：{visit2Data?.visit2Vitals?.bp || '—'}　体重：{visit2Data?.visit2Vitals?.weight || '—'}kg</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>検査所見</h3>
-                      <p style={{ margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>{karteExtraData?.visit2_lab_data || '記録なし'}</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>患者特性</h3>
-                      <p style={{ margin: '0 0 12px' }}>生活改善意欲：{'★'.repeat(visitParams?.lifestyle_motivation || 0)}{'☆'.repeat(5 - (visitParams?.lifestyle_motivation || 0))}（{visitParams?.lifestyle_motivation || 0}/5）<br />服薬意欲：{'★'.repeat(visitParams?.medication_motivation || 0)}{'☆'.repeat(5 - (visitParams?.medication_motivation || 0))}（{visitParams?.medication_motivation || 0}/5）<br />信頼度：{'★'.repeat(visitParams?.trust_level || 0)}{'☆'.repeat(5 - (visitParams?.trust_level || 0))}（{visitParams?.trust_level || 0}/5）</p>
-                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>問診内容</h3>
-                      {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
-                        <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                          {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
-                            return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
-                          })}
-                        </div>
-                      ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                  <button onClick={handleExportPDF} style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🖨 PDFで出力</button>
-                  <button onClick={handleExportJSON} style={{ flex: 1, padding: '8px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>💾 JSONで保存</button>
-                </div>
-              </div>
-            </div>
-          )
-
-  // ===== フィードバック画面 =====
-  if (step === 'feedback') {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2 フィードバック</h1>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
-            </div>
-            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
-          </div>
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
-              {feedback}
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#f0f9ff', borderRadius: '12px', padding: '16px', border: '1px solid #bae6fd', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 Visit 2の結果サマリー</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>血圧（4週後）</p>
-                <p style={{ fontWeight: 'bold', color: visit2Data.bpControlled ? '#16a34a' : '#dc2626', margin: 0 }}>
-                  {visit2Data.visit2Vitals.bp}
-                  <span style={{ fontSize: '11px', marginLeft: '6px' }}>
-                    （{visit2Data.bpReduction > 0 ? '↓' + visit2Data.bpReduction + 'mmHg' : '変化なし'}）
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>体重（4週後）</p>
-                <p style={{ fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
-                  {visit2Data.visit2Vitals.weight}kg
-                  <span style={{ fontSize: '11px', color: '#16a34a', marginLeft: '6px' }}>
-                    （{visit2Data.weightReduction > 0 ? '↓' + visit2Data.weightReduction + 'kg' : '変化なし'}）
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={function() { window.location.href = '/cases/' + params.id + '/visit3' }}
-              style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
-              Visit 3（8週後）へ進む →
-            </button>
-            <button
-              onClick={function() { window.location.href = '/cases' }}
-              style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
-              症例選択へ
-            </button>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ</button>
-          </div>
-          {karteNode}
-        </div>
+        <p style={{ color: '#0369a1', fontSize: '18px' }}>読み込み中...</p>
       </div>
     )
   }
 
-  // ===== 治療方針決定画面 =====
-  if (step === 'treatment') {
-    if (!visit2Data) return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
-        <p style={{ color: '#0369a1', fontSize: '18px' }}>Visit 2データを読み込み中...</p>
-      </div>
-    )
-    const eduByCategory = educationItems.reduce(function(acc, edu) {
-      if (!acc[edu.category]) acc[edu.category] = []
-      acc[edu.category].push(edu)
-      return acc
-    }, {})
-    const medsByCategory = medications.reduce(function(acc, med) {
-      if (!acc[med.drug_category]) acc[med.drug_category] = []
-      acc[med.drug_category].push(med)
-      return acc
-    }, {})
-    const totalSelected = selectedMeds.length + selectedEducation.length + selectedDevices.length
-
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px', paddingBottom: '280px' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-            <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定（Visit 2）</h1>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>4週後の再診　{caseData.disease_name}</p>
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={function() { setStep('interview') }}
-                style={{ padding: '7px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-                ← 問診に戻る
-              </button>
-              <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
-            </div>
-          </div>
-
-          {karteNode}
-
-          <PatientInfoCard
-            patient={patient}
-            diseaseName={caseData.disease_name}
-            visit2Vitals={visit2Data.visit2Vitals}
-            visit1Data={caseData.visit1_data}
-            collapsed={patientCardCollapsed}
-            onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
-          />
-          <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={2} />
-
-          {false && (
-            <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
-              <strong>【DEV】</strong> 性格:{patient.hidden_params.personality_type} 服薬意欲:{patient.hidden_params.adherence_level} 降圧:{visit2Data.bpReduction}mmHg 減量:{visit2Data.weightReduction}kg
-            </div>
-          )}
-
-          <div style={{ backgroundColor: '#0369a1', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: '12px', color: 'white', margin: 0 }}>
-              選択済：投薬 <strong>{selectedMeds.length}</strong>件　指導 <strong>{selectedEducation.length}</strong>件
-            </p>
-            {totalSelected > 0 && (
-              <button onClick={handleGetFeedback} disabled={feedbackLoading}
-                style={{ padding: '5px 14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                {feedbackLoading ? '生成中...' : 'フィードバックを受ける →'}
-              </button>
-            )}
-          </div>
-
-          <AccordionSection title="📋 生活指導・患者教育" badge={selectedEducation.length > 0 ? selectedEducation.length + '件' : null} defaultOpen={true}>
-            {Object.entries(eduByCategory).map(function([category, items]) {
-              return (
-                <div key={category} style={{ marginBottom: '10px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '5px' }}>{CATEGORY_LABEL[category] || category}</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {items.map(function(item) {
-                      const hasSubOptions = item.sub_options && Array.isArray(item.sub_options) && item.sub_options.length > 0
-                      const currentSubs = selectedSubOptions[item.id] || {}
-                      const subCount = Object.values(currentSubs).filter(Boolean).length
-                      const isSelected = selectedEducation.includes(item.id)
-                      return (
-                        <div key={item.id} onClick={function() { handleEduCategorySelect(item) }}
-                          style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_key}</span>
-                          {hasSubOptions && <span style={{ fontSize: '9px', color: '#0369a1' }}>▼</span>}
-                          {subCount > 0 && <span style={{ fontSize: '9px', backgroundColor: '#0369a1', color: 'white', borderRadius: '8px', padding: '0 4px' }}>{subCount}</span>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </AccordionSection>
-
-          <AccordionSection title="💊 投薬選択" badge={selectedMeds.length > 0 ? selectedMeds.length + '剤' : null} defaultOpen={true}>
-            <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>Visit 1の投薬を継続・変更・追加できます。</p>
-            {Object.entries(medsByCategory).map(function([category, meds]) {
-              return (
-                <div key={category} style={{ marginBottom: '10px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '5px' }}>{category}</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px' }}>
-                    {meds.map(function(med) {
-                      const isSelected = selectedMeds.includes(med.id)
-                      const wasInV1 = (caseData.visit1_data?.selectedMedications || []).find(function(m) { return m.id === med.id })
-                      return (
-                        <div key={med.id} onClick={function() { handleMedSelect(med) }}
-                          style={{ padding: '8px 10px', borderRadius: '8px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{med.drug_name_generic}</p>
-                              <p style={{ fontSize: '10px', color: '#64748b', margin: 0 }}>{med.typical_dose}</p>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                              {med.first_line && <span style={{ fontSize: '9px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>第一選択</span>}
-                              {wasInV1 && <span style={{ fontSize: '9px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 4px', borderRadius: '4px' }}>V1継続</span>}
-                              {isSelected && <span style={{ fontSize: '12px' }}>✓</span>}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </AccordionSection>
-
-        </div>
-
-        {/* モーダル群 */}
-        {activeEduModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
-                <button onClick={function() { setActiveEduModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-              </div>
-              {Object.entries(groupSubOptions(activeEduModal.sub_options)).map(function([groupKey, group]) {
-                const currentSubs = selectedSubOptions[activeEduModal.id] || {}
-                const selected = currentSubs[groupKey]
-                return (
-                  <div key={groupKey} style={{ marginBottom: '10px', padding: '10px', backgroundColor: selected ? '#eff6ff' : '#f8fafc', borderRadius: '10px', border: selected ? '1px solid #bfdbfe' : '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{group.label}</p>
-                      {selected && <span style={{ fontSize: '10px', color: '#0369a1', backgroundColor: '#dbeafe', padding: '1px 6px', borderRadius: '8px' }}>{selected.label}</span>}
-                    </div>
-                    <button onClick={function() { openSubGroupModal(activeEduModal, groupKey, group.label, group.items) }}
-                      style={{ width: '100%', padding: '7px', backgroundColor: selected ? '#0369a1' : 'white', color: selected ? 'white' : '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                      {selected ? '変更する →' : '選択する →'}
-                    </button>
-                  </div>
-                )
-              })}
-              <button onClick={function() { setActiveEduModal(null) }} style={{ width: '100%', padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>閉じる</button>
-            </div>
-          </div>
-        )}
-
-        {activeSubGroupModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1100 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <div>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
-                  <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
-                </div>
-                <button onClick={function() { setActiveSubGroupModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-              </div>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px' }}>1つ選択してください</p>
-              {activeSubGroupModal.items.map(function(sub) {
-                const currentSubs = selectedSubOptions[activeSubGroupModal.edu.id] || {}
-                const isSelected = currentSubs[activeSubGroupModal.groupKey] && currentSubs[activeSubGroupModal.groupKey].id === sub.id
-                return (
-                  <div key={sub.id} onClick={function() { handleSubOptionSelect(activeSubGroupModal.edu, activeSubGroupModal.groupKey, sub) }}
-                    style={{ marginBottom: '6px', padding: '10px', borderRadius: '8px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                        <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: isSelected ? '4px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
-                        <p style={{ fontSize: '12px', fontWeight: isSelected ? 'bold' : 'normal', color: '#1e293b', margin: 0 }}>{sub.label}</p>
-                      </div>
-                      {sub.description && <p style={{ fontSize: '10px', color: '#64748b', marginLeft: '20px', margin: '0 0 0 20px' }}>{sub.description}</p>}
-                    </div>
-                    <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>{STRICTNESS_LABEL[sub.strictness] || sub.strictness}</span>
-                  </div>
-                )
-              })}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                <button onClick={function() { setActiveSubGroupModal(null); setActiveEduModal(activeSubGroupModal.edu) }}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← 戻る</button>
-                <button onClick={function() { setActiveSubGroupModal(null) }}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>確定</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 患者反応・治療確定（画面下部固定） */}
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
-          <div style={{ backgroundColor: '#fef2f2', borderTop: '2px solid #dc2626', maxHeight: '180px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '6px 16px' }}>
-              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 4px' }}>
-                💬 患者の反応
-                {reactionLog.length > 0 && <span style={{ fontSize: '10px', backgroundColor: '#dc2626', color: 'white', borderRadius: '8px', padding: '1px 6px', marginLeft: '6px' }}>{reactionLog.length}件</span>}
-                {reactionLoading && <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '8px' }}>💭 反応中...</span>}
-              </p>
-              {reactionLog.length === 0 && !reactionLoading && (
-                <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px' }}>治療内容を選択すると患者の反応が表示されます</p>
-              )}
-              {reactionLog.map(function(entry) {
-                const isRejected = entry.reaction.acceptance_level === 'rejected' || entry.reaction.acceptance_level === 'negotiating'
-                const isActive = activePersuasionId === entry.id
-                return (
-                  <div key={entry.id} style={{ marginBottom: '5px', padding: '6px 8px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', margin: 0 }}>{entry.labelText}</p>
-                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', backgroundColor: ACCEPTANCE_COLOR[entry.reaction.acceptance_level] + '20', color: ACCEPTANCE_COLOR[entry.reaction.acceptance_level], fontWeight: 'bold' }}>{ACCEPTANCE_LABEL[entry.reaction.acceptance_level]}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px' }}>
-                      <span style={{ fontSize: '13px' }}>{EMOTION_ICON[entry.reaction.emotion] || '😐'}</span>
-                      <p style={{ fontSize: '12px', color: '#1e293b', fontStyle: 'italic', lineHeight: '1.4', margin: 0, flex: 1 }}>「{entry.reaction.reaction}」</p>
-                    </div>
-                    {isRejected && !isActive && (
-                      <div style={{ display: 'flex', gap: '5px', marginTop: '3px', marginLeft: '18px' }}>
-                        <button onClick={function() { setActivePersuasionId(entry.id); setPersuasionInput('') }}
-                          style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>💬 説得する</button>
-                        <button onClick={function() {
-                          setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== entry.id }) })
-                          if (entry.selectionType === 'medication') setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('med_', '') }) })
-                          else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') { const eduId = entry.id.split('_')[1]; setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) }); setSelectedSubOptions(function(prev) { const u = Object.assign({}, prev); delete u[eduId]; return u }) }
-                          else if (entry.selectionType === 'device') setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('dev_', '') }) })
-                        }}
-                          style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>✕ 取りやめ</button>
-                      </div>
-                    )}
-                    {isRejected && isActive && (
-                      <div style={{ display: 'flex', gap: '4px', marginTop: '3px', marginLeft: '18px' }}>
-                        <input type="text" value={persuasionInput}
-                          onChange={function(e) { setPersuasionInput(e.target.value) }}
-                          onKeyDown={function(e) { if (e.key === 'Enter') handlePersuasion(entry.id) }}
-                          placeholder="患者への説明..." autoFocus
-                          style={{ flex: 1, padding: '3px 8px', border: '1px solid #0369a1', borderRadius: '6px', fontSize: '11px', outline: 'none' }} />
-                        <button onClick={function() { handlePersuasion(entry.id) }} disabled={reactionLoading}
-                          style={{ padding: '3px 8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>{reactionLoading ? '...' : '説明'}</button>
-                        <button onClick={function() { setActivePersuasionId(null); setPersuasionInput('') }}
-                          style={{ padding: '3px 6px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              <div ref={reactionLogEndRef} />
-            </div>
-          </div>
-          <div style={{ backgroundColor: '#e0f2fe', borderTop: '2px solid #0369a1', padding: '8px 16px' }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <p style={{ fontSize: '12px', color: '#0369a1', margin: 0, flex: 1 }}>
-                指導 <strong>{selectedEducation.length}</strong>件　投薬 <strong>{selectedMeds.length}</strong>件　機器 <strong>{selectedDevices.length}</strong>件
-              </p>
-              <button onClick={handleGetFeedback} disabled={feedbackLoading || totalSelected === 0}
-                style={{ padding: '10px 24px', backgroundColor: feedbackLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: feedbackLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                {feedbackLoading ? 'フィードバック生成中...' : '治療方針を確定 →'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ===== 問診・診察画面 =====
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+
+        {/* ヘッダー */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2｜4週後の再診</h1>
-            <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
+            <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>PC Training</h1>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>プライマリケア外来研修シミュレーター</p>
           </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ</button>
-            <button onClick={function() { window.location.href = '/cases' }}
-              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-              症例選択へ
-            </button>
-          </div>
+          <button onClick={handleSignOut}
+            style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+            ログアウト
+          </button>
         </div>
 
-        {karteNode}
-
-        <PatientInfoCard
-          patient={patient}
-          diseaseName={caseData.disease_name}
-          visit2Vitals={visit2Data.visit2Vitals}
-          visit1Data={caseData.visit1_data}
-          collapsed={patientCardCollapsed}
-          onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
-        />
-        <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={2} />
-
-        {!labsRevealed && (
-          <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', border: '1px solid #fde047', fontSize: '12px', color: '#713f12' }}>
-            💡 「検査結果を確認する」と入力すると血液検査結果が表示されます
+        {/* 中断症例の再開 */}
+        {inProgressCases.length > 0 && (
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '2px solid #fde047', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#713f12', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📂 中断中の症例
+              <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>{inProgressCases.length}件</span>
+            </h2>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>前回の続きから再開するか、削除して新しく開始するか選択してください</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {inProgressCases.map(function(c) {
+                const ss = c.saved_state || {}
+                const visit = ss.current_visit || 1
+                const visitData = visit === 2 ? ss.visit2 : ss.visit1
+                const step = (visitData && visitData.step) || 'interview'
+                const stepLabel = step === 'interview' ? '問診中'
+                  : step === 'treatment' ? '治療方針決定中'
+                  : step === 'scoring' ? 'フィードバック表示中'
+                  : step === 'feedback' ? 'フィードバック表示中'
+                  : step
+                const msgCount = (visitData && Array.isArray(visitData.messages))
+                  ? visitData.messages.filter(function(m) { return m.role === 'user' }).length : 0
+                const medCount = (visitData && Array.isArray(visitData.selected_meds)) ? visitData.selected_meds.length : 0
+                const eduCount = (visitData && Array.isArray(visitData.selected_education)) ? visitData.selected_education.length : 0
+                const savedAt = c.record_saved_at ? new Date(c.record_saved_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
+                const pd = c.patient_data || {}
+                return (
+                  <div key={c.id} style={{ padding: '12px', borderRadius: '10px', border: '1px solid #fde047', backgroundColor: '#fefce8' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#713f12' }}>{c.disease_name || '症例'}</span>
+                          <span style={{ fontSize: '11px', backgroundColor: visit === 2 ? '#dbeafe' : '#dcfce7', color: visit === 2 ? '#1e40af' : '#14532d', padding: '1px 8px', borderRadius: '8px', fontWeight: 'bold' }}>Visit {visit}</span>
+                          <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 8px', borderRadius: '8px' }}>{stepLabel}</span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 2px' }}>
+                          {pd.name || '?'}（{pd.age || '?'}歳・{pd.gender || '?'}）
+                          {pd.chief_complaint ? '　主訴：「' + pd.chief_complaint + '」' : ''}
+                        </p>
+                        <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
+                          問診 {msgCount}回・投薬 {medCount}件・指導 {eduCount}件　／　保存: {savedAt}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button onClick={function() { resumeCase(c) }}
+                        style={{ flex: 1, padding: '8px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                        ▶ 再開する
+                      </button>
+                      <button onClick={function() { discardCase(c) }}
+                        style={{ padding: '8px 14px', backgroundColor: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                        🗑 削除
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
-        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
-            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話（Visit 2）</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>経過確認・診察・検査指示を入力してください</p>
-          </div>
-          <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '38vh', minHeight: '300px' }}>
-            {messages.map(function(msg, i) {
-              const isSystem = msg.role === 'system'
+        {/* 疾患選択 */}
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>疾患を選択してトレーニングを開始</h2>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>疾患を選ぶと、モデル症例またはランダム生成を選択できます</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+            {diseases.map(function(disease) {
               return (
-                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{
-                    maxWidth: '80%', padding: '10px 14px',
-                    borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0',
-                    backgroundColor: isSystem ? '#f0fdf4' : msg.role === 'user' ? '#0369a1' : '#f1f5f9',
-                    color: msg.role === 'user' ? 'white' : '#1e293b',
-                    fontSize: isSystem ? '12px' : '13px',
-                    lineHeight: '1.6', whiteSpace: 'pre-wrap',
-                    border: isSystem ? '1px solid #bbf7d0' : 'none',
-                    fontFamily: isSystem ? 'monospace' : 'inherit'
-                  }}>
-                    {msg.content}
-                  </div>
+                <div key={disease.id}
+                  onClick={function() { handleDiseaseSelect(disease) }}
+                  style={{ padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={function(e) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.backgroundColor = '#eff6ff' }}
+                  onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#f8fafc' }}>
+                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 2px' }}>{disease.name_ja}</p>
+                  {disease.name_en && <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>{disease.name_en}</p>}
                 </div>
               )
             })}
-            {aiLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ padding: '10px 14px', borderRadius: '14px 14px 14px 0', backgroundColor: '#f1f5f9', color: '#94a3b8', fontSize: '13px' }}>入力中...</div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
           </div>
         </div>
 
-        {/* 入力エリア（画面下部固定） */}
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <input type="text" value={input}
-                onChange={function(e) { setInput(e.target.value) }}
-                onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="💬 経過確認・診察・検査指示を入力してください..."
-                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
-              <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
-                送信
-              </button>
-            </div>
-            <button onClick={function() { setStep('treatment') }}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
-              治療方針を決定する →
-            </button>
-          </div>
+        <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd', fontSize: '12px', color: '#0369a1' }}>
+          <strong>📌 使い方：</strong>疾患を選ぶ → モデル症例またはランダム生成を選択 → 問診・治療方針の決定 → フィードバック → Visit 2・3へ進む
         </div>
       </div>
+
+      {/* 症例選択モーダル */}
+      {showModal && selectedDisease && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+
+            {/* モーダルヘッダー */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
+              <div>
+                <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{selectedDisease.name_ja}</h2>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>症例タイプを選択してください</p>
+              </div>
+              <button onClick={function() { setShowModal(false); setMode(null); setSelectedModelCase(null) }}
+                style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#64748b', padding: '4px' }}>✕</button>
+            </div>
+
+            <div style={{ padding: '16px 20px' }}>
+
+              {/* モード選択タブ */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <button onClick={function() { setMode('model'); setSelectedModelCase(null) }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'model' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'model' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'model' ? 'bold' : 'normal', color: mode === 'model' ? '#0369a1' : '#475569' }}>
+                  📋 モデル症例から選ぶ
+                </button>
+                <button onClick={function() { setMode('random'); setSelectedModelCase(null) }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'random' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'random' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'random' ? 'bold' : 'normal', color: mode === 'random' ? '#0369a1' : '#475569' }}>
+                  🎲 ランダム生成
+                </button>
+              </div>
+
+              {/* モデル症例リスト */}
+              {mode === 'model' && (
+                <div>
+                  {modelLoading ? (
+                    <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
+                      <p>モデル症例を読み込み中...</p>
+                    </div>
+                  ) : modelCases.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
+                      <p>この疾患のモデル症例はまだ登録されていません</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                      {modelCases.map(function(mc) {
+                        const isSelected = selectedModelCase && selectedModelCase.id === mc.id
+                        const hidden = mc.patient_data.hidden_params
+                        const difficulty = mc.scenario_data?.difficulty || 1
+                        return (
+                          <div key={mc.id}
+                            onClick={function() { setSelectedModelCase(mc) }}
+                            style={{ padding: '14px', borderRadius: '10px', border: '2px solid ' + (isSelected ? '#0369a1' : '#e2e8f0'), backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: isSelected ? '5px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
+                                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{mc.title}</p>
+                                </div>
+                                <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 0 26px' }}>{mc.description}</p>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '10px' }}>
+                                <span style={{ fontSize: '12px', color: DIFFICULTY_COLOR[difficulty], fontWeight: 'bold' }}>
+                                  {DIFFICULTY_STAR[difficulty]}
+                                </span>
+                                <span style={{ fontSize: '10px', backgroundColor: DIFFICULTY_COLOR[difficulty] + '20', color: DIFFICULTY_COLOR[difficulty], padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>
+                                  {DIFFICULTY_LABEL[difficulty]}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* 患者詳細タグ */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '26px' }}>
+                              <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '8px' }}>
+                                {mc.patient_data.age}歳・{mc.patient_data.gender}
+                              </span>
+                              <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '8px' }}>
+                                BMI {mc.patient_data.vitals.bmi}
+                              </span>
+                              <span style={{ fontSize: '10px', backgroundColor: PERSONALITY_COLOR[hidden.personality_type] + '15', color: PERSONALITY_COLOR[hidden.personality_type], padding: '1px 6px', borderRadius: '8px' }}>
+                                性格：{PERSONALITY_LABEL[hidden.personality_type] || hidden.personality_type}
+                              </span>
+                              {hidden.cognitive_level !== 'normal' && (
+                                <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 6px', borderRadius: '8px' }}>
+                                  認知：{COGNITIVE_LABEL[hidden.cognitive_level]}
+                                </span>
+                              )}
+                              {hidden.adl_level !== 'independent' && (
+                                <span style={{ fontSize: '10px', backgroundColor: '#fef2f2', color: '#dc2626', padding: '1px 6px', borderRadius: '8px' }}>
+                                  ADL：{ADL_LABEL[hidden.adl_level]}
+                                </span>
+                              )}
+                              {hidden.needs_social_support === 'true' && (
+                                <span style={{ fontSize: '10px', backgroundColor: '#f0fdf4', color: '#16a34a', padding: '1px 6px', borderRadius: '8px' }}>
+                                  社会的支援要
+                                </span>
+                              )}
+                              <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '8px' }}>
+                                {hidden.medication_attitude === 'very_negative' ? '薬：強く拒否' : hidden.medication_attitude === 'negative' ? '薬：否定的' : hidden.medication_attitude === 'positive' ? '薬：前向き' : '薬：普通'}
+                              </span>
+                            </div>
+
+                            {/* 学習ポイント（選択時のみ表示） */}
+                            {isSelected && mc.scenario_data?.key_points && (
+                              <div style={{ marginTop: '10px', marginLeft: '26px', padding: '8px', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                                <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 4px' }}>📚 この症例の学習ポイント</p>
+                                {mc.scenario_data.key_points.map(function(pt, i) {
+                                  return <p key={i} style={{ fontSize: '11px', color: '#475569', margin: '1px 0' }}>• {pt}</p>
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleStartModel}
+                    disabled={!selectedModelCase || generating}
+                    style={{ width: '100%', padding: '13px', backgroundColor: !selectedModelCase || generating ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: !selectedModelCase || generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                    {generating ? '症例を準備中...' : selectedModelCase ? selectedModelCase.title + ' でトレーニング開始 →' : 'モデル症例を選択してください'}
+                  </button>
+                </div>
+              )}
+
+              {/* ランダム生成 */}
+              {mode === 'random' && (
+                <div>
+                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '10px', padding: '16px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>🎲 ランダム症例生成</p>
+                    <p style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>AIが毎回異なる患者像を生成します。</p>
+                    <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.8' }}>
+                      <p style={{ margin: 0 }}>• 年齢：35〜80歳からランダム</p>
+                      <p style={{ margin: 0 }}>• 性別・職業・BMI・性格がランダムに変化</p>
+                      <p style={{ margin: 0 }}>• 毎回異なる隠しパラメータ（アドヒアランス・薬への態度等）</p>
+                      <p style={{ margin: 0 }}>• 生成に15〜30秒かかります</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleStartRandom}
+                    disabled={generating}
+                    style={{ width: '100%', padding: '13px', backgroundColor: generating ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '10px', cursor: generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                    {generating ? '症例を生成中...（15〜30秒）' : 'ランダム症例でトレーニング開始 →'}
+                  </button>
+                </div>
+              )}
+
+              {/* 未選択時のガイド */}
+              {!mode && (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <p style={{ fontSize: '14px', margin: '0 0 8px' }}>上のボタンから症例タイプを選んでください</p>
+                  <p style={{ fontSize: '12px', margin: 0 }}>モデル症例：特定の患者像を繰り返し練習できます<br />ランダム生成：毎回新しい患者と対話できます</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
