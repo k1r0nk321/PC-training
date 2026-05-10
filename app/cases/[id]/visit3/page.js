@@ -776,26 +776,51 @@ export default function Visit3Page({ params }) {
   if (!caseData || !visit3Data) return null
   const patient = caseData.patient_data
 
-  // ===== カルテ用：患者特性のレンダリング（Phase E） =====
+  // ===== カルテ用：患者特性のレンダリング（青=初期、緑=改善、赤=悪化） =====
   function renderParamsBlock(params, prevParams) {
     if (!params) {
       return <p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>
     }
-    const stars = function(n) {
-      const v = Math.max(0, Math.min(5, n || 0))
-      return '★'.repeat(v) + '☆'.repeat(5 - v)
-    }
-    const numChange = function(key) {
-      if (!prevParams) return null
-      const cur = params[key]; const prev = prevParams[key]
-      if (cur == null || prev == null || cur === prev) return null
-      const diff = (cur || 0) - (prev || 0)
-      const color = diff > 0 ? '#16a34a' : '#dc2626'
-      return <span style={{ color, fontSize: '10px', fontWeight: 'bold', marginLeft: '4px' }}>{diff > 0 ? '↑' : '↓'}{Math.abs(diff)}</span>
+    // 5マス分の星をレンダー：各マスに「stable=青、新規埋まり=方向に応じ緑/赤、新規空き=方向に応じ緑/赤の中抜き、stable empty=灰」
+    // direction: 'higher_is_better'（高い方が良い、例: 意欲・信頼度）
+    //            'lower_is_better'（低い方が良い、例: ストレス・忙しさ）
+    const starRow = function(key, direction) {
+      const cur = parseInt(params[key]) || 0
+      const prev = prevParams ? (parseInt(prevParams[key]) || 0) : null
+      const cells = []
+      for (let i = 1; i <= 5; i++) {
+        const curF = i <= cur
+        const prevF = prev !== null && i <= prev
+        let ch, col, deco = 'none'
+        if (prev === null) {
+          // Visit 1 タブ：比較対象なし → 全て青（初期値表示）
+          ch = curF ? '★' : '☆'
+          col = curF ? '#0369a1' : '#cbd5e1'
+        } else if (curF && prevF) {
+          // 安定（埋まったまま）
+          ch = '★'; col = '#0369a1'
+        } else if (curF && !prevF) {
+          // 新規埋まり（増加）
+          ch = '★'
+          col = direction === 'higher_is_better' ? '#16a34a' : '#dc2626'
+        } else if (!curF && prevF) {
+          // 新規空き（減少）：前回は埋まっていた位置 → 取り消し線付き
+          ch = '★'
+          col = direction === 'higher_is_better' ? '#dc2626' : '#16a34a'
+          deco = 'line-through'
+        } else {
+          // 安定（空きのまま）
+          ch = '☆'; col = '#cbd5e1'
+        }
+        cells.push(<span key={i} style={{ color: col, fontWeight: 'bold', fontSize: '15px', textDecoration: deco, marginRight: '1px' }}>{ch}</span>)
+      }
+      return <span>{cells}</span>
     }
     const textChange = function(key) {
       if (!prevParams) return null
-      if (params[key] !== prevParams[key]) return <span style={{ color: '#d97706', fontSize: '10px', marginLeft: '4px' }}>（変化）</span>
+      if (params[key] !== prevParams[key]) {
+        return <span style={{ color: '#d97706', fontSize: '10px', marginLeft: '4px', fontWeight: 'bold' }}>（変化）</span>
+      }
       return null
     }
     return (
@@ -803,11 +828,11 @@ export default function Visit3Page({ params }) {
         <div><b>性格：</b>{params.personality || '—'}{textChange('personality')}</div>
         <div><b>食生活：</b>{params.eating_habit_label || '—'}{params.eating_habit_comment ? '（' + params.eating_habit_comment + '）' : ''}{textChange('eating_habit_label')}</div>
         <div><b>運動：</b>{params.exercise_habit_label || '—'}{params.exercise_habit_comment ? '（' + params.exercise_habit_comment + '）' : ''}{textChange('exercise_habit_label')}</div>
-        <div><b>ストレス：</b><span style={{ color: '#dc2626' }}>{stars(params.stress)}</span>{numChange('stress')}</div>
-        <div><b>忙しさ：</b><span style={{ color: '#dc2626' }}>{stars(params.busyness)}</span>{numChange('busyness')}</div>
-        <div><b>生活改善意欲：</b><span style={{ color: '#16a34a' }}>{stars(params.lifestyle_motivation)}</span>{numChange('lifestyle_motivation')}</div>
-        <div><b>服薬意欲：</b><span style={{ color: '#16a34a' }}>{stars(params.medication_motivation)}</span>{numChange('medication_motivation')}</div>
-        <div><b>信頼度：</b><span style={{ color: '#0369a1' }}>{stars(params.trust_level)}</span>{numChange('trust_level')}</div>
+        <div><b>ストレス：</b>{starRow('stress', 'lower_is_better')}</div>
+        <div><b>忙しさ：</b>{starRow('busyness', 'lower_is_better')}</div>
+        <div><b>生活改善意欲：</b>{starRow('lifestyle_motivation', 'higher_is_better')}</div>
+        <div><b>服薬意欲：</b>{starRow('medication_motivation', 'higher_is_better')}</div>
+        <div><b>信頼度：</b>{starRow('trust_level', 'higher_is_better')}</div>
       </div>
     )
   }
