@@ -182,6 +182,7 @@ ${guidelineText}
     await supabase.from('cases').update(updateData).eq('id', caseId)
 
     // Detect treatment categories from selected items and update visit_parameters flags
+    let flags = null
     try {
       const allItems = []
       if (Array.isArray(selectedEducation)) allItems.push(...selectedEducation)
@@ -201,7 +202,7 @@ ${guidelineText}
           return false
         })
       }
-      const flags = {
+      flags = {
         social_support_given: hasCategory('psychosocial'),
         exercise_treatment_given: hasCategory('exercise'),
         diet_treatment_given: hasCategory('diet')
@@ -216,7 +217,7 @@ ${guidelineText}
     }
 
     // For existing cases: if Visit 1 has social support, directly update Visit 2's stress/busyness
-    if (visitNumber === 1 && flags.social_support_given) {
+    if (visitNumber === 1 && flags && flags.social_support_given) {
       try {
         const { data: v2Params } = await supabase
           .from('visit_parameters')
