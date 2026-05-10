@@ -47,11 +47,14 @@ export default function CasesPage() {
   async function fetchInProgressCases(userId) {
     try {
       // saved_state IS NOT NULL のフィルタはクライアント側で行う（PostgREST .not() の挙動が DB バージョン依存のため）
+      // saved_state が NOT NULL の行のみ取得（サーバ側フィルタ）
+      // PostgreSQL DESC のデフォルトは NULLS FIRST なので nullsFirst:false を明示
       const { data, error } = await supabase
         .from('cases')
         .select('id, disease_name, saved_state, record_saved_at, patient_data')
         .eq('user_id', userId)
-        .order('record_saved_at', { ascending: false })
+        .not('saved_state', 'is', null)
+        .order('record_saved_at', { ascending: false, nullsFirst: false })
         .limit(50)
       if (error) {
         console.error('[in-progress] fetch error:', error)
