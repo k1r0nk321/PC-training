@@ -772,8 +772,12 @@ export default function Visit2Page({ params }) {
               <div onClick={function(e) { e.stopPropagation() }} style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
                   <div>
-                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>📋 カルテ</h2>
+                    <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      📋 カルテ
+                      <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid #fde047' }}>一時保存</span>
+                    </h2>
                     <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>{caseData.patient_data?.name || ''}（{caseData.patient_data?.age || ''}歳・{caseData.patient_data?.gender || ''}）／{caseData.disease_name || ''}</p>
+                    <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0', fontStyle: 'italic' }}>※ カルテを開くと現在の進行状況が自動的に一時保存され、次回同じ症例を開いた際に再開できます。</p>
                   </div>
                   <button onClick={function() { setShowKarte(false) }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
                 </div>
