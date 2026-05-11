@@ -158,6 +158,34 @@ function ParameterPanel({ data, caseId, visitNumber }) {
   const initialDoneRef = useRef(false)
   const [changes, setChanges] = useState({})
 
+  // 指導医モード設定をユーザー設定から取得
+  useEffect(function() {
+    supabase.auth.getSession().then(function(s) {
+      const uid = s && s.data && s.data.session && s.data.session.user && s.data.session.user.id
+      if (uid) {
+        setCurrentUserId(uid)
+        fetch('/api/user-preferences?userId=' + uid)
+          .then(function(r) { return r.json() })
+          .then(function(d) {
+            if (d && d.preceptor_coaching_mode) setCoachingMode(d.preceptor_coaching_mode)
+          })
+          .catch(function() {})
+      }
+    })
+  }, [])
+
+  // モード変更ハンドラ
+  function updateCoachingMode(newMode) {
+    setCoachingMode(newMode)
+    if (currentUserId) {
+      fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, preceptor_coaching_mode: newMode })
+      }).catch(function() {})
+    }
+  }
+
   useEffect(function() {
     if (!data) return
 
@@ -273,6 +301,8 @@ export default function CaseDetailPage({ params }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [coachingMode, setCoachingMode] = useState('recommended_only')
+  const [currentUserId, setCurrentUserId] = useState(null)
   const [step, setStep] = useState('interview')
   const [patientCardCollapsed, setPatientCardCollapsed] = useState(false)
 
@@ -419,29 +449,55 @@ export default function CaseDetailPage({ params }) {
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
-      try {
-        const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
-        const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
-        if (isAdvice && caseData && caseData.disease_id) {
-          const tpRes = await fetch('/api/teaching-points', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              diseaseId: caseData.disease_id,
-              diseaseName: caseData.disease_name,
-              patientContext: (caseData.patient_data?.name || '') + '・' + (caseData.patient_data?.age || '') + '歳・' + (caseData.disease_name || ''),
-              lastPatientStatement: data.text
+      // ===== 指導医コーチング（モードによって分岐） =====
+      if (coachingMode !== 'none') {
+        try {
+          if (coachingMode === 'detailed' && caseData && caseData.disease_id) {
+            // 細かく：毎ターン丁寧コーチング
+            const pcRes = await fetch('/api/preceptor-coaching', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                diseaseName: caseData.disease_name,
+                recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
+                doctorMessage: userMessage,
+                patientResponse: data.text,
+                visitNumber: 1
+              })
             })
-          })
-          if (tpRes.ok) {
-            const tp = await tpRes.json()
-            if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
-              const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
-              setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+            if (pcRes.ok) {
+              const pc = await pcRes.json()
+              if (pc && pc.commentary) {
+                const tipText = '📚 指導医のコメント:\n' + pc.commentary
+                setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+              }
+            }
+          } else if (coachingMode === 'recommended_only' && caseData && caseData.disease_id) {
+            // 推奨治療のみ：患者がアドバイスを求めたときのみ
+            const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
+            const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
+            if (isAdvice) {
+              const tpRes = await fetch('/api/teaching-points', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  diseaseId: caseData.disease_id,
+                  diseaseName: caseData.disease_name,
+                  patientContext: (caseData.patient_data?.name || '') + '・' + (caseData.patient_data?.age || '') + '歳・' + (caseData.disease_name || ''),
+                  lastPatientStatement: data.text
+                })
+              })
+              if (tpRes.ok) {
+                const tp = await tpRes.json()
+                if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
+                  const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
+                  setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+                }
+              }
             }
           }
-        }
-      } catch (tpErr) {}
+        } catch (pcErr) {}
+      }
       try {
         if (visitParams && caseData && caseData.id) {
           const evalRes = await fetch('/api/evaluate-params', {
@@ -1323,6 +1379,21 @@ export default function CaseDetailPage({ params }) {
                 return hasReferral ? '。「紹介状」と入力すると前医の紹介状を表示します' : ''
               })()}
             </p>
+          </div>
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 'bold', color: '#475569' }}>📚 指導医モード:</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input type="radio" name="coaching-mode" checked={coachingMode === 'detailed'} onChange={function() { updateCoachingMode('detailed') }} style={{ cursor: 'pointer' }} />
+              <span>細かく</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input type="radio" name="coaching-mode" checked={coachingMode === 'recommended_only'} onChange={function() { updateCoachingMode('recommended_only') }} style={{ cursor: 'pointer' }} />
+              <span>推奨治療のみ</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input type="radio" name="coaching-mode" checked={coachingMode === 'none'} onChange={function() { updateCoachingMode('none') }} style={{ cursor: 'pointer' }} />
+              <span>なし</span>
+            </label>
           </div>
           <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '38vh', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
