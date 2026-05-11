@@ -43,6 +43,17 @@ export async function POST(req) {
     if (cErr) {
       return Response.json({ error: cErr.message }, { status: 500 })
     }
+
+    // Phase F+: 他の中断中症例（未完遂）を全て削除
+    try {
+      await supabase
+        .from('cases')
+        .delete()
+        .eq('user_id', src.user_id)
+        .is('completed_at', null)
+        .neq('id', created.id)
+    } catch (e) {}
+
     return Response.json({ newCaseId: created.id })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
