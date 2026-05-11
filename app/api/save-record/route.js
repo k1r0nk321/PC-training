@@ -17,34 +17,7 @@ export async function POST(req) {
     }
     const supabase = getAdminClient()
 
-    // Phase F: カルテは1ユーザー1例のみ
-    // savedState が設定された時、同じユーザーの他の中断中症例のカルテをクリア
-    if (savedState !== undefined && savedState !== null) {
-      try {
-        const { data: thisCaseInfo } = await supabase
-          .from('cases').select('user_id').eq('id', caseId).single()
-        if (thisCaseInfo && thisCaseInfo.user_id) {
-          await supabase
-            .from('cases')
-            .update({
-              saved_state: null,
-              visit1_messages: null,
-              visit2_messages: null,
-              visit3_messages: null,
-              visit1_data: null,
-              visit2_data: null,
-              visit3_data: null,
-              visit1_lab_data: null,
-              visit2_lab_data: null,
-              visit3_lab_data: null,
-              record_saved_at: null,
-            })
-            .eq('user_id', thisCaseInfo.user_id)
-            .neq('id', caseId)
-            .is('completed_at', null)
-        }
-      } catch (e) {}
-    }
+
     const updates = { record_saved_at: new Date().toISOString() }
     if (visitNumber === 1) {
       updates.visit1_messages = messages || []
