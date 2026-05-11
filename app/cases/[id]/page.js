@@ -1,61 +1,34 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
-const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
-const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
-const ACCEPTANCE_LABEL = { accepted: '同意', partial: '一部同意', rejected: '拒否', negotiating: '交渉中' }
+const EMOTION_ICON = {
+  relieved: '😌', anxious: '😟', resistant: '😤',
+  neutral: '😐', angry: '😠', convinced: '🙂'
+}
+const ACCEPTANCE_COLOR = {
+  accepted: '#16a34a', partial: '#d97706',
+  rejected: '#dc2626', negotiating: '#0369a1'
+}
+const ACCEPTANCE_LABEL = {
+  accepted: '同意', partial: '一部同意',
+  rejected: '拒否', negotiating: '交渉中'
+}
 const CATEGORY_LABEL = {
   diet: '食事指導', exercise: '運動指導', medication: '服薬指導',
   monitoring: 'モニタリング', lifestyle: '生活習慣',
   psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防'
 }
-const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
-const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
-
-function calcRecommendedCalories(patient) {
-  if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
-  const age = patient.age
-  if (!h || !age) return null
-  const idealWeight = Math.round(h * h * 22 * 10) / 10
-  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
-  const recCalRaw = idealWeight * actCoef
-  const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
-  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
-  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
+const STRICTNESS_COLOR = {
+  very_strict: '#dc2626', strict: '#d97706',
+  moderate: '#0369a1', mild: '#16a34a',
+  very_mild: '#10b981', none: '#94a3b8'
 }
-
-function groupSubOptions(subOptions) {
-  const categoryLabels = {
-    calorie: 'カロリー制限の目標', salt: '塩分制限の目標', eating_out: '外食の制限',
-    night_eating: '夜食・間食の制限', alcohol: '飲酒制限の目標', aerobic: '有酸素運動',
-    resistance: '筋力トレーニング', flexibility: 'ストレッチ・柔軟', lifestyle: '生活習慣',
-    education: '服薬指導の説明', strategy: '服薬の工夫・戦略', tool: '服薬サポートツール',
-    social: '周囲のサポート', monitoring: 'モニタリング方法', mental: '心理的ケア',
-    referral: '専門機関紹介', weight_goal: '体重目標',
-    emergency_education: '緊急時の説明', emergency_tool: '緊急時ツール', emergency_social: '家族への説明',
-    none: 'その他',
-  }
-  const categoryOrder = [
-    'calorie','salt','eating_out','night_eating','alcohol',
-    'aerobic','resistance','flexibility','lifestyle',
-    'education','strategy','tool','social','monitoring',
-    'mental','referral','weight_goal',
-    'emergency_education','emergency_tool','emergency_social','none'
-  ]
-  const groups = {}
-  if (!subOptions) return groups
-  subOptions.forEach(function(sub) {
-    const cat = sub.category || 'none'
-    if (!groups[cat]) groups[cat] = { label: categoryLabels[cat] || cat, items: [], order: categoryOrder.indexOf(cat) >= 0 ? categoryOrder.indexOf(cat) : 99 }
-    groups[cat].items.push(sub)
-  })
-  const sorted = {}
-  Object.keys(groups).sort(function(a, b) { return groups[a].order - groups[b].order }).forEach(function(k) { sorted[k] = groups[k] })
-  return sorted
+const STRICTNESS_LABEL = {
+  very_strict: '非常に厳格', strict: '厳格',
+  moderate: '標準', mild: '緩やか',
+  very_mild: '最小限', none: 'なし'
 }
 
 function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
@@ -75,15 +48,70 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit1Data, collapsed, onToggle }) {
-  const bpChange = visit3Vitals?.bp_change
-  const weightChange = visit3Vitals?.weight_change
-  const v1Meds = visit1Data?.selectedMedications || []
-  const v1Edu = visit1Data?.selectedEducation || []
-  const v1Subs = visit1Data?.selectedSubOptions || []
+function calcRecommendedCalories(patient) {
+  if (!patient) return null
+  const h = parseFloat(patient.vitals?.height) / 100
+  const age = patient.age
+  if (!h || !age) return null
+  const idealWeight = Math.round(h * h * 22 * 10) / 10
+  const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
+  const recCalRaw = idealWeight * actCoef
+  const recCal = Math.round(recCalRaw / 200) * 200
+  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
+  return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
+}
+
+function groupSubOptions(subOptions) {
+  const categoryLabels = {
+    calorie: 'カロリー制限の目標', salt: '塩分制限の目標',
+    eating_out: '外食の制限', night_eating: '夜食・間食の制限',
+    alcohol: '飲酒制限の目標', aerobic: '有酸素運動',
+    resistance: '筋力トレーニング', flexibility: 'ストレッチ・柔軟',
+    lifestyle: '生活習慣', education: '服薬指導の説明',
+    strategy: '服薬の工夫・戦略', tool: '服薬サポートツール',
+    social: '周囲のサポート', monitoring: 'モニタリング方法',
+    mental: '心理的ケア', referral: '専門機関紹介',
+    weight_goal: '体重目標',
+    emergency_education: '緊急時の説明',
+    emergency_tool: '緊急時ツール',
+    emergency_social: '家族への説明',
+    none: 'その他',
+  }
+  const categoryOrder = [
+    'calorie','salt','eating_out','night_eating','alcohol',
+    'aerobic','resistance','flexibility','lifestyle',
+    'education','strategy','tool','social','monitoring',
+    'mental','referral','weight_goal',
+    'emergency_education','emergency_tool','emergency_social','none'
+  ]
+  const groups = {}
+  if (!subOptions) return groups
+  subOptions.forEach(function(sub) {
+    const cat = sub.category || 'none'
+    if (!groups[cat]) {
+      groups[cat] = {
+        label: categoryLabels[cat] || cat,
+        items: [],
+        order: categoryOrder.indexOf(cat) >= 0 ? categoryOrder.indexOf(cat) : 99
+      }
+    }
+    groups[cat].items.push(sub)
+  })
+  const sorted = {}
+  Object.keys(groups)
+    .sort(function(a, b) { return groups[a].order - groups[b].order })
+    .forEach(function(k) { sorted[k] = groups[k] })
+  return sorted
+}
+
+// 患者情報コンパクトカード（治療方針画面用）
+function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div onClick={onToggle} style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+      <div
+        onClick={onToggle}
+        style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>👤</span>
           <div>
@@ -96,69 +124,27 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit1Data, colla
       {!collapsed && (
         <div style={{ padding: '10px 14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>本日のバイタル（8週後）</p>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: visit3Vitals && parseInt(visit3Vitals.bp) < 140 ? '#16a34a' : '#dc2626' }}>
-                血圧：{visit3Vitals ? visit3Vitals.bp : patient.vitals.bp}
-              </p>
-              {bpChange !== undefined && (
-                <p style={{ fontSize: '11px', color: bpChange > 0 ? '#16a34a' : '#dc2626' }}>
-                  {bpChange > 0 ? '↓' : '→'} {Math.abs(bpChange)}mmHg {bpChange > 0 ? '低下' : '変化なし'}
-                </p>
-              )}
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit3Vitals ? visit3Vitals.weight : patient.vitals.weight}kg　BMI：{visit3Vitals ? visit3Vitals.bmi : patient.vitals.bmi}</p>
-              {weightChange !== undefined && (
-                <p style={{ fontSize: '11px', color: weightChange < 0 ? '#16a34a' : '#64748b' }}>
-                  {weightChange < 0 ? '↓' : '→'} {Math.abs(weightChange)}kg {weightChange < 0 ? '減少' : '変化なし'}
-                </p>
-              )}
+            <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>主訴</p>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#dc2626' }}>「{patient.chief_complaint}」</p>
             </div>
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>初診時バイタル</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>体重：{patient.vitals.weight}kg　BMI：{patient.vitals.bmi}</p>
-              <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
+            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong></p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.hr}　BMI：{patient.vitals.bmi}</p>
             </div>
           </div>
-          {/* Visit 1の治療方針 */}
-          <div style={{ backgroundColor: '#fefce8', borderRadius: '8px', padding: '8px', border: '1px solid #fde047' }}>
-            <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#713f12', marginBottom: '6px' }}>📋 前回（Visit 2）の治療方針</p>
-            {v1Meds.length > 0 && (
-              <div style={{ marginBottom: '4px' }}>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>💊 投薬：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Meds.map(function(m, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '8px' }}>{m.drug_name_generic}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Meds.length === 0 && (
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px' }}>💊 投薬：なし（生活指導のみ）</p>
-            )}
-            {v1Subs.length > 0 && (
-              <div style={{ marginBottom: '4px' }}>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Subs.map(function(s, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{s.label}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Subs.length === 0 && v1Edu.length > 0 && (
-              <div>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px' }}>📋 生活指導：</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {v1Edu.map(function(e, i) {
-                    return <span key={i} style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#14532d', padding: '1px 6px', borderRadius: '8px' }}>{e.instruction_key}</span>
-                  })}
-                </div>
-              </div>
-            )}
-            {v1Meds.length === 0 && v1Subs.length === 0 && v1Edu.length === 0 && (
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
-            )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>既往・家族歴</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.past_history}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.family_history}</p>
+            </div>
+            <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>生活歴・職業</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.occupation}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
+            </div>
           </div>
         </div>
       )}
@@ -175,7 +161,6 @@ function ParameterPanel({ data, caseId, visitNumber }) {
   useEffect(function() {
     if (!data) return
 
-    // Handle initial treatment changes (only on first load)
     if (!initialDoneRef.current) {
       initialDoneRef.current = true
       const ptc = data.pending_treatment_changes
@@ -206,7 +191,6 @@ function ParameterPanel({ data, caseId, visitNumber }) {
       return
     }
 
-    // In-session changes
     const prev = prevRef.current
     if (prev) {
       const ptc = initialPendingRef.current || {}
@@ -281,15 +265,11 @@ function ParameterPanel({ data, caseId, visitNumber }) {
   )
 }
 
-export default function Visit3Page({ params }) {
+export default function CaseDetailPage({ params }) {
+  const [user, setUser] = useState(null)
   const [caseData, setCaseData] = useState(null)
   const [visitParams, setVisitParams] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [visit3Data, setVisit3Data] = useState(null)
-  const [step, setStep] = useState('interview') // interview | treatment | feedback
-  const [patientCardCollapsed, setPatientCardCollapsed] = useState(false)
-
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -323,11 +303,13 @@ export default function Visit3Page({ params }) {
       }).catch(function() {})
     }
   }
-  const [labsRevealed, setLabsRevealed] = useState(false)
+  const [step, setStep] = useState('interview')
+  const [patientCardCollapsed, setPatientCardCollapsed] = useState(false)
 
   const [medications, setMedications] = useState([])
   const [educationItems, setEducationItems] = useState([])
   const [devices, setDevices] = useState([])
+
   const [selectedMeds, setSelectedMeds] = useState([])
   const [selectedEducation, setSelectedEducation] = useState([])
   const [selectedDevices, setSelectedDevices] = useState([])
@@ -335,28 +317,29 @@ export default function Visit3Page({ params }) {
 
   const [reactionLog, setReactionLog] = useState([])
   const [reactionLoading, setReactionLoading] = useState(false)
-  const [showKarte, setShowKarte] = useState(false)
-  const [karteTab, setKarteTab] = useState(3)
-  const [karteExtraData, setKarteExtraData] = useState(null)
   const [persuasionInput, setPersuasionInput] = useState('')
   const [activePersuasionId, setActivePersuasionId] = useState(null)
+  const [reactionPanelOpen, setReactionPanelOpen] = useState(true)
 
   const [activeEduModal, setActiveEduModal] = useState(null)
   const [activeSubGroupModal, setActiveSubGroupModal] = useState(null)
   const [activeDeviceModal, setActiveDeviceModal] = useState(null)
 
-  const [feedback, setFeedback] = useState(null)
-  const [finalScore, setFinalScore] = useState(null)
-  const [scoreBreakdown, setScoreBreakdown] = useState(null)
-  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [scoring, setScoring] = useState(null)
+  const [scoringLoading, setScoringLoading] = useState(false)
 
   const messagesEndRef = useRef(null)
   const reactionLogEndRef = useRef(null)
   const showDebug = process.env.NEXT_PUBLIC_SHOW_DEBUG === 'true'
 
+  const [showKarte, setShowKarte] = useState(false)
+  const [karteTab, setKarteTab] = useState(1)
+  const [karteExtraData, setKarteExtraData] = useState(null)
+
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
+      setUser(session.user)
       fetchCase(session.user.id)
     })
   }, [])
@@ -365,69 +348,26 @@ export default function Visit3Page({ params }) {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(function() {
+    if (reactionLogEndRef.current) reactionLogEndRef.current.scrollIntoView({ behavior: 'smooth' })
+  }, [reactionLog])
+
   async function fetchCase(userId) {
     try {
       const { data, error } = await supabase
         .from('cases').select('*')
         .eq('id', params.id).eq('user_id', userId).single()
-      if (error || !data) { window.location.href = '/cases'; return }
+      if (error || !data) { console.error('fetch error', error); setLoading(false); return }
       setCaseData(data)
-
-      // ===== Phase 3: 再開ポップアップ =====
-      let resumed = false
-      let savedV3 = null
       try {
-        const sr = await fetch('/api/save-record?caseId=' + data.id)
-        if (sr.ok) {
-          const sd = await sr.json()
-          const savedState = sd && sd.saved_state
-          if (savedState && savedState.current_visit) {
-            if (savedState.current_visit < 3) {
-              // Visit 1 で完了して Visit 3 ページに来た = Visit 1 の saved_state は不要
-              // ポップアップを出さずに静かにクリア（無限ループ回避）
-              try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
-            } else if (savedState.current_visit === 3 && savedState.visit3) {
-              const ok = window.confirm('Visit 3 の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
-              if (ok) {
-                savedV3 = savedState.visit3
-                resumed = true
-              } else {
-                try { await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' }) } catch (e) {}
-              }
-            }
-          }
-        }
-      } catch (e) {}
-      try {
-        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=3')
+        const pr = await fetch('/api/visit-parameters?caseId=' + data.id + '&visit=1')
         if (pr.ok) {
           const pd = await pr.json()
           setVisitParams(pd.params)
         }
       } catch (e) {}
 
-      // Visit 3データを生成
-      setGenerating(true)
-      const res = await fetch('/api/visit3', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: params.id }),
-      })
-      const v2 = await res.json()
-      if (v2.error) { alert('Visit 3の生成に失敗しました：' + v2.error); return }
-      setVisit3Data(v2)
-
-      // Visit 1の治療を初期選択として引き継ぎ
-      const v1 = data.visit2_data || data.visit1_data || {}
-      if (v1.selectedMedications) setSelectedMeds(v1.selectedMedications.map(function(m) { return m.id }))
-
-      // 患者の最初のコメントをセット
-      setMessages([{
-        role: 'assistant',
-        content: '【8週間後の再診】\n\n' + v2.patientOpeningComment
-      }])
-
-      // マスタデータ取得
+      // マスタデータを先に取得（再開時の復元に必要）
       const [medsRes, eduRes, devRes] = await Promise.all([
         fetch('/api/medications?diseaseId=' + data.disease_id),
         fetch('/api/education?diseaseId=' + data.disease_id),
@@ -440,27 +380,52 @@ export default function Visit3Page({ params }) {
       if (eduData.items) setEducationItems(eduData.items)
       if (devData.devices) setDevices(devData.devices)
 
-      // 再開時の状態復元
-      if (resumed && savedV3) {
-        if (Array.isArray(savedV3.messages)) setMessages(savedV3.messages)
-        if (Array.isArray(savedV3.selected_meds)) setSelectedMeds(savedV3.selected_meds)
-        if (Array.isArray(savedV3.selected_education)) setSelectedEducation(savedV3.selected_education)
-        if (Array.isArray(savedV3.selected_devices)) setSelectedDevices(savedV3.selected_devices)
-        if (savedV3.selected_sub_options) setSelectedSubOptions(savedV3.selected_sub_options)
-        if (Array.isArray(savedV3.reaction_log)) setReactionLog(savedV3.reaction_log)
-        if (savedV3.feedback) setFeedback(savedV3.feedback)
-        if (typeof savedV3.final_score === 'number') setFinalScore(savedV3.final_score)
-        if (savedV3.score_breakdown) setScoreBreakdown(savedV3.score_breakdown)
-        if (savedV3.visit3Data) setVisit3Data(savedV3.visit3Data)
-        if (typeof savedV3.labs_revealed === 'boolean') setLabsRevealed(savedV3.labs_revealed)
-        if (savedV3.step) setStep(savedV3.step)
-      }
+      // ===== Phase 3: 再開ポップアップ =====
+      let resumed = false
+      try {
+        const sr = await fetch('/api/save-record?caseId=' + data.id)
+        if (sr.ok) {
+          const sd = await sr.json()
+          const savedState = sd && sd.saved_state
+          if (savedState && savedState.current_visit) {
+            const ok = window.confirm('前回の続きから再開しますか？\n\n（「キャンセル」を押すと新しく開始します）')
+            if (ok) {
+              if (savedState.current_visit === 2) {
+                window.location.href = '/cases/' + params.id + '/visit2'
+                return
+              }
+              const v1s = savedState.visit1 || {}
+              if (Array.isArray(v1s.messages)) setMessages(v1s.messages)
+              if (Array.isArray(v1s.selected_meds)) setSelectedMeds(v1s.selected_meds)
+              if (Array.isArray(v1s.selected_education)) setSelectedEducation(v1s.selected_education)
+              if (Array.isArray(v1s.selected_devices)) setSelectedDevices(v1s.selected_devices)
+              if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
+              if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
+              if (v1s.scoring) setScoring(v1s.scoring)
+              if (v1s.step) setStep(v1s.step)
+              resumed = true
+            } else {
+              // 新規開始: saved_state をクリア
+              try {
+                await fetch('/api/save-record?caseId=' + data.id, { method: 'DELETE' })
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
 
+      if (!resumed) {
+        setMessages([{
+          role: 'assistant',
+          content: data.patient_data.name + 'さん（' + data.patient_data.age + '歳・' +
+            data.patient_data.gender + '）が来院されました。\n\n主訴：「' +
+            data.patient_data.chief_complaint + '」\n\n問診・診察を始めてください。'
+        }])
+      }
     } catch (e) {
       console.error('fetchCase error:', e)
     } finally {
       setLoading(false)
-      setGenerating(false)
     }
   }
 
@@ -468,34 +433,15 @@ export default function Visit3Page({ params }) {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
-
-    // 検査結果確認の特別処理
-    if (userMessage.includes('検査') && visit3Data?.visit3Labs && !labsRevealed) {
-      setLabsRevealed(true)
-      const labs = visit3Data.visit3Labs
-      const labText = `【血液検査結果（8週後）】\n\nNa ${labs.na} mEq/L　K ${labs.k} mEq/L\nCr ${labs.cr} mg/dL　BUN ${labs.bun} mg/dL　eGFR ${labs.egfr} mL/min\nLDL ${labs.ldl} mg/dL　HDL ${labs.hdl} mg/dL　TG ${labs.tg} mg/dL\nHbA1c ${labs.hba1c}%　UA ${labs.ua} mg/dL`
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
-      return
-    }
-
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
-      const v2 = visit3Data
-      const v1 = caseData.visit2_data || {}
-      const v1MedsArr = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic + '（' + (m.typical_dose || '') + '）' })
-      const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
-      const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
-      const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
-      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
-        '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
-        '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
-        '現在の血圧：' + (v2?.visit3Vitals?.bp || patient.vitals.bp) + '。' +
-        '体重：' + (v2?.visit3Vitals?.weight || patient.vitals.weight) + 'kg。' +
-        '【前回(Visit 2)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
-        '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
-        '患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
+      const system = 'あなたは外来診療シミュレーションの患者AIです。名前：' + patient.name +
+        '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
+        '。服薬意欲：' + patient.hidden_params.adherence_level +
+        '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
+        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -516,7 +462,7 @@ export default function Visit3Page({ params }) {
                 recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
                 doctorMessage: userMessage,
                 patientResponse: data.text,
-                visitNumber: 3
+                visitNumber: 1
               })
             })
             if (pcRes.ok) {
@@ -553,24 +499,13 @@ export default function Visit3Page({ params }) {
         } catch (pcErr) {}
       }
       try {
-        if (caseData && caseData.id) {
-          const labMsgs = messages.filter(function(m) { return m.role === 'system' && m.content.length > 20 })
-          const labContent = labMsgs.length > 0 ? labMsgs.map(function(m) { return m.content }).join('\n') : null
-          await fetch('/api/save-record', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ caseId: caseData.id, visitNumber: 3, messages: messages, labData: labContent })
-          }).catch(function() {})
-        }
-      } catch (srErr) {}
-      try {
         if (visitParams && caseData && caseData.id) {
           const evalRes = await fetch('/api/evaluate-params', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               caseId: caseData.id,
-              visitNumber: 3,
+              visitNumber: 1,
               recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
               currentParams: visitParams,
               context: 'interview',
@@ -590,71 +525,6 @@ export default function Visit3Page({ params }) {
     }
   }
 
-  async function openKarte() {
-    if (caseData && caseData.id) {
-      try {
-        const savedState = {
-          current_visit: 3,
-          visit3: {
-            step: step,
-            messages: messages,
-            selected_meds: selectedMeds,
-            selected_education: selectedEducation,
-            selected_devices: selectedDevices,
-            selected_sub_options: selectedSubOptions,
-            reaction_log: reactionLog,
-            feedback: feedback,
-            visit3Data: visit3Data,
-            final_score: finalScore,
-            score_breakdown: scoreBreakdown,
-            labs_revealed: labsRevealed
-          }
-        }
-        await fetch('/api/save-record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caseId: caseData.id, visitNumber: 3, messages: messages, savedState: savedState })
-        }).catch(function() {})
-        const res = await fetch('/api/save-record?caseId=' + caseData.id)
-        if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
-      } catch (e) {}
-    }
-    setShowKarte(true)
-  }
-
-  function handleExportPDF() {
-    const patient = caseData.patient_data || {}
-    const v1 = caseData.visit2_data || {}
-    const v1Meds = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
-    const params = visitParams || {}
-    const stars = function(n) { var v = Math.max(0, Math.min(5, n||0)); return '★'.repeat(v) + '☆'.repeat(5-v) }
-    const v2Msgs = messages.filter(function(m) { return m.role !== 'system' })
-    const msgHtml = v2Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
-    const html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>カルテ</title><style>body{font-family:sans-serif;font-size:13px;padding:20px;max-width:780px;margin:0 auto}h1{font-size:15px;color:#0369a1;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{font-size:12px;background:#e0f2fe;padding:3px 8px;color:#0369a1;margin:10px 0 4px}p{margin:0 0 4px;line-height:1.7}@media print{body{font-size:11px}}</style></head><body>'
-      + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
-      + '<p>疾患：' + (caseData.disease_name||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
-      + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '</p>'
-      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + (patient.vitals?.bp||'') + '　体重：' + (patient.vitals?.weight||'') + 'kg　BMI：' + (patient.vitals?.bmi||'') + '</p>'
-      + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
-      + '<h2>【Visit 3 診察所見】</h2><p>血圧：' + (visit3Data?.visit3Vitals?.bp||'') + '　体重：' + (visit3Data?.visit3Vitals?.weight||'') + 'kg</p>'
-      + '<h2>【検査所見】</h2><p>' + ((karteExtraData?.visit2_lab_data||'記録なし').replace(/\n/g,'<br>')) + '</p>'
-      + '<h2>【患者特性（Visit 3）】</h2><p>生活改善意欲：' + stars(params.lifestyle_motivation) + '　服薬意欲：' + stars(params.medication_motivation) + '　信頼度：' + stars(params.trust_level) + '</p>'
-      + '<h2>【問診内容（Visit 3）】</h2>' + msgHtml + '</body></html>'
-    var win = window.open('', '_blank')
-    win.document.write(html)
-    win.document.close()
-    setTimeout(function() { win.print() }, 500)
-  }
-
-  function handleExportJSON() {
-    var data = { savedAt: new Date().toISOString(), patient: caseData.patient_data, diseaseName: caseData.disease_name, visit1: { treatment: caseData.visit2_data, messages: karteExtraData?.visit1_messages }, visit3: { vitals: visit3Data?.visit3Vitals, messages: messages, labData: karteExtraData?.visit2_lab_data, params: visitParams } }
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    var url = URL.createObjectURL(blob)
-    var a = document.createElement('a'); a.href = url; a.download = 'karte_v2_' + caseData.id + '.json'
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
-  }
-
   async function addOrReplaceReaction(reactionKey, selectionType, item, labelText, extraContext) {
     setReactionLoading(true)
     try {
@@ -662,8 +532,10 @@ export default function Visit3Page({ params }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientData: caseData.patient_data, selectionType, selectedItem: item,
-          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages.slice(-20),
+          patientData: caseData.patient_data,
+          selectionType, selectedItem: item,
+          previousReactions: [], persuasionMessage: null,
+          extraContext: extraContext || null,
         }),
       })
       const data = await res.json()
@@ -677,6 +549,7 @@ export default function Visit3Page({ params }) {
         if (exists) return prev.map(function(e) { return e.id === reactionKey ? logEntry : e })
         return [...prev, logEntry]
       })
+      setReactionPanelOpen(true)
     } catch (e) { console.error('reaction error:', e) }
     finally { setReactionLoading(false) }
   }
@@ -691,7 +564,10 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/patient-reaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
+        body: JSON.stringify({
+          patientData: caseData.patient_data, selectionType: entry.selectionType,
+          selectedItem: entry.item, previousReactions: newHistory, persuasionMessage: persuasionInput,
+        }),
       })
       const data = await res.json()
       const updatedHistory = [...newHistory, { role: 'patient', content: data.reaction }]
@@ -716,7 +592,8 @@ export default function Visit3Page({ params }) {
     }
     const newMedCount = selectedMeds.length + 1
     setSelectedMeds(function(prev) { return [...prev, med.id] })
-    await addOrReplaceReaction('med_' + med.id, 'medication', med, '💊 ' + med.drug_name_generic + '（' + med.typical_dose + '）',
+    await addOrReplaceReaction('med_' + med.id, 'medication', med,
+      '💊 ' + med.drug_name_generic + '（' + med.typical_dose + '）',
       newMedCount >= 2 ? '今回で処方薬が' + newMedCount + '種類になる。' : null)
   }
 
@@ -748,8 +625,9 @@ export default function Visit3Page({ params }) {
     if (isSameItem) {
       setSelectedSubOptions(function(prev) {
         const updated = Object.assign({}, prev)
-        updated[edu.id] = Object.assign({}, updated[edu.id] || {})
-        delete updated[edu.id][groupKey]
+        const g = Object.assign({}, updated[edu.id] || {})
+        delete g[groupKey]
+        updated[edu.id] = g
         return updated
       })
       setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'sub_' + edu.id + '_' + groupKey }) })
@@ -762,7 +640,8 @@ export default function Visit3Page({ params }) {
       return updated
     })
     setSelectedEducation(function(prev) { return prev.includes(edu.id) ? prev : [...prev, edu.id] })
-    await addOrReplaceReaction('sub_' + edu.id + '_' + groupKey, 'education_sub',
+    await addOrReplaceReaction(
+      'sub_' + edu.id + '_' + groupKey, 'education_sub',
       Object.assign({}, subOption, { eduKey: edu.instruction_key }),
       '📋 ' + edu.instruction_key + '：' + subOption.label, null)
   }
@@ -779,8 +658,8 @@ export default function Visit3Page({ params }) {
     setActiveDeviceModal(null)
   }
 
-  async function handleGetFeedback() {
-    setFeedbackLoading(true)
+  async function handleScoring() {
+    setScoringLoading(true)
     try {
       const selectedMedData = medications.filter(function(m) { return selectedMeds.includes(m.id) })
       const selectedEduData = educationItems.filter(function(e) { return selectedEducation.includes(e.id) })
@@ -789,47 +668,34 @@ export default function Visit3Page({ params }) {
       Object.entries(selectedSubOptions).forEach(function([eduId, groups]) {
         Object.values(groups).forEach(function(sub) { if (sub) allSubOptions.push(sub) })
       })
-      const res = await fetch('/api/visit3-feedback', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          caseId: params.id, visitNumber: 3,
-          diseaseId: caseData.disease_id, diseaseName: caseData.disease_name,
-          patientData: caseData.patient_data,
+          caseId: params.id, visitNumber: 1,
+          diseaseId: caseData.disease_id,
+          diseaseName: caseData.disease_name, patientData: caseData.patient_data,
           selectedMedications: selectedMedData,
-          selectedEducation: selectedEduData,
-          selectedSubOptions: allSubOptions,
-          selectedDevices: selectedDeviceData,
-          reactionLog, interviewMessages: messages,
-          visit3Vitals: visit3Data?.visit3Vitals,
+          selectedEducation: selectedEduData, selectedDevices: selectedDeviceData,
+          selectedSubOptions: allSubOptions, reactionLog, interviewMessages: messages,
         }),
       })
       const data = await res.json()
-      if (data.error) { alert('フィードバック取得エラー：' + data.error); return }
-      setFeedback(data.feedback)
-      if (typeof data.score === 'number') setFinalScore(data.score)
-      if (data.breakdown) setScoreBreakdown(data.breakdown)
-      setStep('feedback')
-    } catch (e) {
-      alert('エラーが発生しました：' + e.message)
-    } finally {
-      setFeedbackLoading(false)
-    }
+      if (data.error) { alert('採点エラー：' + data.error); return }
+      setScoring(data.feedback)
+      setStep('scoring')
+    } catch (e) { alert('採点中にエラーが発生しました：' + e.message) }
+    finally { setScoringLoading(false) }
   }
 
-  if (loading || generating) {
+  if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#0369a1', fontSize: '18px', marginBottom: '8px' }}>
-            {generating ? '8週後の状態を計算中...' : '読み込み中...'}
-          </p>
-          <p style={{ color: '#64748b', fontSize: '13px' }}>患者の経過をシミュレーションしています</p>
-        </div>
+        <p style={{ color: '#0369a1', fontSize: '18px' }}>症例を読み込み中...</p>
       </div>
     )
   }
-  if (!caseData || !visit3Data) return null
+  if (!caseData) return null
   const patient = caseData.patient_data
 
   // ===== カルテ用：患者特性のレンダリング（青=初期、緑=改善、赤=悪化） =====
@@ -926,14 +792,14 @@ export default function Visit3Page({ params }) {
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>初診時バイタル</h3>
               <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 治療方針</h3>
-              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 患者特性（初診時の見立て）</h3>
               <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v1Params, null)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 問診内容</h3>
-              {(karteExtraData && karteExtraData.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+              {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
                 <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {(karteExtraData && karteExtraData.visit1_messages || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                  {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
                     return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
                   })}
                 </div>
@@ -941,42 +807,62 @@ export default function Visit3Page({ params }) {
             </div>
           )}
           {karteTab === 2 && (
-            <div>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 バイタル（4週後）</h3>
-              <p style={{ margin: '0 0 12px' }}>血圧：{caseData.visit2_data?.vitals?.bp || '—'}　体重：{caseData.visit2_data?.vitals?.weight || '—'}kg　BMI：{caseData.visit2_data?.vitals?.bmi || '—'}</p>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 治療方針</h3>
-              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit2_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit2_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
-              <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v2Params, v1Params)}</div>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 問診内容</h3>
-              {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
-                <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
-                    return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
-                  })}
-                </div>
-              ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
-            </div>
+            caseData.visit2_data ? (
+              <div>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 バイタル（4週後）</h3>
+                <p style={{ margin: '0 0 12px' }}>血圧：{caseData.visit2_data?.vitals?.bp || '—'}　体重：{caseData.visit2_data?.vitals?.weight || '—'}kg　BMI：{caseData.visit2_data?.vitals?.bmi || '—'}</p>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 治療方針</h3>
+                <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit2_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
+                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit2_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
+                <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v2Params, v1Params)}</div>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 問診内容</h3>
+                {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                  <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                    {((karteExtraData && karteExtraData.visit2_messages) || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                      return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                    })}
+                  </div>
+                ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📅</p>
+                <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px' }}>Visit 2（4週後の再診）は未実施です</p>
+              </div>
+            )
           )}
           {karteTab === 3 && (
-            <div>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 バイタル（8週後）</h3>
-              <p style={{ margin: '0 0 12px' }}>血圧：{visit3Data?.visit3Vitals?.bp || '—'}　体重：{visit3Data?.visit3Vitals?.weight || '—'}kg　BMI：{visit3Data?.visit3Vitals?.bmi || '—'}</p>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針（現在の選択）</h3>
-              <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
-              <div style={{ marginBottom: '12px' }}>{renderParamsBlock(visitParams || v3Params, v2Params)}</div>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 問診内容</h3>
-              {messages.filter(function(m) { return m.role !== 'system' }).length > 0 ? (
-                <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {messages.filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
-                    return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
-                  })}
-                </div>
-              ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
-            </div>
+            caseData.visit3_data ? (
+              <div>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 バイタル（8週後）</h3>
+                <p style={{ margin: '0 0 12px' }}>血圧：{caseData.visit3_data?.vitals?.bp || '—'}　体重：{caseData.visit3_data?.vitals?.weight || '—'}kg　BMI：{caseData.visit3_data?.vitals?.bmi || '—'}</p>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針</h3>
+                <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit3_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
+                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
+                <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v3Params, v2Params)}</div>
+                {typeof caseData.visit3_data?.finalScore === 'number' && (
+                  <div style={{ background: 'linear-gradient(135deg, #059669 0%, #0369a1 100%)', borderRadius: '10px', padding: '14px', marginBottom: '12px', color: 'white', textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', margin: '0 0 4px', opacity: 0.9 }}>🏆 最終総合評価</p>
+                    <span style={{ fontSize: '32px', fontWeight: 'bold' }}>{caseData.visit3_data.finalScore}</span><span style={{ fontSize: '14px', opacity: 0.85 }}> / 100</span>
+                  </div>
+                )}
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 問診内容</h3>
+                {((karteExtraData && karteExtraData.visit3_messages) || []).filter(function(m) { return m.role !== 'system' }).length > 0 ? (
+                  <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                    {((karteExtraData && karteExtraData.visit3_messages) || []).filter(function(m) { return m.role !== 'system' }).map(function(m, i) {
+                      return <div key={i} style={{ margin: '3px 0' }}><b style={{ color: m.role === 'user' ? '#0369a1' : '#475569' }}>{m.role === 'user' ? '医師' : '患者'}：</b>{m.content}</div>
+                    })}
+                  </div>
+                ) : (<p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>記録なし</p>)}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📅</p>
+                <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px' }}>Visit 3（8週後の再診）は未実施です</p>
+              </div>
+            )
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
@@ -987,78 +873,41 @@ export default function Visit3Page({ params }) {
     </div>
   )
 
-  // ===== フィードバック画面 =====
-  if (step === 'feedback') {
+  // ===== 採点結果 =====
+  if (step === 'scoring') {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>Visit 1 フィードバック</h1>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={async function() {
+                  try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
+                  window.location.href = '/cases/' + params.id + '/visit2'
+                }}
+                style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                Visit 2へ進む →
+              </button>
+              <button onClick={function() { window.location.href = '/cases' }}
+                style={{ padding: '8px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                別の症例へ
+              </button>
+              <button onClick={openKarte} style={{ padding: '8px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
+            </div>
+          </div>
+          {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 3 フィードバック</h1>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
-            </div>
-            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
-          </div>
-
-          {/* 🏆 最終スコア（大きく表示） */}
-          <div style={{
-            background: 'linear-gradient(135deg, #059669 0%, #0369a1 100%)',
-            borderRadius: '16px', padding: '32px 24px', marginBottom: '16px',
-            color: 'white', textAlign: 'center', boxShadow: '0 4px 20px rgba(3,105,161,0.25)'
-          }}>
-            <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.95 }}>🏆 最終総合評価</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '64px', fontWeight: 'bold', lineHeight: 1 }}>{finalScore !== null ? finalScore : '—'}</span>
-              <span style={{ fontSize: '24px', fontWeight: 'bold', opacity: 0.85 }}>/ 100</span>
-            </div>
-            <p style={{ fontSize: '12px', margin: '8px 0 0', opacity: 0.85 }}>
-              （Visit 1〜3 を総合した3ヶ月間の診療評価）
-            </p>
-          </div>
-
-          {/* 総評コメント */}
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 12px' }}>📝 指導医からの総評</p>
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
-              {feedback}
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#f0f9ff', borderRadius: '12px', padding: '16px', border: '1px solid #bae6fd', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', marginBottom: '8px' }}>📊 Visit 3の結果サマリー</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>血圧（8週後）</p>
-                <p style={{ fontWeight: 'bold', color: visit3Data.bpControlled ? '#16a34a' : '#dc2626', margin: 0 }}>
-                  {visit3Data.visit3Vitals.bp}
-                  <span style={{ fontSize: '11px', marginLeft: '6px' }}>
-                    （{visit3Data.bpReduction > 0 ? '↓' + visit3Data.bpReduction + 'mmHg' : '変化なし'}）
-                  </span>
-                </p>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
+                  {scoring}
+                </div>
               </div>
-              <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px' }}>体重（8週後）</p>
-                <p style={{ fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
-                  {visit3Data.visit3Vitals.weight}kg
-                  <span style={{ fontSize: '11px', color: '#16a34a', marginLeft: '6px' }}>
-                    （{visit3Data.weightReduction > 0 ? '↓' + visit3Data.weightReduction + 'kg' : '変化なし'}）
-                  </span>
-                </p>
+              <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd' }}>
+                <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>📋 次のステップ</p>
+                <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>「Visit 2へ進む」をクリックして4週後の再診をシミュレーションしてください。</p>
               </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={async function() {
-                try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
-                window.location.href = '/cases'
-              }}
-              style={{ flex: 1, padding: '14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
-              ✓ 症例完了 → 症例選択へ
-            </button>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
-          </div>
+          )}
           {karteNode}
         </div>
       </div>
@@ -1067,11 +916,6 @@ export default function Visit3Page({ params }) {
 
   // ===== 治療方針決定画面 =====
   if (step === 'treatment') {
-    if (!visit3Data) return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff' }}>
-        <p style={{ color: '#0369a1', fontSize: '18px' }}>Visit 3データを読み込み中...</p>
-      </div>
-    )
     const eduByCategory = educationItems.reduce(function(acc, edu) {
       if (!acc[edu.category]) acc[edu.category] = []
       acc[edu.category].push(edu)
@@ -1082,15 +926,22 @@ export default function Visit3Page({ params }) {
       acc[med.drug_category].push(med)
       return acc
     }, {})
+    const devicesByCategory = devices.reduce(function(acc, dev) {
+      if (!acc[dev.device_category]) acc[dev.device_category] = []
+      acc[dev.device_category].push(dev)
+      return acc
+    }, {})
     const totalSelected = selectedMeds.length + selectedEducation.length + selectedDevices.length
 
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px', paddingBottom: '280px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+
+          {/* ヘッダー */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定（Visit 3）</h1>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>8週後の再診　{caseData.disease_name}</p>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定</h1>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>Visit 1｜{caseData.disease_name}</p>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button onClick={function() { setStep('interview') }}
@@ -1103,35 +954,30 @@ export default function Visit3Page({ params }) {
 
           {karteNode}
 
+          {/* 患者情報カード */}
           <PatientInfoCard
             patient={patient}
             diseaseName={caseData.disease_name}
-            visit3Vitals={visit3Data.visit3Vitals}
-            visit1Data={caseData.visit2_data}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
-          <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={3} />
+          <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={1} />
 
+          {/* DEVモード */}
           {false && (
             <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', border: '1px solid #fde047', fontSize: '11px', color: '#713f12' }}>
-              <strong>【DEV】</strong> 性格:{patient.hidden_params.personality_type} 服薬意欲:{patient.hidden_params.adherence_level} 降圧:{visit3Data.bpReduction}mmHg 減量:{visit3Data.weightReduction}kg
+              <strong>【DEV】</strong> 服薬意欲:{patient.hidden_params.adherence_level} 生活改善:{patient.hidden_params.lifestyle_motivation} ストレス:{patient.hidden_params.stress_level} 忙しさ:{patient.hidden_params.work_busyness} 食習慣:{patient.hidden_params.eating_habit} 性格:{patient.hidden_params.personality_type} 薬の態度:{patient.hidden_params.medication_attitude}
             </div>
           )}
 
-          <div style={{ backgroundColor: '#0369a1', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: '12px', color: 'white', margin: 0 }}>
-              選択済：投薬 <strong>{selectedMeds.length}</strong>件　指導 <strong>{selectedEducation.length}</strong>件
-            </p>
-            {totalSelected > 0 && (
-              <button onClick={handleGetFeedback} disabled={feedbackLoading}
-                style={{ padding: '5px 14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                {feedbackLoading ? '生成中...' : 'フィードバックを受ける →'}
-              </button>
-            )}
-          </div>
 
-          <AccordionSection title="📋 生活指導・患者教育" badge={selectedEducation.length > 0 ? selectedEducation.length + '件' : null} defaultOpen={true}>
+
+          {/* ② 生活指導・患者教育（defaultOpen=false） */}
+          <AccordionSection
+            title="📋 生活指導・患者教育"
+            badge={selectedEducation.length > 0 ? selectedEducation.length + '件選択中' : null}
+            defaultOpen={false}>
+            <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>タグをクリック→指導内容を選択。▼のある項目は詳細な選択肢があります。</p>
             {Object.entries(eduByCategory).map(function([category, items]) {
               return (
                 <div key={category} style={{ marginBottom: '10px' }}>
@@ -1157,8 +1003,12 @@ export default function Visit3Page({ params }) {
             })}
           </AccordionSection>
 
-          <AccordionSection title="💊 投薬選択" badge={selectedMeds.length > 0 ? selectedMeds.length + '剤' : null} defaultOpen={true}>
-            <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>Visit 1の投薬を継続・変更・追加できます。</p>
+          {/* ③ 投薬選択（defaultOpen=false） */}
+          <AccordionSection
+            title="💊 投薬選択"
+            badge={selectedMeds.length > 0 ? selectedMeds.length + '剤選択中' : null}
+            defaultOpen={false}>
+            <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>薬剤をクリックすると患者の反応が上の反応ログに表示されます。</p>
             {Object.entries(medsByCategory).map(function([category, meds]) {
               return (
                 <div key={category} style={{ marginBottom: '10px' }}>
@@ -1166,7 +1016,6 @@ export default function Visit3Page({ params }) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px' }}>
                     {meds.map(function(med) {
                       const isSelected = selectedMeds.includes(med.id)
-                      const wasInV2 = (caseData.visit2_data?.selectedMedications || []).find(function(m) { return m.id === med.id })
                       return (
                         <div key={med.id} onClick={function() { handleMedSelect(med) }}
                           style={{ padding: '8px 10px', borderRadius: '8px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer' }}>
@@ -1177,7 +1026,6 @@ export default function Visit3Page({ params }) {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                               {med.first_line && <span style={{ fontSize: '9px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>第一選択</span>}
-                              {wasInV2 && <span style={{ fontSize: '9px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 4px', borderRadius: '4px' }}>V2継続</span>}
                               {isSelected && <span style={{ fontSize: '12px' }}>✓</span>}
                             </div>
                           </div>
@@ -1190,16 +1038,45 @@ export default function Visit3Page({ params }) {
             })}
           </AccordionSection>
 
+          {/* ④ 医療機器（defaultOpen=false） */}
+          {devices.length > 0 && (
+            <AccordionSection
+              title="🔧 医療機器・検査"
+              badge={selectedDevices.length > 0 ? selectedDevices.length + '件選択中' : null}
+              defaultOpen={false}>
+              {Object.entries(devicesByCategory).map(function([category, devs]) {
+                return (
+                  <div key={category} style={{ marginBottom: '8px' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '5px' }}>{category}</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {devs.map(function(device) {
+                        const isSelected = selectedDevices.includes(device.id)
+                        return (
+                          <div key={device.id} onClick={function() { setActiveDeviceModal(device) }}
+                            style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer' }}>
+                            {device.device_name} {isSelected && '✓'}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </AccordionSection>
+          )}
+
         </div>
 
-        {/* モーダル群 */}
+        {/* 生活指導カテゴリ一覧モーダル */}
         {activeEduModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
-                <button onClick={function() { setActiveEduModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                <button onClick={function() { setActiveEduModal(null) }}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
               </div>
+              <p style={{ fontSize: '12px', color: '#475569', marginBottom: '12px' }}>指導したい項目をカテゴリから選択してください。</p>
               {Object.entries(groupSubOptions(activeEduModal.sub_options)).map(function([groupKey, group]) {
                 const currentSubs = selectedSubOptions[activeEduModal.id] || {}
                 const selected = currentSubs[groupKey]
@@ -1216,11 +1093,15 @@ export default function Visit3Page({ params }) {
                   </div>
                 )
               })}
-              <button onClick={function() { setActiveEduModal(null) }} style={{ width: '100%', padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>閉じる</button>
+              <button onClick={function() { setActiveEduModal(null) }}
+                style={{ width: '100%', padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>
+                閉じる
+              </button>
             </div>
           </div>
         )}
 
+        {/* サブグループ詳細選択モーダル */}
         {activeSubGroupModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1100 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -1229,31 +1110,98 @@ export default function Visit3Page({ params }) {
                   <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
                   <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
                 </div>
-                <button onClick={function() { setActiveSubGroupModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                <button onClick={function() { setActiveSubGroupModal(null) }}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
               </div>
-              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px' }}>1つ選択してください</p>
+              <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px' }}>1つ選択してください（選択ごとに患者反応が更新されます）</p>
               {activeSubGroupModal.items.map(function(sub) {
                 const currentSubs = selectedSubOptions[activeSubGroupModal.edu.id] || {}
                 const isSelected = currentSubs[activeSubGroupModal.groupKey] && currentSubs[activeSubGroupModal.groupKey].id === sub.id
                 return (
-                  <div key={sub.id} onClick={function() { handleSubOptionSelect(activeSubGroupModal.edu, activeSubGroupModal.groupKey, sub) }}
+                  <div key={sub.id}
+                    onClick={function() { handleSubOptionSelect(activeSubGroupModal.edu, activeSubGroupModal.groupKey, sub) }}
                     style={{ marginBottom: '6px', padding: '10px', borderRadius: '8px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                         <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: isSelected ? '4px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                         <p style={{ fontSize: '12px', fontWeight: isSelected ? 'bold' : 'normal', color: '#1e293b', margin: 0 }}>{sub.label}</p>
                       </div>
+                      {sub.category === 'calorie' && caseData && (function() {
+                        const calc = calcRecommendedCalories(caseData.patient_data)
+                        if (!calc) return null
+                        const calNum = parseInt(sub.id.replace('cal_', '')) || 0
+                        const diff = calNum - calc.recCal
+                        const isLenient = calc.lenientCal && calNum === calc.lenientCal
+                        const isRecommended = calNum === calc.recCal
+                        return (
+                          <div style={{ marginLeft: '20px', marginTop: '2px' }}>
+                            {isRecommended && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✓ この患者の推奨値</span>}
+                            {isLenient && <span style={{ fontSize: '10px', backgroundColor: '#fef9c3', color: '#713f12', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>◎ 緩め目標（BMI高値向け）</span>}
+                            {!isRecommended && !isLenient && calNum > 0 && diff !== 0 && (
+                              <span style={{ fontSize: '10px', color: diff > 0 ? '#16a34a' : '#dc2626', backgroundColor: diff > 0 ? '#dcfce7' : '#fef2f2', padding: '1px 5px', borderRadius: '4px' }}>
+                                推奨値より{Math.abs(diff)}kcal{diff > 0 ? '多い' : '少ない'}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {sub.description && <p style={{ fontSize: '10px', color: '#64748b', marginLeft: '20px', margin: '0 0 0 20px' }}>{sub.description}</p>}
                     </div>
-                    <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>{STRICTNESS_LABEL[sub.strictness] || sub.strictness}</span>
+                    <span style={{ fontSize: '10px', color: STRICTNESS_COLOR[sub.strictness] || '#64748b', fontWeight: 'bold', marginLeft: '6px', whiteSpace: 'nowrap' }}>
+                      {STRICTNESS_LABEL[sub.strictness] || sub.strictness}
+                    </span>
                   </div>
                 )
               })}
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                 <button onClick={function() { setActiveSubGroupModal(null); setActiveEduModal(activeSubGroupModal.edu) }}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>← 戻る</button>
+                  style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+                  ← 戻る
+                </button>
                 <button onClick={function() { setActiveSubGroupModal(null) }}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>確定</button>
+                  style={{ flex: 1, padding: '10px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                  確定
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 医療機器モーダル */}
+        {activeDeviceModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeDeviceModal.device_name}</h2>
+                <button onClick={function() { setActiveDeviceModal(null) }}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
+              </div>
+              <div style={{ fontSize: '12px', color: '#475569', marginBottom: '10px' }}>
+                <p style={{ margin: '0 0 3px' }}><strong>適応：</strong>{activeDeviceModal.indication}</p>
+                <p style={{ margin: '0 0 3px' }}><strong>使用方法：</strong>{activeDeviceModal.how_to_use}</p>
+                <p style={{ margin: 0 }}><strong>保険：</strong>{activeDeviceModal.insurance_coverage}</p>
+              </div>
+              {activeDeviceModal.key_benefits && activeDeviceModal.key_benefits.length > 0 && (
+                <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#f0fdf4', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#16a34a', margin: '0 0 3px' }}>導入のメリット：</p>
+                  {activeDeviceModal.key_benefits.map(function(b, i) { return <p key={i} style={{ fontSize: '11px', color: '#15803d', margin: '1px 0' }}>✓ {b}</p> })}
+                </div>
+              )}
+              {activeDeviceModal.common_objections && activeDeviceModal.common_objections.length > 0 && (
+                <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef2f2', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 3px' }}>患者からよくある反応：</p>
+                  {activeDeviceModal.common_objections.map(function(o, i) { return <p key={i} style={{ fontSize: '11px', color: '#991b1b', margin: '1px 0' }}>「{o}」</p> })}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={function() { confirmDeviceSelect(activeDeviceModal) }}
+                  style={{ flex: 1, padding: '11px', backgroundColor: selectedDevices.includes(activeDeviceModal.id) ? '#dc2626' : '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  {selectedDevices.includes(activeDeviceModal.id) ? '選択を解除する' : '導入を決定する'}
+                </button>
+                <button onClick={function() { setActiveDeviceModal(null) }}
+                  style={{ padding: '11px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+                  閉じる
+                </button>
               </div>
             </div>
           </div>
@@ -1321,9 +1269,9 @@ export default function Visit3Page({ params }) {
               <p style={{ fontSize: '12px', color: '#0369a1', margin: 0, flex: 1 }}>
                 指導 <strong>{selectedEducation.length}</strong>件　投薬 <strong>{selectedMeds.length}</strong>件　機器 <strong>{selectedDevices.length}</strong>件
               </p>
-              <button onClick={handleGetFeedback} disabled={feedbackLoading || totalSelected === 0}
-                style={{ padding: '10px 24px', backgroundColor: feedbackLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: feedbackLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                {feedbackLoading ? 'フィードバック生成中...' : '治療方針を確定 →'}
+              <button onClick={handleScoring} disabled={scoringLoading || totalSelected === 0}
+                style={{ padding: '10px 24px', backgroundColor: scoringLoading || totalSelected === 0 ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: scoringLoading || totalSelected === 0 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                {scoringLoading ? 'フィードバック生成中...' : '治療方針を確定 →'}
               </button>
             </div>
           </div>
@@ -1332,13 +1280,71 @@ export default function Visit3Page({ params }) {
     )
   }
 
+
+  async function openKarte() {
+    if (caseData && caseData.id) {
+      try {
+        const savedState = {
+          current_visit: 1,
+          visit1: {
+            step: step,
+            messages: messages,
+            selected_meds: selectedMeds,
+            selected_education: selectedEducation,
+            selected_devices: selectedDevices,
+            selected_sub_options: selectedSubOptions,
+            reaction_log: reactionLog,
+            scoring: scoring
+          }
+        }
+        await fetch('/api/save-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: caseData.id, visitNumber: 1, messages: messages, labData: null, savedState: savedState })
+        }).catch(function() {})
+        const res = await fetch('/api/save-record?caseId=' + caseData.id)
+        if (res.ok) { const d = await res.json(); setKarteExtraData(d) }
+      } catch (e) {}
+    }
+    setShowKarte(true)
+  }
+
+  function handleExportPDF() {
+    const patient = (caseData && caseData.patient_data) || {}
+    const v1Meds = (selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
+    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Msgs = messages.filter(function(m) { return m.role !== 'system' })
+    const msgHtml = v1Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>カルテ</title><style>body{font-family:sans-serif;padding:20px;color:#1e293b}h1{color:#0369a1;font-size:18px;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{color:#0369a1;font-size:14px;margin-top:14px;border-left:3px solid #0369a1;padding-left:6px}p{font-size:12px;line-height:1.6}</style></head><body>'
+      + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
+      + '<p>疾患：' + ((caseData && caseData.disease_name)||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
+      + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '<br>家族歴：' + (patient.family_history||'') + '<br>既往歴：' + (patient.past_history||'') + '</p>'
+      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.vitals && patient.vitals.weight)||'') + 'kg　BMI：' + ((patient.vitals && patient.vitals.bmi)||'') + '</p>'
+      + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
+      + '<h2>【Visit 1 問診内容】</h2>' + msgHtml + '</body></html>'
+    var win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+    setTimeout(function() { win.print() }, 500)
+  }
+
+  function handleExportJSON() {
+    var data = { savedAt: new Date().toISOString(), patient: caseData && caseData.patient_data, diseaseName: caseData && caseData.disease_name, visit1: { selectedMedications: selectedMeds, selectedEducation: selectedEducation, messages: messages } }
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    var url = URL.createObjectURL(blob)
+    var a = document.createElement('a')
+    a.href = url; a.download = 'karte_visit1_' + ((caseData && caseData.patient_data && caseData.patient_data.name) || 'unknown') + '.json'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
+
   // ===== 問診・診察画面 =====
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '12px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 3｜8週後の再診</h1>
+            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1｜初診</h1>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
@@ -1352,26 +1358,27 @@ export default function Visit3Page({ params }) {
 
         {karteNode}
 
+        {/* 患者情報カード（折りたたみ式） */}
         <PatientInfoCard
           patient={patient}
           diseaseName={caseData.disease_name}
-          visit3Vitals={visit3Data.visit3Vitals}
-          visit1Data={caseData.visit2_data}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
-        <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={3} />
+        <ParameterPanel data={visitParams} caseId={caseData?.id} visitNumber={1} />
 
-        {!labsRevealed && (
-          <div style={{ backgroundColor: '#fef9c3', borderRadius: '8px', padding: '8px 14px', marginBottom: '10px', border: '1px solid #fde047', fontSize: '12px', color: '#713f12' }}>
-            💡 「検査結果を確認する」と入力すると血液検査結果が表示されます
-          </div>
-        )}
-
+        {/* 対話エリア（メッセージ部分） */}
         <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
-            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話（Visit 3）</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>経過確認・診察・検査指示を入力してください</p>
+            <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
+              問診・診察・検査指示を入力してください（Enterで送信）
+              {(function() {
+                const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
+                const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
+                return hasReferral ? '。「紹介状」と入力すると前医の紹介状を表示します' : ''
+              })()}
+            </p>
           </div>
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 'bold', color: '#475569' }}>📚 指導医モード:</span>
@@ -1390,19 +1397,9 @@ export default function Visit3Page({ params }) {
           </div>
           <div style={{ overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '38vh', minHeight: '300px' }}>
             {messages.map(function(msg, i) {
-              const isSystem = msg.role === 'system'
               return (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{
-                    maxWidth: '80%', padding: '10px 14px',
-                    borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0',
-                    backgroundColor: isSystem ? '#f0fdf4' : msg.role === 'user' ? '#0369a1' : '#f1f5f9',
-                    color: msg.role === 'user' ? 'white' : '#1e293b',
-                    fontSize: isSystem ? '12px' : '13px',
-                    lineHeight: '1.6', whiteSpace: 'pre-wrap',
-                    border: isSystem ? '1px solid #bbf7d0' : 'none',
-                    fontFamily: isSystem ? 'monospace' : 'inherit'
-                  }}>
+                  <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '14px 14px 0 14px' : '14px 14px 14px 0', backgroundColor: msg.role === 'user' ? '#0369a1' : msg.role === 'system' ? '#f0fdf4' : '#f1f5f9', color: msg.role === 'user' ? 'white' : '#1e293b', fontSize: msg.role === 'system' ? '12px' : '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap', border: msg.role === 'system' ? '1px solid #bbf7d0' : 'none', fontFamily: msg.role === 'system' ? 'monospace' : 'inherit' }}>
                     {msg.content}
                   </div>
                 </div>
@@ -1424,7 +1421,7 @@ export default function Visit3Page({ params }) {
               <input type="text" value={input}
                 onChange={function(e) { setInput(e.target.value) }}
                 onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="💬 経過確認・診察・検査指示を入力してください..."
+                placeholder="💬 患者への質問・診察・検査指示を入力してください..."
                 style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
                 style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
