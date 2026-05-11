@@ -141,6 +141,16 @@ const bmiProfile = ageNum >= 75
       return Response.json({ error: error.message }, { status: 500 })
     }
 
+    // Phase F+: 他の中断中症例（未完遂）を全て削除
+    try {
+      await supabase
+        .from('cases')
+        .delete()
+        .eq('user_id', userId)
+        .is('completed_at', null)
+        .neq('id', newCase.id)
+    } catch (e) {}
+
     return Response.json({ caseId: newCase.id })
 
   } catch (e) {
