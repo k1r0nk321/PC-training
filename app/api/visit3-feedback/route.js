@@ -189,24 +189,36 @@ COMMENT:
 
     const commentText = commentMatch ? commentMatch[1].trim() : aiResponse
 
-    // ===== Save to DB =====
+    // ===== Save to DB and ARCHIVE (Phase F: 軽量化) =====
+    // 成績評価で必要な情報だけ残し、重量データはクリア
     const updateData = {
       visit3_feedback: commentText,
-      visit3_data: {
-        selectedMedications: selectedMedications || [],
-        selectedEducation: selectedEducation || [],
-        selectedSubOptions: selectedSubOptions || [],
-        selectedDevices: selectedDevices || [],
-        reactionLog: reactionLog || [],
-        interviewMessages: interviewMessages || [],
-        vitals: visit3Vitals,
-        finalScore: totalScore,
-        breakdown: breakdown,
-      },
+      final_score: totalScore,
+      final_score_breakdown: breakdown,
+      completed_at: new Date().toISOString(),
       status: 'completed',
+      // 重量データを null にして容量を解放
+      visit1_messages: null,
+      visit2_messages: null,
+      visit3_messages: null,
+      visit1_data: null,
+      visit2_data: null,
+      visit3_data: null,
+      visit1_lab_data: null,
+      visit2_lab_data: null,
+      visit3_lab_data: null,
+      visit1_feedback: null,
+      visit2_feedback: null,
+      saved_state: null,
+      record_saved_at: null,
     }
 
     await supabase.from('cases').update(updateData).eq('id', caseId)
+
+    // visit_parameters の関連行も削除（容量節約）
+    try {
+      await supabase.from('visit_parameters').delete().eq('case_id', caseId)
+    } catch (e) {}
 
     return Response.json({
       feedback: commentText,
