@@ -495,7 +495,7 @@ export default function Visit2Page({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
