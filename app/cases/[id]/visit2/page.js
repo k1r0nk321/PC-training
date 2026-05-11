@@ -172,34 +172,6 @@ function ParameterPanel({ data, caseId, visitNumber }) {
   const initialDoneRef = useRef(false)
   const [changes, setChanges] = useState({})
 
-  // 指導医モード設定をユーザー設定から取得
-  useEffect(function() {
-    supabase.auth.getSession().then(function(s) {
-      const uid = s && s.data && s.data.session && s.data.session.user && s.data.session.user.id
-      if (uid) {
-        setCurrentUserId(uid)
-        fetch('/api/user-preferences?userId=' + uid)
-          .then(function(r) { return r.json() })
-          .then(function(d) {
-            if (d && d.preceptor_coaching_mode) setCoachingMode(d.preceptor_coaching_mode)
-          })
-          .catch(function() {})
-      }
-    })
-  }, [])
-
-  // モード変更ハンドラ
-  function updateCoachingMode(newMode) {
-    setCoachingMode(newMode)
-    if (currentUserId) {
-      fetch('/api/user-preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId, preceptor_coaching_mode: newMode })
-      }).catch(function() {})
-    }
-  }
-
   useEffect(function() {
     if (!data) return
 
@@ -323,6 +295,34 @@ export default function Visit2Page({ params }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [coachingMode, setCoachingMode] = useState('recommended_only')
   const [currentUserId, setCurrentUserId] = useState(null)
+
+  // 指導医モード設定をユーザー設定から取得
+  useEffect(function() {
+    supabase.auth.getSession().then(function(s) {
+      const uid = s && s.data && s.data.session && s.data.session.user && s.data.session.user.id
+      if (uid) {
+        setCurrentUserId(uid)
+        fetch('/api/user-preferences?userId=' + uid)
+          .then(function(r) { return r.json() })
+          .then(function(d) {
+            if (d && d.preceptor_coaching_mode) setCoachingMode(d.preceptor_coaching_mode)
+          })
+          .catch(function() {})
+      }
+    })
+  }, [])
+
+  // モード変更ハンドラ
+  function updateCoachingMode(newMode) {
+    setCoachingMode(newMode)
+    if (currentUserId) {
+      fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, preceptor_coaching_mode: newMode })
+      }).catch(function() {})
+    }
+  }
   const [labsRevealed, setLabsRevealed] = useState(false)
 
   const [medications, setMedications] = useState([])
