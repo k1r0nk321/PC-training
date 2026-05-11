@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 const DIFFICULTY_STAR = { 1: '★☆☆', 2: '★★☆', 3: '★★★' }
@@ -23,6 +24,7 @@ const COGNITIVE_LABEL = {
 }
 
 export default function CasesPage() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [diseases, setDiseases] = useState([])
   const [loading, setLoading] = useState(true)
@@ -180,10 +182,16 @@ export default function CasesPage() {
             <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>PC Training</h1>
             <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>プライマリケア外来研修シミュレーター</p>
           </div>
-          <button onClick={handleSignOut}
-            style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-            ログアウト
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={function() { router.push('/') }}
+              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+              ← トップへ戻る
+            </button>
+            <button onClick={handleSignOut}
+              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              ログアウト
+            </button>
+          </div>
         </div>
 
         {/* 中断症例の再開 */}
