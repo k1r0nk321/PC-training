@@ -415,7 +415,7 @@ export default function CaseDetailPage({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
