@@ -72,9 +72,19 @@ export default function CasesPage() {
     }
   }
 
-  function resumeCase(c) {
+  async function resumeCase(c) {
+    // 他の中断中症例を削除してから再開
+    try {
+      await fetch('/api/activate-case', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: c.id })
+      })
+    } catch (e) {}
     const visit = (c.saved_state && c.saved_state.current_visit) || 1
-    if (visit === 2) {
+    if (visit === 3) {
+      window.location.href = '/cases/' + c.id + '/visit3'
+    } else if (visit === 2) {
       window.location.href = '/cases/' + c.id + '/visit2'
     } else {
       window.location.href = '/cases/' + c.id
