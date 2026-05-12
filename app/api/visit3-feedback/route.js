@@ -220,6 +220,25 @@ COMMENT:
       await supabase.from('visit_parameters').delete().eq('case_id', caseId)
     } catch (e) {}
 
+    // Phase G: 同じモデル症例の古い完了レコードを削除（最新のみ保持）
+    // ランダム生成症例（model_case_id NULL）は対象外
+    try {
+      const { data: thisCase } = await supabase
+        .from('cases')
+        .select('user_id, model_case_id')
+        .eq('id', caseId)
+        .single()
+      if (thisCase && thisCase.model_case_id && thisCase.user_id) {
+        await supabase
+          .from('cases')
+          .delete()
+          .eq('user_id', thisCase.user_id)
+          .eq('model_case_id', thisCase.model_case_id)
+          .not('completed_at', 'is', null)
+          .neq('id', caseId)
+      }
+    } catch (e) {}
+
     return Response.json({
       feedback: commentText,
       score: totalScore,
