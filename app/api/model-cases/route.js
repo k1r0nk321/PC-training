@@ -38,6 +38,23 @@ export async function POST(req) {
     const supabase = getAdminClient()
 
     // モデル症例を取得
+    // デモ制限チェック: 匿名ユーザーは 3 例まで
+    try {
+      const { data: { user: u } } = await supabase.auth.admin.getUserById(userId)
+      if (u && u.is_anonymous) {
+        const { count } = await supabase
+          .from('cases').select('id', { count: 'exact', head: true })
+          .eq('user_id', userId).not('completed_at', 'is', null)
+        if ((count || 0) >= 3) {
+          return Response.json({
+            error: 'demo_limit_reached',
+            message: 'デモ体験は 3 例までです。本登録すると無制限に体験できます。',
+            isDemoLimit: true,
+          }, { status: 403 })
+        }
+      }
+    } catch (e) {}
+
     const { data: modelCase, error: mcError } = await supabase
       .from('model_cases')
       .select('*')
