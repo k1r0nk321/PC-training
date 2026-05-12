@@ -204,6 +204,29 @@ export default function CasesPage() {
           </div>
         </div>
 
+        {user && user.is_anonymous && (
+          <div style={{
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #86efac',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <span style={{ fontSize: '20px' }}>🎯</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#065f46', margin: '0 0 2px' }}>
+                デモモード
+              </p>
+              <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
+                モデル症例のみ体験できます。ログアウトすると進行状況はリセットされます。
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 中断症例の再開 */}
         {inProgressCases.length > 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '2px solid #fde047', marginBottom: '16px' }}>
@@ -267,7 +290,9 @@ export default function CasesPage() {
         {/* 疾患選択 */}
         <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>疾患を選択してトレーニングを開始</h2>
-          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>疾患を選ぶと、モデル症例またはランダム生成を選択できます</p>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
+            {user && user.is_anonymous ? '疾患を選ぶとモデル症例を体験できます' : '疾患を選ぶと、モデル症例またはランダム生成を選択できます'}
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
             {diseases.map(function(disease) {
               return (
@@ -285,7 +310,11 @@ export default function CasesPage() {
         </div>
 
         <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd', fontSize: '12px', color: '#0369a1' }}>
-          <strong>📌 使い方：</strong>疾患を選ぶ → モデル症例またはランダム生成を選択 → 問診・治療方針の決定 → フィードバック → Visit 2・3へ進む
+          <strong>📌 使い方：</strong>
+          {user && user.is_anonymous
+            ? '疾患を選ぶ → モデル症例を選択 → 問診・治療方針の決定 → フィードバック → Visit 2・3へ進む'
+            : '疾患を選ぶ → モデル症例またはランダム生成を選択 → 問診・治療方針の決定 → フィードバック → Visit 2・3へ進む'
+          }
         </div>
       </div>
 
@@ -312,10 +341,12 @@ export default function CasesPage() {
                   style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'model' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'model' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'model' ? 'bold' : 'normal', color: mode === 'model' ? '#0369a1' : '#475569' }}>
                   📋 モデル症例から選ぶ
                 </button>
-                <button onClick={function() { setMode('random'); setSelectedModelCase(null) }}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'random' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'random' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'random' ? 'bold' : 'normal', color: mode === 'random' ? '#0369a1' : '#475569' }}>
-                  🎲 ランダム生成
-                </button>
+                {!(user && user.is_anonymous) && (
+                  <button onClick={function() { setMode('random'); setSelectedModelCase(null) }}
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'random' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'random' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'random' ? 'bold' : 'normal', color: mode === 'random' ? '#0369a1' : '#475569' }}>
+                    🎲 ランダム生成
+                  </button>
+                )}
               </div>
 
               {/* モデル症例リスト */}
