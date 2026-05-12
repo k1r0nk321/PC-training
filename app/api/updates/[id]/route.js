@@ -16,52 +16,43 @@ async function isAdminUser(supabase, userId) {
   return data && data.role === 'admin'
 }
 
-export async function GET(req) {
+export async function PUT(req, { params }) {
   try {
-    const url = new URL(req.url)
-    const limit = parseInt(url.searchParams.get('limit') || '50', 10)
+    const { id } = params
+    const body = await req.json()
+    const { userId, version, title, content, released_at, category } = body
     const supabase = getAdminClient()
+    if (!(await isAdminUser(supabase, userId))) {
+      return Response.json({ error: '管理者権限が必要です' }, { status: 403 })
+    }
+    const update = {}
+    if (version !== undefined) update.version = version.trim()
+    if (title !== undefined) update.title = title.trim()
+    if (content !== undefined) update.body = content.trim()
+    if (released_at !== undefined) update.released_at = released_at
+    if (category !== undefined) update.category = category
 
     const { data, error } = await supabase
-      .from('updates')
-      .select('*')
-      .order('released_at', { ascending: false })
-      .limit(limit)
-
+      .from('updates').update(update).eq('id', id).select().single()
     if (error) return Response.json({ error: error.message }, { status: 500 })
-    return Response.json({ updates: data || [] })
+    return Response.json({ update: data })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function POST(req) {
+export async function DELETE(req, { params }) {
   try {
-    const body = await req.json()
-    const { userId, version, title, content, released_at } = body
-    if (!userId) return Response.json({ error: 'userId required' }, { status: 400 })
-    if (!version || !title || !content) {
-      return Response.json({ error: 'version, title, content required' }, { status: 400 })
-    }
-
+    const { id } = params
+    const url = new URL(req.url)
+    const userId = url.searchParams.get('userId')
     const supabase = getAdminClient()
     if (!(await isAdminUser(supabase, userId))) {
       return Response.json({ error: '管理者権限が必要です' }, { status: 403 })
     }
-
-    const { data, error } = await supabase
-      .from('updates')
-      .insert({
-        version: version.trim(),
-        title: title.trim(),
-        body: content.trim(),
-        released_at: released_at || new Date().toISOString(),
-        created_by: userId,
-      })
-      .select().single()
-
+    const { error } = await supabase.from('updates').delete().eq('id', id)
     if (error) return Response.json({ error: error.message }, { status: 500 })
-    return Response.json({ update: data })
+    return Response.json({ ok: true })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
   }
