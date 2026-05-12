@@ -226,13 +226,18 @@ export default function Home() {
               }}>{progress ? '詳細を見る →' : 'クリックして開始 →'}</p>
             </div>
 
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '24px',
-              border: '1px solid #e2e8f0',
-              opacity: '0.6'
-            }}>
+            <div
+              onClick={function() { router.push('/groups') }}
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '12px',
+                padding: '24px',
+                border: '1px solid #e2e8f0',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={function(e) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(3,105,161,0.15)' }}
+              onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
               <div style={{ fontSize: '32px', marginBottom: '12px' }}>👥</div>
               <h3 style={{
                 fontSize: '16px',
@@ -244,9 +249,12 @@ export default function Home() {
                 研修グループを作成・参加して
                 メンバーの成績を比較する
               </p>
-              <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
-                準備中
-              </p>
+              <p style={{
+                fontSize: '12px',
+                color: '#0369a1',
+                fontWeight: 'bold',
+                marginTop: '12px'
+              }}>クリックして開始 →</p>
             </div>
           </div>
         </div>
