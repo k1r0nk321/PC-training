@@ -16,6 +16,22 @@ export async function POST(req) {
       return Response.json({ error: 'sourceCaseId required' }, { status: 400 })
     }
     const supabase = getAdminClient()
+
+    // デモモード: 匿名ユーザーはリトライ不可
+    try {
+      const { data: src0 } = await supabase
+        .from('cases').select('user_id').eq('id', sourceCaseId).maybeSingle()
+      if (src0 && src0.user_id) {
+        const { data: { user: u } } = await supabase.auth.admin.getUserById(src0.user_id)
+        if (u && u.is_anonymous) {
+          return Response.json({
+            error: 'demo_no_retry',
+            message: 'デモモードではリトライは利用できません。本登録すると利用可能です。',
+            isDemoLimit: true,
+          }, { status: 403 })
+        }
+      }
+    } catch (e) {}
     const { data: src, error: sErr } = await supabase
       .from('cases')
       .select('user_id, disease_id, disease_name, model_case_id, patient_data')
