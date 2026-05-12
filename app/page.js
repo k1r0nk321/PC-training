@@ -149,110 +149,36 @@ export default function Home() {
 
   if (user) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f0f9ff',
-        padding: '24px'
-      }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '32px'
-          }}>
-            <div>
-              <h1 style={{
-                fontSize: '28px',
-                fontWeight: 'bold',
-                color: '#0369a1'
-              }}>PC Training</h1>
-              <p style={{ color: '#64748b', fontSize: '14px' }}>
-                プライマリケア外来研修シミュレーター
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '8px' }}>
-                {user.is_anonymous ? '🎯 デモユーザー' : user.email}
-              </p>
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                {!user.is_anonymous && userProfile && userProfile.role === 'admin' && (
-                  <button
-                    onClick={function() { router.push('/admin') }}
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      border: '1px solid #d97706',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 'bold'
-                    }}
-                    title="管理者モード"
-                  >
-                    🔧 管理者
-                  </button>
-                )}
-                {!user.is_anonymous && (
-                  <button
-                    onClick={function() { router.push('/profile/edit') }}
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: 'white',
-                      color: '#0369a1',
-                      border: '1px solid #0369a1',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 'bold'
-                    }}
-                    title="プロフィール編集"
-                  >
-                    ⚙ プロフィール
-                  </button>
-                )}
-                <button
-                  onClick={handleSignOut}
-                  style={{
-                    padding: '6px 14px',
-                    backgroundColor: 'white',
-                    color: '#64748b',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  ログアウト
-                </button>
-              </div>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '20px 16px 40px' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+
+          {/* ロゴ画像 */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px', marginBottom: '12px' }}>
+            <div style={{
+              width: '140px', height: '140px',
+              borderRadius: '50%',
+              backgroundColor: '#eff6ff',
+              border: '4px solid white',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden'
+            }}>
+              <img src="/logo.png" alt="PC Training"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={function(e) {
+                  e.target.style.display = 'none'
+                  if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex'
+                }} />
+              <div style={{ display: 'none', fontSize: '56px', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>🩺</div>
             </div>
           </div>
 
-          {user.is_anonymous && (
-            <div style={{
-              backgroundColor: '#ecfdf5',
-              border: '1px solid #86efac',
-              borderRadius: '10px',
-              padding: '12px 16px',
-              marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}>
-              <span style={{ fontSize: '20px' }}>🎯</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#065f46', margin: '0 0 2px' }}>
-                  デモモードで利用中
-                </p>
-                <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
-                  ログアウトすると進行状況はすべてリセットされます。グループ機能はご利用いただけません。
-                </p>
-              </div>
-            </div>
-          )}
+          {/* アプリ名 */}
+          <h1 style={{ fontSize: '26px', fontWeight: 'bold', textAlign: 'center', color: '#1e293b', margin: '0 0 24px' }}>
+            PC Training
+          </h1>
 
+          {/* お知らせバナー */}
           {announcement && !dismissedAnnouncements.includes(announcement.id) && (
             <div style={{
               backgroundColor: announcement.priority === 'urgent' ? '#fef2f2'
@@ -265,242 +191,185 @@ export default function Home() {
                 : announcement.priority === 'low' ? '#cbd5e1'
                 : '#bfdbfe'
               ),
-              borderRadius: '10px',
-              padding: '14px 16px',
-              marginBottom: '16px',
+              borderRadius: '12px', padding: '12px 14px', marginBottom: '12px',
               position: 'relative',
             }}>
               <button onClick={function() { dismissAnnouncement(announcement.id) }}
-                style={{
-                  position: 'absolute', top: '8px', right: '8px',
-                  width: '24px', height: '24px', borderRadius: '50%',
-                  border: 'none', backgroundColor: 'transparent',
-                  cursor: 'pointer', fontSize: '14px',
-                  color: '#94a3b8'
-                }}
-                title="このお知らせを閉じる">×</button>
+                style={{ position: 'absolute', top: '6px', right: '6px', width: '24px', height: '24px', borderRadius: '50%', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: '14px', color: '#94a3b8' }}>×</button>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', paddingRight: '24px' }}>
-                <span style={{ fontSize: '18px' }}>
-                  {announcement.priority === 'urgent' ? '🚨'
-                    : announcement.priority === 'high' ? '⚠️'
-                    : announcement.priority === 'low' ? '📌'
-                    : '📢'}
+                <span style={{ fontSize: '16px' }}>
+                  {announcement.priority === 'urgent' ? '🚨' : announcement.priority === 'high' ? '⚠️' : '📢'}
                 </span>
                 <div style={{ flex: 1 }}>
-                  <p style={{
-                    fontSize: '14px', fontWeight: 'bold',
-                    color: announcement.priority === 'urgent' ? '#991b1b'
-                      : announcement.priority === 'high' ? '#9a3412'
-                      : announcement.priority === 'low' ? '#475569'
-                      : '#1e40af',
-                    margin: '0 0 4px'
-                  }}>
-                    {announcement.title}
+                  <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e40af', margin: '0 0 3px' }}>{announcement.title}</p>
+                  <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 4px', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                    {announcement.body.length > 150 ? announcement.body.substring(0, 150) + '…' : announcement.body}
                   </p>
-                  <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 6px', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-                    {announcement.body.length > 200 ? announcement.body.substring(0, 200) + '…' : announcement.body}
-                  </p>
-                  <a href="/announcements" style={{ fontSize: '11px', color: '#0369a1', textDecoration: 'underline' }}>
-                    お知らせ一覧を見る →
-                  </a>
+                  <a href="/announcements" style={{ fontSize: '10px', color: '#0369a1', textDecoration: 'underline' }}>お知らせ一覧 →</a>
                 </div>
               </div>
             </div>
           )}
 
+          {/* デモバナー */}
+          {user.is_anonymous && (
+            <div style={{
+              backgroundColor: '#ecfdf5', border: '1px solid #86efac',
+              borderRadius: '12px', padding: '10px 14px', marginBottom: '12px',
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}>
+              <span style={{ fontSize: '18px' }}>🎯</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#065f46', margin: '0 0 1px' }}>デモモードで利用中</p>
+                <p style={{ fontSize: '10px', color: '#047857', margin: 0 }}>ログアウトすると進行状況はリセットされます</p>
+              </div>
+            </div>
+          )}
+
+          {/* ユーザー情報カード */}
           <div style={{
-            backgroundColor: '#dbeafe',
-            borderRadius: '12px',
-            padding: '24px',
-            marginBottom: '24px'
+            backgroundColor: 'white', borderRadius: '16px',
+            padding: '18px 20px', border: '1px solid #e2e8f0',
+            marginBottom: '14px', position: 'relative',
           }}>
-            <h2 style={{
-              fontSize: '18px',
-              fontWeight: 'bold',
-              color: '#1e40af',
-              marginBottom: '8px'
-            }}>外来シミュレーションへようこそ</h2>
-            <p style={{ color: '#1e40af', fontSize: '14px' }}>
-              実際の外来診療を想定した3回受診シミュレーションで、
-              プライマリケアの診療スキルを磨きましょう。
+            <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 2px' }}>ようこそ</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 6px' }}>
+              {user.is_anonymous ? 'デモユーザー' :
+                (userProfile && userProfile.real_name ? userProfile.real_name + ' 先生' : 'ユーザー')}
+            </h2>
+            <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 1px' }}>
+              {user.is_anonymous ? '—' : (userProfile && userProfile.position) || '身分未設定'}
             </p>
+            <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>
+              {user.is_anonymous ? '—' : (userProfile && userProfile.affiliation) || '所属未設定'}
+            </p>
+            {!user.is_anonymous && (
+              <button onClick={function() { router.push('/profile/edit') }}
+                style={{
+                  position: 'absolute', top: '14px', right: '14px',
+                  padding: '5px 10px', backgroundColor: 'white',
+                  color: '#0369a1', border: '1px solid #0369a1',
+                  borderRadius: '999px', cursor: 'pointer',
+                  fontSize: '11px', fontWeight: 'bold',
+                  display: 'flex', alignItems: 'center', gap: '3px',
+                }}>
+                ✏️ 編集
+              </button>
+            )}
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '16px'
-          }}>
-<div
-  onClick={function() { window.location.href = '/cases' }}
-  style={{
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    border: '2px solid #0369a1',
-    cursor: 'pointer'
-  }}
->
-  <div style={{
-    fontSize: '32px',
-    marginBottom: '12px'
-  }}>🏥</div>
-  <h3 style={{
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: '8px'
-  }}>症例トレーニング</h3>
-  <p style={{
-    fontSize: '13px',
-    color: '#64748b'
-  }}>
-    高血圧・糖尿病・脂質異常症など、
-    プライマリケアの代表疾患を学ぶ
-  </p>
-  <p style={{
-    fontSize: '12px',
-    color: '#0369a1',
-    fontWeight: 'bold',
-    marginTop: '12px'
-  }}>クリックして開始 →</p>
-</div>
-
-            <div
-              onClick={function() { router.push('/grades') }}
+          {/* メインアクションカード (2列) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div onClick={function() { router.push('/cases') }}
               style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                padding: '24px',
-                border: '1px solid #e2e8f0',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                backgroundColor: '#2563eb', color: 'white',
+                borderRadius: '16px', padding: '20px 18px',
+                cursor: 'pointer', transition: 'transform 0.15s',
+                minHeight: '130px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
               }}
-              onMouseEnter={function(e) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(3,105,161,0.15)' }}
-              onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#1e293b',
-                marginBottom: '8px'
-              }}>成績確認</h3>
-              {progress ? (
-                <div>
-                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 2px' }}>{progress.phase}フェーズ</p>
-                  <p style={{ fontSize: '15px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>
-                    🏆 {progress.title}
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-                    合格 {progress.passCount} 例 ・ {progress.completedDiseases} 疾患達成
-                  </p>
-                </div>
-              ) : (
-                <p style={{ fontSize: '13px', color: '#64748b' }}>
-                  これまでのトレーニング結果と
-                  フィードバックを確認する
+              onMouseEnter={function(e) { e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={function(e) { e.currentTarget.style.transform = 'translateY(0)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 4px' }}>症例トレーニング</h3>
+                <p style={{ fontSize: '11px', margin: 0, opacity: 0.9 }}>外来診療・採点</p>
+              </div>
+            </div>
+
+            <div onClick={function() { router.push('/grades') }}
+              style={{
+                backgroundColor: '#7c3aed', color: 'white',
+                borderRadius: '16px', padding: '20px 18px',
+                cursor: 'pointer', transition: 'transform 0.15s',
+                minHeight: '130px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+              }}
+              onMouseEnter={function(e) { e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={function(e) { e.currentTarget.style.transform = 'translateY(0)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 4px' }}>成績確認</h3>
+                <p style={{ fontSize: '11px', margin: 0, opacity: 0.9 }}>
+                  {progress && progress.title ? progress.title : '過去の記録'}
                 </p>
-              )}
-              <p style={{
-                fontSize: '12px',
-                color: '#0369a1',
-                fontWeight: 'bold',
-                marginTop: '12px'
-              }}>{progress ? '詳細を見る →' : 'クリックして開始 →'}</p>
-            </div>
-
-            <div
-              onClick={function() {
-                if (user.is_anonymous) {
-                  alert('デモモードではグループ機能はご利用いただけません。本登録すると利用できます。')
-                  return
-                }
-                router.push('/groups')
-              }}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                padding: '24px',
-                border: '1px solid #e2e8f0',
-                cursor: user.is_anonymous ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                opacity: user.is_anonymous ? 0.6 : 1
-              }}
-              onMouseEnter={function(e) { if (!user.is_anonymous) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(3,105,161,0.15)' } }}
-              onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>👥</div>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#1e293b',
-                marginBottom: '8px'
-              }}>グループ</h3>
-              <p style={{ fontSize: '13px', color: '#64748b' }}>
-                研修グループを作成・参加して
-                メンバーの成績を比較する
-              </p>
-              <p style={{
-                fontSize: '12px',
-                color: '#0369a1',
-                fontWeight: 'bold',
-                marginTop: '12px'
-              }}>クリックして開始 →</p>
+              </div>
             </div>
           </div>
 
-          <div style={{
-            marginTop: '24px',
-            padding: '16px',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}>
-            <button onClick={function() { router.push('/updates') }}
+          {/* グループ (フル幅) */}
+          <div onClick={function() {
+              if (user.is_anonymous) {
+                alert('デモモードではグループ機能はご利用いただけません。本登録すると利用できます。')
+                return
+              }
+              router.push('/groups')
+            }}
+            style={{
+              backgroundColor: '#0d9488', color: 'white',
+              borderRadius: '16px', padding: '18px 20px',
+              cursor: user.is_anonymous ? 'not-allowed' : 'pointer',
+              opacity: user.is_anonymous ? 0.55 : 1,
+              transition: 'transform 0.15s',
+              marginBottom: '10px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}
+            onMouseEnter={function(e) { if (!user.is_anonymous) e.currentTarget.style.transform = 'translateY(-2px)' }}
+            onMouseLeave={function(e) { e.currentTarget.style.transform = 'translateY(0)' }}>
+            <div style={{ fontSize: '32px' }}>👥</div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 3px' }}>グループ</h3>
+              <p style={{ fontSize: '11px', margin: 0, opacity: 0.9 }}>成績を共有して一緒に学ぶ</p>
+            </div>
+          </div>
+
+          {/* アップデート情報 (薄緑 + NEW バッジ) */}
+          <div onClick={function() { router.push('/updates') }}
+            style={{
+              backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: '12px', padding: '12px 16px',
+              cursor: 'pointer', marginBottom: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+              <span style={{ padding: '2px 7px', backgroundColor: '#dc2626', color: 'white', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', flexShrink: 0 }}>NEW</span>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: '13px', fontWeight: 'bold', margin: '0 0 1px', color: '#166534' }}>アップデート情報</p>
+                <p style={{ fontSize: '10px', color: '#15803d', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {recentUpdates && recentUpdates.length > 0
+                    ? recentUpdates[0].title + ' (' + new Date(recentUpdates[0].released_at).toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'}) + ' 更新)'
+                    : '最新の機能改善・追加情報'}
+                </p>
+              </div>
+            </div>
+            <span style={{ color: '#166534', fontSize: '18px', flexShrink: 0 }}>→</span>
+          </div>
+
+          {/* 管理者ダッシュボード (admin のみ) */}
+          {!user.is_anonymous && userProfile && userProfile.role === 'admin' && (
+            <div onClick={function() { router.push('/admin') }}
               style={{
-                padding: '8px 16px',
-                backgroundColor: 'white',
-                color: '#0369a1',
-                border: '1px solid #0369a1',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
+                backgroundColor: '#1f2937', color: 'white',
+                borderRadius: '12px', padding: '14px 18px',
+                cursor: 'pointer', marginBottom: '10px',
+                display: 'flex', alignItems: 'center', gap: '12px',
               }}>
-              📰 アップデート情報
-            </button>
-            <button onClick={function() { router.push('/announcements') }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: 'white',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-              📢 お知らせ一覧
-            </button>
-            <button onClick={function() { router.push('/terms') }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: 'white',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-              📋 利用規約
+              <div style={{ fontSize: '22px' }}>🔧</div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 2px' }}>管理者ダッシュボード</p>
+                <p style={{ fontSize: '10px', margin: 0, opacity: 0.8 }}>統計・症例管理・お知らせ</p>
+              </div>
+              <span style={{ fontSize: '18px', opacity: 0.6 }}>→</span>
+            </div>
+          )}
+
+          {/* フッター */}
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <a href="/terms" style={{ fontSize: '12px', color: '#94a3b8', textDecoration: 'underline', display: 'block', marginBottom: '10px' }}>
+              利用規約を確認する
+            </a>
+            <button onClick={handleSignOut}
+              style={{ background: 'transparent', border: 'none', color: '#475569', fontSize: '13px', cursor: 'pointer', padding: '6px 16px' }}>
+              ログアウト
             </button>
           </div>
         </div>
