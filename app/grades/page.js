@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
+// 次ランクの称号（表示用）
+const TITLES_NEXT = {
+  1: '駆け出し研修医', 2: '独り立ち研修医', 3: '中堅研修医', 4: '研修修了者',
+  5: '新米専攻医', 6: '若手専攻医', 7: '中堅専攻医', 8: '精鋭専攻医', 9: 'ベテラン専攻医',
+  10: '新米指導医', 11: '若手指導医', 12: '中堅指導医', 13: '熟練指導医', 14: 'ベテラン指導医',
+  15: '鉄壁のジェネラリスト', 16: '不朽のジェネラリスト', 17: '無双のジェネラリスト', 18: '至高のジェネラリスト', 19: '伝説のジェネラリスト',
+}
+
 const CATEGORY_COLORS = {
   '循環器': '#dc2626',
   '内分泌': '#0369a1',
@@ -80,9 +88,11 @@ export default function GradesPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [cases, setCases] = useState([])
+  const [progress, setProgress] = useState(null)
   const [error, setError] = useState(null)
   const [retrying, setRetrying] = useState(false)
   const [detail, setDetail] = useState(null)
+  const [showCoverage, setShowCoverage] = useState(false)
 
   useEffect(function() {
     async function load() {
@@ -93,10 +103,15 @@ export default function GradesPage() {
           router.push('/')
           return
         }
-        const res = await fetch('/api/grades-list?userId=' + uid)
-        const d = await res.json()
+        const [resGrades, resProg] = await Promise.all([
+          fetch('/api/grades-list?userId=' + uid),
+          fetch('/api/user-progress?userId=' + uid),
+        ])
+        const d = await resGrades.json()
+        const p = await resProg.json()
         if (d.error) { setError(d.error); return }
         setCases(d.cases || [])
+        if (!p.error) setProgress(p)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -161,6 +176,74 @@ export default function GradesPage() {
               style={{ marginTop: '16px', padding: '10px 18px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
               症例トレーニングへ
             </button>
+          </div>
+        )}
+
+        {progress && (
+          <div style={{
+            background: 'linear-gradient(135deg, #0369a1 0%, #1e40af 100%)',
+            borderRadius: '14px', padding: '20px', marginBottom: '20px', color: 'white',
+            boxShadow: '0 4px 12px rgba(3,105,161,0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <p style={{ fontSize: '11px', opacity: 0.9, margin: '0 0 4px' }}>{progress.phase}フェーズ Rank {progress.rank}</p>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 6px' }}>🏆 {progress.title}</h2>
+                <p style={{ fontSize: '12px', opacity: 0.9, margin: 0 }}>
+                  合格 <b style={{ fontSize: '14px' }}>{progress.passCount}</b> 例 ・ 達成疾患 <b style={{ fontSize: '14px' }}>{progress.completedDiseases}</b> 疾患
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                {progress.requirementMet && progress.nextRankCount != null && (
+                  <p style={{ fontSize: '11px', opacity: 0.9, margin: '0 0 4px' }}>
+                    次ランク {TITLES_NEXT[progress.rank] || ''} まで
+                  </p>
+                )}
+                {progress.requirementMet && progress.nextRankCount != null && (
+                  <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+                    あと {progress.nextRankCount - progress.passCount} 例
+                  </p>
+                )}
+                {!progress.requirementMet && progress.blocker && (
+                  <p style={{ fontSize: '11px', opacity: 0.95, margin: 0, maxWidth: '240px' }}>
+                    {progress.blocker.nextPhase}フェーズに進むには
+                    <b style={{ fontSize: '14px', display: 'block' }}>
+                      {progress.blocker.required - progress.blocker.current} 疾患の追加カバーが必要
+                    </b>
+                  </p>
+                )}
+                {progress.requirementMet && progress.nextRankCount == null && (
+                  <p style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>
+                    最高ランク達成 ✨
+                  </p>
+                )}
+              </div>
+            </div>
+            {progress.diseaseCoverage && progress.diseaseCoverage.length > 0 && (
+              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.25)' }}>
+                <button onClick={function() { setShowCoverage(!showCoverage) }}
+                  style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', padding: 0, opacity: 0.95 }}>
+                  {showCoverage ? '▲ 疾患カバー状況を隠す' : '▼ 疾患カバー状況を表示'}
+                </button>
+                {showCoverage && (
+                  <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '6px' }}>
+                    {progress.diseaseCoverage.map(function(d) {
+                      return (
+                        <div key={d.id} style={{
+                          padding: '6px 10px', borderRadius: '6px',
+                          backgroundColor: d.complete ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.12)',
+                          fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                          <span style={{ fontSize: '13px' }}>{d.complete ? '✅' : '⚪'}</span>
+                          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                          <span style={{ opacity: 0.85 }}>{d.passed_model_cases}/{d.total_model_cases}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
