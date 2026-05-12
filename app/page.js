@@ -9,6 +9,9 @@ export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [progress, setProgress] = useState(null)
+  const [announcement, setAnnouncement] = useState(null)
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState([])
+  const [userProfile, setUserProfile] = useState(null)
 
   useEffect(function() {
     async function fetchProgress() {
@@ -19,9 +22,33 @@ export default function Home() {
         const res = await fetch('/api/user-progress?userId=' + uid)
         const d = await res.json()
         if (!d.error) setProgress(d)
+        // プロフィール取得（role 確認用）
+        try {
+          const pr = await fetch('/api/user-profile?userId=' + uid)
+          const pd = await pr.json()
+          if (pd.profile) setUserProfile(pd.profile)
+        } catch (e) {}
       } catch (e) {}
     }
     fetchProgress()
+
+    // Fetch latest announcement
+    async function fetchAnnouncement() {
+      try {
+        const res = await fetch('/api/announcements?limit=1')
+        const d = await res.json()
+        if (d.announcements && d.announcements.length > 0) {
+          setAnnouncement(d.announcements[0])
+        }
+      } catch (e) {}
+    }
+    fetchAnnouncement()
+
+    // Load dismissed list from localStorage
+    try {
+      const raw = localStorage.getItem('pc_dismissed_announcements')
+      if (raw) setDismissedAnnouncements(JSON.parse(raw))
+    } catch (e) {}
   }, [])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
@@ -65,6 +92,12 @@ export default function Home() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+  }
+
+  function dismissAnnouncement(id) {
+    const updated = [...dismissedAnnouncements, id]
+    setDismissedAnnouncements(updated)
+    try { localStorage.setItem('pc_dismissed_announcements', JSON.stringify(updated)) } catch (e) {}
   }
 
   async function handleDemo() {
@@ -131,6 +164,24 @@ export default function Home() {
                 {user.is_anonymous ? '🎯 デモユーザー' : user.email}
               </p>
               <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                {!user.is_anonymous && userProfile && userProfile.role === 'admin' && (
+                  <button
+                    onClick={function() { router.push('/admin') }}
+                    style={{
+                      padding: '6px 14px',
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      border: '1px solid #d97706',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 'bold'
+                    }}
+                    title="管理者モード"
+                  >
+                    🔧 管理者
+                  </button>
+                )}
                 {!user.is_anonymous && (
                   <button
                     onClick={function() { router.push('/profile/edit') }}
@@ -186,6 +237,61 @@ export default function Home() {
                 <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
                   ログアウトすると進行状況はすべてリセットされます。グループ機能はご利用いただけません。
                 </p>
+              </div>
+            </div>
+          )}
+
+          {announcement && !dismissedAnnouncements.includes(announcement.id) && (
+            <div style={{
+              backgroundColor: announcement.priority === 'urgent' ? '#fef2f2'
+                : announcement.priority === 'high' ? '#fff7ed'
+                : announcement.priority === 'low' ? '#f8fafc'
+                : '#eff6ff',
+              border: '1px solid ' + (
+                announcement.priority === 'urgent' ? '#fecaca'
+                : announcement.priority === 'high' ? '#fed7aa'
+                : announcement.priority === 'low' ? '#cbd5e1'
+                : '#bfdbfe'
+              ),
+              borderRadius: '10px',
+              padding: '14px 16px',
+              marginBottom: '16px',
+              position: 'relative',
+            }}>
+              <button onClick={function() { dismissAnnouncement(announcement.id) }}
+                style={{
+                  position: 'absolute', top: '8px', right: '8px',
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  border: 'none', backgroundColor: 'transparent',
+                  cursor: 'pointer', fontSize: '14px',
+                  color: '#94a3b8'
+                }}
+                title="このお知らせを閉じる">×</button>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', paddingRight: '24px' }}>
+                <span style={{ fontSize: '18px' }}>
+                  {announcement.priority === 'urgent' ? '🚨'
+                    : announcement.priority === 'high' ? '⚠️'
+                    : announcement.priority === 'low' ? '📌'
+                    : '📢'}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    fontSize: '14px', fontWeight: 'bold',
+                    color: announcement.priority === 'urgent' ? '#991b1b'
+                      : announcement.priority === 'high' ? '#9a3412'
+                      : announcement.priority === 'low' ? '#475569'
+                      : '#1e40af',
+                    margin: '0 0 4px'
+                  }}>
+                    {announcement.title}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 6px', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                    {announcement.body.length > 200 ? announcement.body.substring(0, 200) + '…' : announcement.body}
+                  </p>
+                  <a href="/announcements" style={{ fontSize: '11px', color: '#0369a1', textDecoration: 'underline' }}>
+                    お知らせ一覧を見る →
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -328,6 +434,62 @@ export default function Home() {
                 marginTop: '12px'
               }}>クリックして開始 →</p>
             </div>
+          </div>
+
+          <div style={{
+            marginTop: '24px',
+            padding: '16px',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}>
+            <button onClick={function() { router.push('/updates') }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'white',
+                color: '#0369a1',
+                border: '1px solid #0369a1',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+              📰 アップデート情報
+            </button>
+            <button onClick={function() { router.push('/announcements') }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'white',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+              📢 お知らせ一覧
+            </button>
+            <button onClick={function() { router.push('/terms') }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'white',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+              📋 利用規約
+            </button>
           </div>
         </div>
       </div>
