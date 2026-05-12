@@ -65,7 +65,7 @@ function getCategoryColor(c) {
   return CATEGORY_COLORS[c] || '#64748b'
 }
 
-function GradeRow({ c, onRetry, onShowDetail, retrying }) {
+function GradeRow({ c, onRetry, onShowDetail, retrying, isAnon }) {
   return (
     <div style={{
       backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px',
@@ -105,12 +105,14 @@ function GradeRow({ c, onRetry, onShowDetail, retrying }) {
             border: '1px solid #0369a1', borderRadius: '6px', fontSize: '12px',
             cursor: 'pointer', fontWeight: 'bold'
           }}>📋 詳細</button>
-        <button onClick={function() { onRetry(c) }} disabled={retrying}
-          style={{
-            padding: '6px 12px', backgroundColor: '#059669', color: 'white',
-            border: 'none', borderRadius: '6px', fontSize: '12px',
-            cursor: retrying ? 'wait' : 'pointer', fontWeight: 'bold', opacity: retrying ? 0.7 : 1
-          }}>🔄 リトライ</button>
+        {!isAnon && (
+          <button onClick={function() { onRetry(c) }} disabled={retrying}
+            style={{
+              padding: '6px 12px', backgroundColor: '#059669', color: 'white',
+              border: 'none', borderRadius: '6px', fontSize: '12px',
+              cursor: retrying ? 'wait' : 'pointer', fontWeight: 'bold', opacity: retrying ? 0.7 : 1
+            }}>🔄 リトライ</button>
+        )}
       </div>
     </div>
   )
@@ -126,6 +128,7 @@ export default function GradesPage() {
   const [detail, setDetail] = useState(null)
   const [showCoverage, setShowCoverage] = useState(false)
   const [showAllRanks, setShowAllRanks] = useState(false)
+  const [isAnonymous, setIsAnonymous] = useState(false)
 
   useEffect(function() {
     async function load() {
@@ -136,6 +139,7 @@ export default function GradesPage() {
           router.push('/')
           return
         }
+        if (session.data.session.user.is_anonymous) setIsAnonymous(true)
         const [resGrades, resProg] = await Promise.all([
           fetch('/api/grades-list?userId=' + uid),
           fetch('/api/user-progress?userId=' + uid),
@@ -215,6 +219,22 @@ export default function GradesPage() {
                 🏅 全ランキング表を見る
               </button>
             </div>
+          </div>
+        )}
+
+        {isAnonymous && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fcd34d',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            marginBottom: '14px',
+            fontSize: '12px',
+            color: '#78350f',
+            lineHeight: 1.7,
+          }}>
+            <b>🎯 デモモードで閲覧中</b><br />
+            ログアウトすると、これらの成績は失われます。本登録すると永続的に保存され、リトライ機能も利用できます。
           </div>
         )}
 
@@ -312,7 +332,7 @@ export default function GradesPage() {
                     </span>
                   </div>
                   {grouped[cat].map(function(c) {
-                    return <GradeRow key={c.id} c={c} onRetry={handleRetry} onShowDetail={setDetail} retrying={retrying} />
+                    return <GradeRow key={c.id} c={c} onRetry={handleRetry} onShowDetail={setDetail} retrying={retrying} isAnon={isAnonymous} />
                   })}
                 </div>
               )
@@ -435,10 +455,12 @@ export default function GradesPage() {
                 </div>
               </div>
               <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button onClick={function() { handleRetry(detail) }} disabled={retrying}
-                  style={{ padding: '8px 16px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: retrying ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                  🔄 リトライ
-                </button>
+                {!isAnonymous && (
+                  <button onClick={function() { handleRetry(detail) }} disabled={retrying}
+                    style={{ padding: '8px 16px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: retrying ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                    🔄 リトライ
+                  </button>
+                )}
               </div>
             </div>
           </div>
