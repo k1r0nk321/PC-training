@@ -108,20 +108,38 @@ export default function Home() {
               <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '8px' }}>
                 {user.email}
               </p>
-              <button
-                onClick={handleSignOut}
-                style={{
-                  padding: '6px 16px',
-                  backgroundColor: 'white',
-                  color: '#64748b',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                ログアウト
-              </button>
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={function() { router.push('/profile/edit') }}
+                  style={{
+                    padding: '6px 14px',
+                    backgroundColor: 'white',
+                    color: '#0369a1',
+                    border: '1px solid #0369a1',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 'bold'
+                  }}
+                  title="プロフィール編集"
+                >
+                  ⚙ プロフィール
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  style={{
+                    padding: '6px 14px',
+                    backgroundColor: 'white',
+                    color: '#64748b',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  ログアウト
+                </button>
+              </div>
             </div>
           </div>
 
