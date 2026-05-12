@@ -8,6 +8,21 @@ import { supabase } from './lib/supabase'
 export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [progress, setProgress] = useState(null)
+
+  useEffect(function() {
+    async function fetchProgress() {
+      try {
+        const session = await supabase.auth.getSession()
+        const uid = session?.data?.session?.user?.id
+        if (!uid) return
+        const res = await fetch('/api/user-progress?userId=' + uid)
+        const d = await res.json()
+        if (!d.error) setProgress(d)
+      } catch (e) {}
+    }
+    fetchProgress()
+  }, [])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -187,16 +202,28 @@ export default function Home() {
                 color: '#1e293b',
                 marginBottom: '8px'
               }}>成績確認</h3>
-              <p style={{ fontSize: '13px', color: '#64748b' }}>
-                これまでのトレーニング結果と
-                フィードバックを確認する
-              </p>
+              {progress ? (
+                <div>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 2px' }}>{progress.phase}フェーズ</p>
+                  <p style={{ fontSize: '15px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>
+                    🏆 {progress.title}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                    合格 {progress.passCount} 例 ・ {progress.completedDiseases} 疾患達成
+                  </p>
+                </div>
+              ) : (
+                <p style={{ fontSize: '13px', color: '#64748b' }}>
+                  これまでのトレーニング結果と
+                  フィードバックを確認する
+                </p>
+              )}
               <p style={{
                 fontSize: '12px',
                 color: '#0369a1',
                 fontWeight: 'bold',
                 marginTop: '12px'
-              }}>クリックして開始 →</p>
+              }}>{progress ? '詳細を見る →' : 'クリックして開始 →'}</p>
             </div>
 
             <div style={{
