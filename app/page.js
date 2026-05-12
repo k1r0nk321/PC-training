@@ -12,6 +12,8 @@ export default function Home() {
   const [announcement, setAnnouncement] = useState(null)
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState([])
   const [userProfile, setUserProfile] = useState(null)
+  const [authTab, setAuthTab] = useState('login')
+  const [recentUpdates, setRecentUpdates] = useState([])
 
   useEffect(function() {
     async function fetchProgress() {
@@ -44,6 +46,16 @@ export default function Home() {
     }
     fetchAnnouncement()
 
+    // Fetch latest updates for login screen
+    async function fetchRecentUpdates() {
+      try {
+        const res = await fetch('/api/updates?limit=5')
+        const d = await res.json()
+        if (d.updates) setRecentUpdates(d.updates)
+      } catch (e) {}
+    }
+    fetchRecentUpdates()
+
     // Load dismissed list from localStorage
     try {
       const raw = localStorage.getItem('pc_dismissed_announcements')
@@ -74,7 +86,7 @@ export default function Home() {
   async function handleAuth() {
     setAuthLoading(true)
     setMessage('')
-    if (isSignUp) {
+    if (authTab === 'signup') {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) {
         setMessage('エラー：' + error.message)
@@ -499,186 +511,198 @@ export default function Home() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f0f9ff',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px'
+      backgroundColor: '#f8fafc',
+      padding: '20px 16px 40px'
     }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '40px',
-        width: '100%',
-        maxWidth: '400px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#0369a1',
-            marginBottom: '8px'
-          }}>PC Training</h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>
-            プライマリケア外来研修シミュレーター
-          </p>
-        </div>
+      <div style={{ maxWidth: '440px', margin: '0 auto', paddingTop: '24px' }}>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            color: '#475569',
-            marginBottom: '6px',
-            fontWeight: '500'
+        {/* ロゴ画像（後で /public/logo.png に差し替え可能） */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
+          <div style={{
+            width: '180px', height: '180px',
+            borderRadius: '50%',
+            backgroundColor: '#eff6ff',
+            border: '4px solid white',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden'
           }}>
-            メールアドレス
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={function(e) { setEmail(e.target.value) }}
-            placeholder="example@email.com"
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              fontSize: '14px',
-              outline: 'none'
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            color: '#475569',
-            marginBottom: '6px',
-            fontWeight: '500'
-          }}>
-            パスワード
-          </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={function(e) { setPassword(e.target.value) }}
-              placeholder="パスワードを入力"
-              style={{
-                width: '100%',
-                padding: '10px 44px 10px 14px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                fontSize: '14px',
-                outline: 'none',
-                boxSizing: 'border-box'
+            <img
+              src="/logo.png"
+              alt="PC Training"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={function(e) {
+                e.target.style.display = 'none'
+                if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex'
               }}
             />
-            <button
-              type="button"
-              onClick={function() { setShowPassword(!showPassword) }}
-              title={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
-              style={{
-                position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '16px',
-                padding: '4px 8px',
-                color: '#64748b'
-              }}
-            >
-              {showPassword ? '🙈' : '👁'}
-            </button>
+            <div style={{ display: 'none', fontSize: '72px', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>🩺</div>
           </div>
         </div>
 
-        {message && (
-          <div style={{
-            padding: '12px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-            backgroundColor: message.includes('エラー') ? '#fef2f2' : '#f0fdf4',
-            color: message.includes('エラー') ? '#dc2626' : '#16a34a',
-            fontSize: '13px'
-          }}>
-            {message}
+        {/* アプリ名 */}
+        <h1 style={{ fontSize: '30px', fontWeight: 'bold', textAlign: 'center', color: '#1e293b', margin: '0 0 4px' }}>
+          PC Training
+        </h1>
+        <p style={{ fontSize: '12px', textAlign: 'center', color: '#64748b', margin: '0 0 24px' }}>
+          プライマリケア外来研修シミュレーター
+        </p>
+
+        {/* タブ切替 */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '16px', backgroundColor: '#f1f5f9', borderRadius: '999px', padding: '4px' }}>
+          {['login', 'signup', 'demo'].map(function(t) {
+            const labels = { login: 'ログイン', signup: '新規登録', demo: 'お試し' }
+            const active = authTab === t
+            return (
+              <button key={t} onClick={function() { setAuthTab(t); setMessage('') }}
+                style={{
+                  flex: 1, padding: '10px',
+                  backgroundColor: active ? '#2563eb' : 'transparent',
+                  color: active ? 'white' : '#64748b',
+                  border: 'none', borderRadius: '999px',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 'bold',
+                  transition: 'all 0.15s'
+                }}>
+                {labels[t]}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* タブコンテンツ */}
+        <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '20px', border: '1px solid #e2e8f0' }}>
+          {authTab === 'demo' ? (
+            <div>
+              <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 12px' }}>アカウント登録なしで体験</h2>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px', lineHeight: 1.7 }}>
+                モデル症例 <b>3 例まで</b>体験できます。<br />
+                完遂したデータは保存されず、ログアウトでリセットされます。
+              </p>
+              <ul style={{ fontSize: '11px', color: '#64748b', margin: '0 0 16px', padding: '0 0 0 18px', lineHeight: 1.8 }}>
+                <li>ランダム生成は利用不可</li>
+                <li>リトライ機能は利用不可</li>
+                <li>グループ機能は利用不可</li>
+              </ul>
+              <button onClick={handleDemo} disabled={authLoading}
+                style={{
+                  width: '100%', padding: '12px',
+                  backgroundColor: '#059669', color: 'white',
+                  border: 'none', borderRadius: '8px',
+                  fontSize: '14px', fontWeight: 'bold',
+                  cursor: authLoading ? 'not-allowed' : 'pointer'
+                }}>
+                {authLoading ? '読み込み中...' : '🎯 デモを試す'}
+              </button>
+              {message && (
+                <p style={{ fontSize: '12px', color: message.indexOf('エラー') >= 0 ? '#dc2626' : '#059669', marginTop: '10px', textAlign: 'center' }}>
+                  {message}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 14px' }}>
+                {authTab === 'login' ? 'アカウントでログイン' : '新規アカウント作成'}
+              </h2>
+
+              <input
+                type="email"
+                value={email}
+                onChange={function(e) { setEmail(e.target.value) }}
+                placeholder="メールアドレス"
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  border: '1px solid #cbd5e1', borderRadius: '8px',
+                  fontSize: '14px', marginBottom: '10px',
+                  boxSizing: 'border-box', backgroundColor: '#f8fafc',
+                  outline: 'none'
+                }} />
+
+              <div style={{ position: 'relative', marginBottom: '14px' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={function(e) { setPassword(e.target.value) }}
+                  placeholder="パスワード"
+                  style={{
+                    width: '100%', padding: '11px 60px 11px 14px',
+                    border: '1px solid #cbd5e1', borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box', backgroundColor: '#f8fafc',
+                    outline: 'none'
+                  }} />
+                <button type="button"
+                  onClick={function() { setShowPassword(!showPassword) }}
+                  style={{
+                    position: 'absolute', right: '8px', top: '50%',
+                    transform: 'translateY(-50%)', background: 'transparent',
+                    border: 'none', cursor: 'pointer', fontSize: '12px',
+                    color: '#64748b', padding: '4px 8px'
+                  }}>
+                  {showPassword ? '隠す' : '表示'}
+                </button>
+              </div>
+
+              <button onClick={handleAuth} disabled={authLoading}
+                style={{
+                  width: '100%', padding: '12px',
+                  backgroundColor: '#2563eb', color: 'white',
+                  border: 'none', borderRadius: '8px',
+                  fontSize: '14px', fontWeight: 'bold',
+                  cursor: authLoading ? 'not-allowed' : 'pointer'
+                }}>
+                {authLoading ? '処理中...' : (authTab === 'signup' ? '新規登録' : 'ログイン')}
+              </button>
+
+              {message && (
+                <p style={{
+                  fontSize: '12px',
+                  color: message.indexOf('エラー') >= 0 ? '#dc2626' : '#059669',
+                  marginTop: '10px', textAlign: 'center'
+                }}>{message}</p>
+              )}
+
+              <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', marginTop: '14px' }}>
+                {authTab === 'login'
+                  ? <span>アカウントをお持ちでない方は <span onClick={function() { setAuthTab('signup'); setMessage('') }} style={{ color: '#059669', fontWeight: 'bold', cursor: 'pointer' }}>新規登録</span></span>
+                  : <span>すでにアカウントをお持ちの方は <span onClick={function() { setAuthTab('login'); setMessage('') }} style={{ color: '#2563eb', fontWeight: 'bold', cursor: 'pointer' }}>ログイン</span></span>
+                }
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 最新のアップデート */}
+        {recentUpdates.length > 0 && (
+          <div style={{ marginTop: '18px', backgroundColor: 'white', borderRadius: '14px', padding: '16px 20px', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 10px' }}>
+              📰 最新のアップデート
+            </h3>
+            {recentUpdates.slice(0, 5).map(function(u) {
+              const catColors = {
+                '機能追加': { bg: '#dbeafe', text: '#1e40af' },
+                '修正': { bg: '#fed7aa', text: '#9a3412' },
+                '改善': { bg: '#dcfce7', text: '#166534' },
+                'その他': { bg: '#f1f5f9', text: '#475569' }
+              }
+              const c = catColors[u.category] || catColors['その他']
+              return (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                  {u.category ? (
+                    <span style={{ padding: '2px 8px', backgroundColor: c.bg, color: c.text, borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{u.category}</span>
+                  ) : (
+                    <span style={{ padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#64748b', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{u.version}</span>
+                  )}
+                  <span style={{ fontSize: '12px', color: '#334155', flex: 1 }}>{u.title}</span>
+                </div>
+              )
+            })}
+            <div style={{ marginTop: '8px', textAlign: 'right' }}>
+              <a href="/updates" style={{ fontSize: '11px', color: '#2563eb', textDecoration: 'none' }}>すべて見る →</a>
+            </div>
           </div>
         )}
 
-        <button
-          onClick={handleAuth}
-          disabled={authLoading}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: authLoading ? '#93c5fd' : '#0369a1',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '15px',
-            fontWeight: 'bold',
-            cursor: authLoading ? 'not-allowed' : 'pointer',
-            marginBottom: '16px'
-          }}
-        >
-          {authLoading ? '処理中...' : (isSignUp ? '新規登録' : 'ログイン')}
-        </button>
-
-        <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
-          {isSignUp ? 'すでにアカウントをお持ちの方は' : 'アカウントをお持ちでない方は'}
-          <button
-            onClick={function() {
-              setIsSignUp(!isSignUp)
-              setMessage('')
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#0369a1',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 'bold',
-              marginLeft: '4px'
-            }}
-          >
-            {isSignUp ? 'ログイン' : '新規登録'}
-          </button>
-        </p>
-
-        {/* デモ機能 */}
-        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
-          <p style={{ textAlign: 'center', fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
-            アカウント登録せずに体験できます
-          </p>
-          <button
-            onClick={handleDemo}
-            disabled={authLoading}
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: 'white',
-              color: '#059669',
-              border: '1.5px solid #059669',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 'bold',
-              cursor: authLoading ? 'not-allowed' : 'pointer'
-            }}>
-            🎯 デモを試す（データ保存なし）
-          </button>
-          <p style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8', marginTop: '8px', lineHeight: 1.5 }}>
-            モデル症例のみ体験できます。<br />
-            ログアウトすると進行状況はリセットされます。
-          </p>
-        </div>
       </div>
     </div>
   )
