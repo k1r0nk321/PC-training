@@ -17,6 +17,18 @@ export async function POST(req) {
     const { diseaseId, diseaseName, userId } = await req.json()
     const supabase = getAdminClient()
 
+    // デモ制限: 匿名ユーザーはランダム生成 不可
+    try {
+      const { data: { user: u } } = await supabase.auth.admin.getUserById(userId)
+      if (u && u.is_anonymous) {
+        return Response.json({
+          error: 'demo_no_random',
+          message: 'デモモードではランダム生成は利用できません。',
+          isDemoLimit: true,
+        }, { status: 403 })
+      }
+    } catch (e) {}
+
     const { data: medications } = await supabase
       .from('medications')
       .select('drug_category, drug_name_generic, first_line')
