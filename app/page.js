@@ -67,6 +67,27 @@ export default function Home() {
     await supabase.auth.signOut()
   }
 
+  async function handleDemo() {
+    setAuthLoading(true)
+    setMessage('')
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously()
+      if (error) {
+        if (error.message && error.message.toLowerCase().indexOf('anonymous') >= 0) {
+          setMessage('エラー：デモ機能は現在利用できません。管理者にお問い合わせください。')
+        } else {
+          setMessage('エラー：' + error.message)
+        }
+        setAuthLoading(false)
+        return
+      }
+      // 成功時はuseEffectでuserが更新されTop画面に遷移
+    } catch (e) {
+      setMessage('エラー：' + e.message)
+      setAuthLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{
@@ -107,25 +128,27 @@ export default function Home() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '8px' }}>
-                {user.email}
+                {user.is_anonymous ? '🎯 デモユーザー' : user.email}
               </p>
               <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={function() { router.push('/profile/edit') }}
-                  style={{
-                    padding: '6px 14px',
-                    backgroundColor: 'white',
-                    color: '#0369a1',
-                    border: '1px solid #0369a1',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold'
-                  }}
-                  title="プロフィール編集"
-                >
-                  ⚙ プロフィール
-                </button>
+                {!user.is_anonymous && (
+                  <button
+                    onClick={function() { router.push('/profile/edit') }}
+                    style={{
+                      padding: '6px 14px',
+                      backgroundColor: 'white',
+                      color: '#0369a1',
+                      border: '1px solid #0369a1',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 'bold'
+                    }}
+                    title="プロフィール編集"
+                  >
+                    ⚙ プロフィール
+                  </button>
+                )}
                 <button
                   onClick={handleSignOut}
                   style={{
@@ -143,6 +166,29 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {user.is_anonymous && (
+            <div style={{
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #86efac',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}>
+              <span style={{ fontSize: '20px' }}>🎯</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#065f46', margin: '0 0 2px' }}>
+                  デモモードで利用中
+                </p>
+                <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
+                  ログアウトすると進行状況はすべてリセットされます。グループ機能はご利用いただけません。
+                </p>
+              </div>
+            </div>
+          )}
 
           <div style={{
             backgroundColor: '#dbeafe',
@@ -246,16 +292,23 @@ export default function Home() {
             </div>
 
             <div
-              onClick={function() { router.push('/groups') }}
+              onClick={function() {
+                if (user.is_anonymous) {
+                  alert('デモモードではグループ機能はご利用いただけません。本登録すると利用できます。')
+                  return
+                }
+                router.push('/groups')
+              }}
               style={{
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '24px',
                 border: '1px solid #e2e8f0',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                cursor: user.is_anonymous ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                opacity: user.is_anonymous ? 0.6 : 1
               }}
-              onMouseEnter={function(e) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(3,105,161,0.15)' }}
+              onMouseEnter={function(e) { if (!user.is_anonymous) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(3,105,161,0.15)' } }}
               onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
               <div style={{ fontSize: '32px', marginBottom: '12px' }}>👥</div>
               <h3 style={{
@@ -437,6 +490,33 @@ export default function Home() {
             {isSignUp ? 'ログイン' : '新規登録'}
           </button>
         </p>
+
+        {/* デモ機能 */}
+        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
+            アカウント登録せずに体験できます
+          </p>
+          <button
+            onClick={handleDemo}
+            disabled={authLoading}
+            style={{
+              width: '100%',
+              padding: '10px',
+              backgroundColor: 'white',
+              color: '#059669',
+              border: '1.5px solid #059669',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              cursor: authLoading ? 'not-allowed' : 'pointer'
+            }}>
+            🎯 デモを試す（データ保存なし）
+          </button>
+          <p style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8', marginTop: '8px', lineHeight: 1.5 }}>
+            モデル症例のみ体験できます。<br />
+            ログアウトすると進行状況はリセットされます。
+          </p>
+        </div>
       </div>
     </div>
   )
