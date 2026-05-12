@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
+const CATEGORIES = [
+  { value: '機能追加', color: '#dbeafe', text: '#1e40af' },
+  { value: '修正', color: '#fed7aa', text: '#9a3412' },
+  { value: '改善', color: '#dcfce7', text: '#166534' },
+  { value: 'その他', color: '#f1f5f9', text: '#475569' },
+]
+
 export default function AdminUpdatesPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -17,6 +24,7 @@ export default function AdminUpdatesPage() {
   const [version, setVersion] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [category, setCategory] = useState('')
   const [releasedAt, setReleasedAt] = useState('')
   const [error, setError] = useState(null)
 
@@ -47,14 +55,14 @@ export default function AdminUpdatesPage() {
 
   function openCreate() {
     setEditing(null)
-    setVersion(''); setTitle(''); setContent('')
+    setVersion(''); setTitle(''); setContent(''); setCategory('機能追加')
     const now = new Date()
     setReleasedAt(now.toISOString().slice(0, 16))
     setError(null); setShowForm(true)
   }
   function openEdit(item) {
     setEditing(item)
-    setVersion(item.version); setTitle(item.title); setContent(item.body)
+    setVersion(item.version); setTitle(item.title); setContent(item.body); setCategory(item.category || '')
     setReleasedAt(item.released_at ? item.released_at.slice(0, 16) : '')
     setError(null); setShowForm(true)
   }
@@ -66,7 +74,7 @@ export default function AdminUpdatesPage() {
     setSaving(true); setError(null)
     try {
       const body = {
-        userId: userId, version: version, title: title, content: content,
+        userId: userId, version: version, title: title, content: content, category: category || null,
         released_at: releasedAt ? new Date(releasedAt).toISOString() : new Date().toISOString(),
       }
       const r = editing
@@ -130,6 +138,11 @@ export default function AdminUpdatesPage() {
               <div key={u.id} style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                   <span style={{ padding: '2px 10px', backgroundColor: '#0369a1', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', fontFamily: 'monospace' }}>{u.version}</span>
+                  {u.category && (() => {
+                    const c = CATEGORIES.find(function(x) { return x.value === u.category })
+                    if (!c) return null
+                    return <span style={{ padding: '2px 8px', backgroundColor: c.color, color: c.text, borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>{c.value}</span>
+                  })()}
                   <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(u.released_at).toLocaleDateString('ja-JP')}</span>
                 </div>
                 <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px', color: '#1e293b' }}>{u.title}</h3>
@@ -163,6 +176,19 @@ export default function AdminUpdatesPage() {
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>バージョン *</label>
               <input value={version} onChange={function(e) { setVersion(e.target.value) }} placeholder="v1.0, v1.1, etc." maxLength={30}
                 style={{ width: '100%', padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', marginBottom: '12px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>カテゴリ</label>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                {CATEGORIES.map(function(c) {
+                  const sel = category === c.value
+                  return (
+                    <label key={c.value} style={{ flex: '1 0 80px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px', border: '1px solid ' + (sel ? '#0369a1' : '#cbd5e1'), borderRadius: '6px', backgroundColor: sel ? c.color : 'white', cursor: 'pointer', fontSize: '11px', fontWeight: sel ? 'bold' : 'normal', color: sel ? c.text : '#475569' }}>
+                      <input type="radio" name="cat" checked={sel} onChange={function() { setCategory(c.value) }} style={{ display: 'none' }} />
+                      {c.value}
+                    </label>
+                  )
+                })}
+              </div>
 
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>タイトル *</label>
               <input value={title} onChange={function(e) { setTitle(e.target.value) }} maxLength={100} placeholder="新機能リリース、バグ修正など"
