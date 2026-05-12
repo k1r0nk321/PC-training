@@ -4,6 +4,38 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
+// 全ランク一覧（フェーズ別）
+const ALL_RANKS = [
+  { phase: '初期研修医フェーズ', phaseColor: '#0369a1', inc: '5例ごと', requirement: null, ranks: [
+    { rank: 1, title: '新米研修医', threshold: 0 },
+    { rank: 2, title: '駆け出し研修医', threshold: 5 },
+    { rank: 3, title: '独り立ち研修医', threshold: 10 },
+    { rank: 4, title: '中堅研修医', threshold: 15 },
+    { rank: 5, title: '研修修了者', threshold: 20 },
+  ]},
+  { phase: '専攻医フェーズ', phaseColor: '#059669', inc: '7例ごと', requirement: '5疾患カバー必須', ranks: [
+    { rank: 6, title: '新米専攻医', threshold: 25 },
+    { rank: 7, title: '若手専攻医', threshold: 32 },
+    { rank: 8, title: '中堅専攻医', threshold: 39 },
+    { rank: 9, title: '精鋭専攻医', threshold: 46 },
+    { rank: 10, title: 'ベテラン専攻医', threshold: 53 },
+  ]},
+  { phase: '指導医フェーズ', phaseColor: '#d97706', inc: '10例ごと', requirement: '10疾患カバー必須', ranks: [
+    { rank: 11, title: '新米指導医', threshold: 60 },
+    { rank: 12, title: '若手指導医', threshold: 70 },
+    { rank: 13, title: '中堅指導医', threshold: 80 },
+    { rank: 14, title: '熟練指導医', threshold: 90 },
+    { rank: 15, title: 'ベテラン指導医', threshold: 100 },
+  ]},
+  { phase: 'ジェネラリスト・シリーズ', phaseColor: '#7c3aed', inc: '10例ごと', requirement: '15疾患カバー必須', ranks: [
+    { rank: 16, title: '鉄壁のジェネラリスト', threshold: 110 },
+    { rank: 17, title: '不朽のジェネラリスト', threshold: 120 },
+    { rank: 18, title: '無双のジェネラリスト', threshold: 130 },
+    { rank: 19, title: '至高のジェネラリスト', threshold: 140 },
+    { rank: 20, title: '伝説のジェネラリスト', threshold: 150 },
+  ]},
+]
+
 // 次ランクの称号（表示用）
 const TITLES_NEXT = {
   1: '駆け出し研修医', 2: '独り立ち研修医', 3: '中堅研修医', 4: '研修修了者',
@@ -93,6 +125,7 @@ export default function GradesPage() {
   const [retrying, setRetrying] = useState(false)
   const [detail, setDetail] = useState(null)
   const [showCoverage, setShowCoverage] = useState(false)
+  const [showAllRanks, setShowAllRanks] = useState(false)
 
   useEffect(function() {
     async function load() {
@@ -172,10 +205,16 @@ export default function GradesPage() {
           <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '40px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
             <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📭</p>
             <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>まだ完遂した症例がありません。</p>
-            <button onClick={function() { router.push('/cases') }}
-              style={{ marginTop: '16px', padding: '10px 18px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-              症例トレーニングへ
-            </button>
+            <div style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={function() { router.push('/cases') }}
+                style={{ padding: '10px 18px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                症例トレーニングへ
+              </button>
+              <button onClick={function() { setShowAllRanks(true) }}
+                style={{ padding: '10px 18px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                🏅 全ランキング表を見る
+              </button>
+            </div>
           </div>
         )}
 
@@ -221,10 +260,16 @@ export default function GradesPage() {
             </div>
             {progress.diseaseCoverage && progress.diseaseCoverage.length > 0 && (
               <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.25)' }}>
-                <button onClick={function() { setShowCoverage(!showCoverage) }}
-                  style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', padding: 0, opacity: 0.95 }}>
-                  {showCoverage ? '▲ 疾患カバー状況を隠す' : '▼ 疾患カバー状況を表示'}
-                </button>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <button onClick={function() { setShowCoverage(!showCoverage) }}
+                    style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', padding: 0, opacity: 0.95 }}>
+                    {showCoverage ? '▲ 疾患カバー状況を隠す' : '▼ 疾患カバー状況を表示'}
+                  </button>
+                  <button onClick={function() { setShowAllRanks(true) }}
+                    style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', padding: 0, opacity: 0.95, textDecoration: 'underline' }}>
+                    🏅 全ランキング表を見る
+                  </button>
+                </div>
                 {showCoverage && (
                   <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '6px' }}>
                     {progress.diseaseCoverage.map(function(d) {
@@ -272,6 +317,91 @@ export default function GradesPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {showAllRanks && (
+          <div onClick={function() { setShowAllRanks(false) }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+            <div onClick={function(e) { e.stopPropagation() }}
+              style={{ backgroundColor: 'white', borderRadius: '14px', maxWidth: '720px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>🏅 ランキング一覧</h2>
+                <button onClick={function() { setShowAllRanks(false) }}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: '#f1f5f9', cursor: 'pointer', fontSize: '18px' }}>×</button>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '14px 20px' }}>
+                {progress && (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: '8px', backgroundColor: '#eff6ff',
+                    border: '1px solid #bfdbfe', marginBottom: '14px', fontSize: '12px', color: '#1e40af'
+                  }}>
+                    現在 <b>Rank {progress.rank}「{progress.title}」</b>（合格 {progress.passCount} 例・{progress.completedDiseases} 疾患達成）
+                  </div>
+                )}
+                {ALL_RANKS.map(function(phaseData) {
+                  return (
+                    <div key={phaseData.phase} style={{ marginBottom: '18px' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+                        padding: '6px 12px', borderRadius: '8px',
+                        backgroundColor: phaseData.phaseColor, color: 'white',
+                        marginBottom: '8px', fontSize: '13px', fontWeight: 'bold'
+                      }}>
+                        <span>{phaseData.phase}</span>
+                        <span style={{ fontSize: '10px', opacity: 0.9, fontWeight: 'normal' }}>
+                          ({phaseData.inc}にランクアップ{phaseData.requirement ? ' / ' + phaseData.requirement : ''})
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {phaseData.ranks.map(function(r) {
+                          const isCurrent = progress && progress.rank === r.rank
+                          return (
+                            <div key={r.rank} style={{
+                              display: 'flex', alignItems: 'center', gap: '10px',
+                              padding: '8px 12px', borderRadius: '6px',
+                              backgroundColor: isCurrent ? '#fef3c7' : '#f8fafc',
+                              border: isCurrent ? '2px solid #f59e0b' : '1px solid #e2e8f0',
+                              fontSize: '13px',
+                              fontWeight: isCurrent ? 'bold' : 'normal',
+                              color: isCurrent ? '#92400e' : '#475569',
+                              position: 'relative',
+                            }}>
+                              <span style={{
+                                display: 'inline-block', width: '32px', textAlign: 'center',
+                                fontSize: '11px', color: isCurrent ? '#92400e' : '#94a3b8'
+                              }}>#{r.rank}</span>
+                              <span style={{ flex: 1 }}>
+                                {isCurrent ? '▶ ' : ''}{r.title}
+                              </span>
+                              <span style={{ fontSize: '11px', color: isCurrent ? '#92400e' : '#94a3b8' }}>
+                                {r.threshold}例〜
+                              </span>
+                              {isCurrent && (
+                                <span style={{
+                                  position: 'absolute', right: '-8px', top: '-8px',
+                                  background: '#f59e0b', color: 'white',
+                                  fontSize: '10px', fontWeight: 'bold',
+                                  padding: '2px 8px', borderRadius: '999px',
+                                }}>現在</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div style={{
+                  padding: '10px 14px', backgroundColor: '#f8fafc',
+                  borderRadius: '8px', fontSize: '11px', color: '#64748b',
+                  border: '1px solid #e2e8f0', marginTop: '8px',
+                }}>
+                  <b>📌 凡例</b>: 「N例〜」は累積合格症例数（80点以上）の閾値。<br />
+                  専攻医フェーズ以降は累積数に加え、各疾患の全モデル症例で合格した疾患数の要件があります。
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
