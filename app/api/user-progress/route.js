@@ -170,10 +170,28 @@ export async function GET(req) {
     // ランク計算
     const rankInfo = computeRank(passCount, completedDiseases)
 
+    // 匿名ユーザー判定（デモ表示用）
+    let isAnonymous = false
+    try {
+      const { data: { user: u } } = await supabase.auth.admin.getUserById(userId)
+      if (u && u.is_anonymous) isAnonymous = true
+    } catch (e) {}
+
+    const DEMO_LIMIT = 3
+    const demoInfo = isAnonymous ? {
+      is_demo: true,
+      demo_limit: DEMO_LIMIT,
+      demo_completed: passedCases.length,  // 厳密には全完遂数ベース
+      demo_total_completed: allCompleted.length,
+      demo_remaining: Math.max(0, DEMO_LIMIT - allCompleted.length),
+      demo_reached: allCompleted.length >= DEMO_LIMIT,
+    } : { is_demo: false }
+
     return Response.json({
       ...rankInfo,
       totalCompleted: allCompleted.length,
       diseaseCoverage: diseaseInfo,
+      ...demoInfo,
     })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
