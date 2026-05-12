@@ -26,6 +26,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [message, setMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
@@ -346,20 +347,42 @@ export default function Home() {
           }}>
             パスワード
           </label>
-          <input
-            type="password"
-            value={password}
-            onChange={function(e) { setPassword(e.target.value) }}
-            placeholder="パスワードを入力"
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              fontSize: '14px',
-              outline: 'none'
-            }}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={function(e) { setPassword(e.target.value) }}
+              placeholder="パスワードを入力"
+              style={{
+                width: '100%',
+                padding: '10px 44px 10px 14px',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            <button
+              type="button"
+              onClick={function() { setShowPassword(!showPassword) }}
+              title={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '16px',
+                padding: '4px 8px',
+                color: '#64748b'
+              }}
+            >
+              {showPassword ? '🙈' : '👁'}
+            </button>
+          </div>
         </div>
 
         {message && (
