@@ -36,6 +36,8 @@ export default function CasesPage() {
   const [mode, setMode] = useState(null) // 'model' | 'random'
   const [selectedModelCase, setSelectedModelCase] = useState(null)
   const [inProgressCases, setInProgressCases] = useState([])
+  const [demoInfo, setDemoInfo] = useState(null)
+  const [showDemoLimitModal, setShowDemoLimitModal] = useState(false)
 
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
@@ -43,6 +45,11 @@ export default function CasesPage() {
       setUser(session.user)
       fetchDiseases()
       fetchInProgressCases(session.user.id)
+      // デモ情報取得（匿名ユーザーのみ実質的に意味がある）
+      fetch('/api/user-progress?userId=' + session.user.id)
+        .then(function(r) { return r.json() })
+        .then(function(d) { if (!d.error) setDemoInfo(d) })
+        .catch(function() {})
     })
   }, [])
 
@@ -152,6 +159,12 @@ export default function CasesPage() {
 
   async function handleStartModel() {
     if (!selectedModelCase || generating) return
+    // デモ限界チェック (フロント側、API でも防ぐ)
+    if (user && user.is_anonymous && demoInfo && demoInfo.demo_reached) {
+      setShowModal(false)
+      setShowDemoLimitModal(true)
+      return
+    }
     setGenerating(true)
     try {
       const res = await fetch('/api/model-cases', {
@@ -160,6 +173,11 @@ export default function CasesPage() {
         body: JSON.stringify({ modelCaseId: selectedModelCase.id, userId: user.id }),
       })
       const data = await res.json()
+      if (data.isDemoLimit) {
+        setShowModal(false)
+        setShowDemoLimitModal(true)
+        return
+      }
       if (data.error) { alert('エラー：' + data.error); return }
       window.location.href = '/cases/' + data.case.id
     } catch (e) {
@@ -219,9 +237,14 @@ export default function CasesPage() {
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#065f46', margin: '0 0 2px' }}>
                 デモモード
+                {demoInfo && demoInfo.is_demo && (
+                  <span style={{ marginLeft: '8px', fontSize: '11px', backgroundColor: '#fff', color: '#065f46', padding: '1px 8px', borderRadius: '10px', border: '1px solid #6ee7b7' }}>
+                    残り {demoInfo.demo_remaining} 例
+                  </span>
+                )}
               </p>
               <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
-                モデル症例のみ体験できます。ログアウトすると進行状況はリセットされます。
+                モデル症例のみ体験できます（最大 3 例）。ログアウトすると進行状況はリセットされます。
               </p>
             </div>
           </div>
@@ -473,6 +496,41 @@ export default function CasesPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDemoLimitModal && (
+        <div onClick={function() { setShowDemoLimitModal(false) }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div onClick={function(e) { e.stopPropagation() }}
+            style={{ backgroundColor: 'white', borderRadius: '14px', maxWidth: '460px', width: '100%', padding: '28px', textAlign: 'center' }}>
+            <p style={{ fontSize: '48px', margin: '0 0 12px' }}>🎉</p>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 8px' }}>
+              デモ体験は 3 例まで完了しました！
+            </h2>
+            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.8, margin: '0 0 20px' }}>
+              本登録すると、以下がご利用いただけます:
+            </p>
+            <ul style={{ textAlign: 'left', fontSize: '12px', color: '#475569', lineHeight: 1.9, padding: '0 0 0 20px', margin: '0 0 20px' }}>
+              <li>📊 すべての疾患・モデル症例の体験</li>
+              <li>🎲 患者ランダム生成（多様なパターン）</li>
+              <li>🔄 同じ症例のリトライ機能</li>
+              <li>🏆 ランキング・成績の永続保存</li>
+              <li>👥 グループ機能（仲間と研修状況を共有）</li>
+              <li>📝 中断したカルテからの再開</li>
+            </ul>
+            <button onClick={async function() {
+                await supabase.auth.signOut()
+                window.location.href = '/'
+              }}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '8px' }}>
+              本登録するためにログアウト
+            </button>
+            <button onClick={function() { setShowDemoLimitModal(false) }}
+              style={{ width: '100%', padding: '10px', backgroundColor: 'transparent', color: '#64748b', border: 'none', fontSize: '12px', cursor: 'pointer' }}>
+              閉じる（成績ページは引き続き閲覧可能）
+            </button>
           </div>
         </div>
       )}
