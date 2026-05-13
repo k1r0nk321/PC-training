@@ -17,6 +17,7 @@ export async function POST(req) {
     const body = await req.json()
     const {
       caseId,
+      scenarioData,
       selectedMedications,
       selectedEducation,
       selectedSubOptions,
@@ -24,6 +25,8 @@ export async function POST(req) {
       reactionLog,
       interviewMessages,
       visit3Vitals,
+      consultation,
+      discontinuedExistingMeds,
     } = body
 
     if (!caseId) {
@@ -135,6 +138,32 @@ Visit 3 のバイタル変化：
 - 体重：${v2Vitals.weight || v1Vitals.weight}kg → ${visit3Vitals?.weight || '(記録なし)'}kg
 
 ================================================================
+【専門医コンサルトの推奨】
+${(() => {
+  const rec = (scenarioData || caseData.scenario_data)?.consultation_recommendation
+  if (!rec) return '本症例ではコンサルト推奨情報なし'
+  const necJa = rec.necessity === 'required' ? '必須' : rec.necessity === 'recommended' ? '推奨' : '不要'
+  return '- 推奨レベル：' + necJa + '\n- 推奨科：' + (rec.recommended_specialty || 'なし') + '\n- 推奨理由：' + (rec.reason || 'なし')
+})()}
+
+【研修医のコンサルト判断（各 Visit）】
+- Visit 1：${v1.consultation && v1.consultation.performed ? '紹介あり（' + (v1.consultation.specialty || '未選択') + '）' : '紹介なし'}
+- Visit 2：${v2.consultation && v2.consultation.performed ? '紹介あり（' + (v2.consultation.specialty || '未選択') + '）' : '紹介なし'}
+- Visit 3：${consultation && consultation.performed ? '紹介あり（' + (consultation.specialty || '未選択') + '・理由：' + (consultation.reason || '未記入') + '）' : '紹介なし'}
+
+【既存薬の継続/中止判断（Visit 3 確定）】
+${(() => {
+  const existingMeds = (patient.current_medications || [])
+  if (existingMeds.length === 0) return '来院前服用薬なし'
+  const discontinued = discontinuedExistingMeds || []
+  return existingMeds.map((m, idx) => {
+    const key = (m.name || '') + '_' + idx
+    const status = discontinued.includes(key) ? '中止' : '継続'
+    return '- ' + m.name + (m.dose ? '（' + m.dose + '）' : '') + '：' + status
+  }).join('\n')
+})()}
+
+================================================================
 【評価基準】
 各 Visit で以下の4軸を評価してください。各 Visit は約 33 点満点（合計 100 点）。
 
@@ -146,6 +175,18 @@ Visit 3 のバイタル変化：
     - Visit 1：治療プランの妥当性が将来の改善に繋がる設計か
     - Visit 2：Visit 1→2 の血圧・体重・検査値の改善度
     - Visit 3：Visit 2→3 の改善度、目標達成度（血圧 < 140/90 等）（約8点）
+
+【追加評価ポイント：専門医コンサルト】
+- 推奨「必須」でいずれの Visit でもコンサルトなし → 治療選択点を重大に減点
+- 推奨「推奨」でコンサルトなし → 治療選択点を中程度減点
+- 推奨「不要」でコンサルトあり → 軽度減点（不要な専門医依頼）
+- 適切な判断 → プラス評価
+- **重要**：適切な治療が選択されていれば、コンサルトの有無で治療の質評価は左右されない。「コンサルトなしでも良い治療」は減点しない
+
+【追加評価ポイント：既存薬の継続/中止判断】
+- 不適切な中止（医学的理由なく中止）→ 安全性問題として治療選択点を減点
+- 適切な継続/中止判断 → プラス評価
+- 例：痛風頓服薬コルヒチンの中止は不要、骨粗鬆症薬の中止は骨密度評価が必要
 
 ================================================================
 【出力形式】※必ずこの順番・形式で出力してください
@@ -193,6 +234,7 @@ COMMENT:
     // 成績評価で必要な情報だけ残し、重量データはクリア
     const updateData = {
       visit3_feedback: commentText,
+      visit3_consultation: consultation || null,
       final_score: totalScore,
       final_score_breakdown: breakdown,
       completed_at: new Date().toISOString(),
