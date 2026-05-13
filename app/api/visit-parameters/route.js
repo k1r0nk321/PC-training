@@ -172,6 +172,11 @@ export async function GET(req) {
       }
 
       const hidden = caseData.patient_data?.hidden_params || {}
+      // top-level smoking/drinking を hidden に merge して渡す
+      hidden.smoking_initial = caseData.patient_data?.smoking_initial
+      hidden.smoking_detail = caseData.patient_data?.smoking_detail
+      hidden.drinking_initial = caseData.patient_data?.drinking_initial
+      hidden.drinking_detail = caseData.patient_data?.drinking_detail
       newParams = convertHiddenParams(hidden, visitNumber)
     }
 
