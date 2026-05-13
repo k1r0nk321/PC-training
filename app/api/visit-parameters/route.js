@@ -34,6 +34,115 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
 }
 
+// 喫煙状態の進行ルール
+function progressSmokingLabel(currentLabel, intervention, lifestyleMotivation) {
+  if (!currentLabel || currentLabel === '非喫煙者') {
+    return { label: currentLabel || '非喫煙者', comment: null }
+  }
+
+  const noIntervention = !intervention || !intervention.given
+  const accepted = intervention && intervention.accepted
+
+  // 介入なしの場合
+  if (noIntervention) {
+    if (currentLabel === '禁煙挑戦中') {
+      // フォローアップなしで意欲低い場合は再開リスク
+      if ((lifestyleMotivation || 3) < 3) {
+        return { label: '再開', comment: 'フォローなしで再喫煙' }
+      }
+      // 50% 確率（lifestyle_motivation で判定）
+      return { label: '禁煙挑戦中', comment: null }
+    }
+    return { label: currentLabel, comment: null }
+  }
+
+  // 介入あり + 拒否
+  if (!accepted) {
+    return { label: currentLabel, comment: null }
+  }
+
+  // 介入あり + 受容
+  if (currentLabel === '喫煙継続') {
+    if (intervention.strength === 'strong' && (lifestyleMotivation || 3) >= 4) {
+      return { label: '禁煙挑戦中', comment: '禁煙開始、たまに吸う' }
+    }
+    if (intervention.strength === 'strong' || intervention.strength === 'moderate') {
+      return { label: '減量中', comment: '本数を半減' }
+    }
+    return { label: '喫煙継続', comment: null }
+  }
+
+  if (currentLabel === '減量中') {
+    if (intervention.strength === 'strong' || intervention.strength === 'moderate') {
+      return { label: '禁煙挑戦中', comment: '禁煙開始' }
+    }
+    return { label: '減量中', comment: '減量継続中' }
+  }
+
+  if (currentLabel === '禁煙挑戦中') {
+    return { label: '禁煙成功', comment: '禁煙継続中' }
+  }
+
+  if (currentLabel === '禁煙成功') {
+    return { label: '禁煙成功', comment: '禁煙継続中' }
+  }
+
+  if (currentLabel === '再開') {
+    if (intervention.strength === 'strong') {
+      return { label: '減量中', comment: '再度減量に取り組み中' }
+    }
+    return { label: '再開', comment: null }
+  }
+
+  return { label: currentLabel, comment: null }
+}
+
+// 飲酒状態の進行ルール
+function progressDrinkingLabel(currentLabel, intervention, lifestyleMotivation) {
+  if (!currentLabel || currentLabel === '非飲酒者') {
+    return { label: currentLabel || '非飲酒者', comment: null }
+  }
+
+  const noIntervention = !intervention || !intervention.given
+  const accepted = intervention && intervention.accepted
+
+  if (noIntervention) {
+    return { label: currentLabel, comment: null }
+  }
+
+  if (!accepted) {
+    return { label: currentLabel, comment: null }
+  }
+
+  // 受容の場合: 段階的に減少
+  if (currentLabel === '過量') {
+    if (intervention.strength === 'strong' && (lifestyleMotivation || 3) >= 4) {
+      return { label: '適量', comment: '節酒に成功（適量へ）' }
+    }
+    return { label: 'やや過量', comment: '減らしているが目標未達' }
+  }
+
+  if (currentLabel === 'やや過量') {
+    if (intervention.strength === 'strong' || intervention.strength === 'moderate') {
+      return { label: '適量', comment: '節酒成功' }
+    }
+    return { label: 'やや過量', comment: '減量努力中' }
+  }
+
+  if (currentLabel === '適量') {
+    if (intervention.strength === 'strong' && (lifestyleMotivation || 3) >= 4) {
+      return { label: '禁酒', comment: '禁酒継続中' }
+    }
+    return { label: '適量', comment: null }
+  }
+
+  if (currentLabel === '禁酒') {
+    return { label: '禁酒', comment: null }
+  }
+
+  return { label: currentLabel, comment: null }
+}
+
 function convertHiddenParams(hidden, visitNumber) {
   const adherenceStar = ENUM_TO_STARS[hidden.adherence_level] || 3
   const medAttitude = hidden.medication_attitude
@@ -108,6 +217,18 @@ function buildFromPreviousVisit(prev, visitNumber) {
     pendingChanges.diet_treatment = true
   }
 
+  // 喫煙・飲酒の進行ルールを適用
+  const smokingResult = progressSmokingLabel(prev.smoking_label, prev.smoking_intervention, prev.lifestyle_motivation)
+  const drinkingResult = progressDrinkingLabel(prev.drinking_label, prev.drinking_intervention, prev.lifestyle_motivation)
+
+  // 状態変化があれば pending_treatment_changes に記録
+  if (smokingResult.label !== prev.smoking_label) {
+    pendingChanges.smoking_change = prev.smoking_label + ' → ' + smokingResult.label
+  }
+  if (drinkingResult.label !== prev.drinking_label) {
+    pendingChanges.drinking_change = prev.drinking_label + ' → ' + drinkingResult.label
+  }
+
   return {
     visit_number: visitNumber,
     personality: prev.personality,
@@ -123,10 +244,10 @@ function buildFromPreviousVisit(prev, visitNumber) {
     initial_lifestyle_motivation: prev.lifestyle_motivation,
     initial_medication_motivation: prev.medication_motivation,
     initial_trust_level: prev.trust_level || 0,
-    smoking_label: prev.smoking_label || null,
-    smoking_comment: prev.smoking_comment || null,
-    drinking_label: prev.drinking_label || null,
-    drinking_comment: prev.drinking_comment || null,
+    smoking_label: smokingResult.label,
+    smoking_comment: smokingResult.comment !== null ? smokingResult.comment : (prev.smoking_comment || null),
+    drinking_label: drinkingResult.label,
+    drinking_comment: drinkingResult.comment !== null ? drinkingResult.comment : (prev.drinking_comment || null),
     pending_treatment_changes: Object.keys(pendingChanges).length > 0 ? pendingChanges : null
   }
 }
