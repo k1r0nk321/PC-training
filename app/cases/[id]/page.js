@@ -1033,10 +1033,21 @@ export default function CaseDetailPage({ params }) {
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '12px' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
                         <input type="checkbox" checked={!isDiscontinued} onChange={function() {
-                          setDiscontinuedExistingMeds(function(prev) {
-                            if (isDiscontinued) return prev.filter(function(k) { return k !== medKey })
-                            return [...prev, medKey]
-                          })
+                          if (isDiscontinued) {
+                            // 中止 → 継続に戻す
+                            setDiscontinuedExistingMeds(function(prev) { return prev.filter(function(k) { return k !== medKey }) })
+                            setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'discontinue_' + medKey }) })
+                          } else {
+                            // 継続 → 中止
+                            setDiscontinuedExistingMeds(function(prev) { return [...prev, medKey] })
+                            addOrReplaceReaction(
+                              'discontinue_' + medKey,
+                              'discontinuation',
+                              med,
+                              '🚫 ' + (med.name || '') + ' 中止',
+                              '既存薬「' + (med.name || '') + (med.dose ? '（' + med.dose + '）' : '') + '」の中止判断'
+                            )
+                          }
                         }} />
                         <span style={{ color: isDiscontinued ? '#94a3b8' : '#1e293b', textDecoration: isDiscontinued ? 'line-through' : 'none' }}>
                           {med.name} {med.dose ? '（' + med.dose + '）' : ''} {med.frequency ? '・' + med.frequency : ''}
