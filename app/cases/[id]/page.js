@@ -686,9 +686,12 @@ export default function CaseDetailPage({ params }) {
           caseId: params.id, visitNumber: 1,
           diseaseId: caseData.disease_id,
           diseaseName: caseData.disease_name, patientData: caseData.patient_data,
+          scenarioData: caseData.scenario_data,
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData, selectedDevices: selectedDeviceData,
           selectedSubOptions: allSubOptions, reactionLog, interviewMessages: messages,
+          consultation: consultation,
+          discontinuedExistingMeds: discontinuedExistingMeds,
         }),
       })
       const data = await res.json()
