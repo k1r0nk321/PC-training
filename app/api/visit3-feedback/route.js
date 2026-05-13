@@ -2,6 +2,34 @@ export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+// 喫煙・飲酒介入の判定ヘルパー
+const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
+const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
+const DRINKING_STRONG = ['drink_target_reduction', 'drink_abstinence', 'drink_specialty_referral']
+const DRINKING_MODERATE = ['drink_amount_education', 'drink_audit', 'drink_rest_days']
+
+function computeIntervention(category, selectedEducation, selectedSubOptions, reactionLog, strongList, moderateList) {
+  const edu = (selectedEducation || []).find(function(e) { return e && e.category === category })
+  if (!edu) return { given: false, strength: 'none', accepted: false, sub_options: [] }
+
+  const subIds = (selectedSubOptions || {})[edu.id] || []
+  const subIdArray = Array.isArray(subIds) ? subIds : []
+  const hasStrong = subIdArray.some(function(s) { return strongList.indexOf(s) >= 0 })
+  const hasModerate = subIdArray.some(function(s) { return moderateList.indexOf(s) >= 0 })
+  const strength = hasStrong ? 'strong' : (hasModerate ? 'moderate' : 'weak')
+
+  // edu_ または sub_<edu.id>_ で始まる reaction を抽出
+  const eduReactions = (reactionLog || []).filter(function(r) {
+    return r && r.id && (r.id === 'edu_' + edu.id || (typeof r.id === 'string' && r.id.indexOf('sub_' + edu.id) === 0))
+  })
+  const accepted = eduReactions.some(function(r) {
+    const al = r.reaction && r.reaction.acceptance_level
+    return al === 'accepted' || al === 'partial'
+  })
+
+  return { given: true, strength: strength, accepted: accepted, sub_options: subIdArray }
+}
+
 
 function getAdminClient() {
   return createClient(
@@ -255,7 +283,23 @@ COMMENT:
       record_saved_at: null,
     }
 
-    await supabase.from('cases').update(updateData).eq('id', caseId)
+        // 喫煙・飲酒介入を計算して visit_parameters (visit 3) に保存
+    const smokingIntervention = computeIntervention('smoking', selectedEducation, selectedSubOptions, reactionLog, SMOKING_STRONG, SMOKING_MODERATE)
+    const drinkingIntervention = computeIntervention('drinking', selectedEducation, selectedSubOptions, reactionLog, DRINKING_STRONG, DRINKING_MODERATE)
+    try {
+      await supabase
+        .from('visit_parameters')
+        .update({
+          smoking_intervention: smokingIntervention,
+          drinking_intervention: drinkingIntervention,
+        })
+        .eq('case_id', caseId)
+        .eq('visit_number', 3)
+    } catch (e) {
+      console.error('Failed to update visit_parameters intervention:', e)
+    }
+
+await supabase.from('cases').update(updateData).eq('id', caseId)
 
     // visit_parameters の関連行も削除（容量節約）
     try {
