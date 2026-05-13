@@ -803,12 +803,15 @@ export default function Visit2Page({ params }) {
           caseId: params.id, visitNumber: 2,
           diseaseId: caseData.disease_id, diseaseName: caseData.disease_name,
           patientData: caseData.patient_data,
+          scenarioData: caseData.scenario_data,
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData,
           selectedSubOptions: allSubOptions,
           selectedDevices: selectedDeviceData,
           reactionLog, interviewMessages: messages,
           visit2Vitals: visit2Data?.visit2Vitals,
+          consultation: consultation,
+          discontinuedExistingMeds: discontinuedExistingMeds,
         }),
       })
       const data = await res.json()
