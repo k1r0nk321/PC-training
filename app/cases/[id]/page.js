@@ -1057,7 +1057,7 @@ export default function CaseDetailPage({ params }) {
                     </div>
                   )
                 })}
-                <p style={{ fontSize: '10px', color: '#9a3412', marginTop: '4px', marginBottom: 0 }}>※ チェックを外すと中止扱いになります（患者の反応は Phase K.1d で実装予定）</p>
+                <p style={{ fontSize: '10px', color: '#9a3412', marginTop: '4px', marginBottom: 0 }}>※ チェックを外すと中止扱いになり、患者の反応が記録されます</p>
               </div>
             )}
             <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>薬剤をクリックすると患者の反応が上の反応ログに表示されます。</p>
@@ -1342,6 +1342,7 @@ export default function CaseDetailPage({ params }) {
                           if (entry.selectionType === 'medication') setSelectedMeds(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('med_', '') }) })
                           else if (entry.selectionType === 'education' || entry.selectionType === 'education_sub') { const eduId = entry.id.split('_')[1]; setSelectedEducation(function(prev) { return prev.filter(function(id) { return id !== eduId }) }); setSelectedSubOptions(function(prev) { const u = Object.assign({}, prev); delete u[eduId]; return u }) }
                           else if (entry.selectionType === 'device') setSelectedDevices(function(prev) { return prev.filter(function(id) { return id !== entry.id.replace('dev_', '') }) })
+                          else if (entry.selectionType === 'discontinuation') { const dk = entry.id.replace('discontinue_', ''); setDiscontinuedExistingMeds(function(prev) { return prev.filter(function(k) { return k !== dk }) }) }
                         }}
                           style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>✕ 取りやめ</button>
                       </div>
