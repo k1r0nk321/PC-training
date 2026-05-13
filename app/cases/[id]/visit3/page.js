@@ -809,12 +809,15 @@ export default function Visit3Page({ params }) {
           caseId: params.id, visitNumber: 3,
           diseaseId: caseData.disease_id, diseaseName: caseData.disease_name,
           patientData: caseData.patient_data,
+          scenarioData: caseData.scenario_data,
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData,
           selectedSubOptions: allSubOptions,
           selectedDevices: selectedDeviceData,
           reactionLog, interviewMessages: messages,
           visit3Vitals: visit3Data?.visit3Vitals,
+          consultation: consultation,
+          discontinuedExistingMeds: discontinuedExistingMeds,
         }),
       })
       const data = await res.json()
