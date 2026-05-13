@@ -261,6 +261,12 @@ function ParameterPanel({ data, caseId, visitNumber }) {
         <div style={hi('lifestyle_motivation')}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span><span style={arrowStyle('lifestyle_motivation')}>{ind('lifestyle_motivation')}</span></div>
         <div style={hi('medication_motivation')}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span><span style={arrowStyle('medication_motivation')}>{ind('medication_motivation')}</span></div>
         <div style={hi('trust_level')}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span><span style={arrowStyle('trust_level')}>{ind('trust_level')}</span></div>
+        {data.smoking_label && (
+          <div style={baseRow}><span style={labelStyle}>喫煙:</span>{data.smoking_label}{data.smoking_comment ? ' (' + data.smoking_comment + ')' : ''}</div>
+        )}
+        {data.drinking_label && (
+          <div style={baseRow}><span style={labelStyle}>飲酒:</span>{data.drinking_label}{data.drinking_comment ? ' (' + data.drinking_comment + ')' : ''}</div>
+        )}
       </div>
     </div>
   )
