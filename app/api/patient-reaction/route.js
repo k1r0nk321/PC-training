@@ -103,7 +103,8 @@ const age = patient.age || 60
       medication: '投薬（薬の処方）',
       education: '生活指導のカテゴリ',
       education_sub: '具体的な生活指導内容',
-      device: '医療機器の導入'
+      device: '医療機器の導入',
+      discontinuation: '既存薬の中止'
     }
 
     const previousText = previousReactions && previousReactions.length > 0
@@ -215,6 +216,40 @@ ${selectedItem.strictness ? '厳しさ：' + selectedItem.strictness : ''}
 ${extraContext ? '補足：' + extraContext : ''}
 
 ${interviewMessages && interviewMessages.length > 0 ? '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n【問診合意と治療方針の比較ルール - 最重要】\n1. 今回提示された治療の厳しさと、問診で患者が合意・宣言したレベルを慎重に比較すること。\n2. 【スムーズ同意条件】提示治療が問診での合意・宣言と同等またはより緩い場合\n   → acceptance_levelは必ず\"accepted\"。「それならできます」「問診でお話しした通りですね」など自然に受け入れる。\n3. 【ゼロから抵抗条件】提示治療が問診での合意より明らかに厳しい場合\n   → 問診合意を無視し、治療内容の厳しさに対してゼロから戸惑い・交渉・抵抗を示す。\n4. 問診で一切触れていない治療 → 患者の性格・態度に基づく初回自然反応。\n5. 厳しさ順位（強→弱）：very_strict ＞ strict ＞ moderate ＞ mild ＞ very_mild ＞ none。\n   問診で\"moderate\"合意 → \"mild\"提示はスムーズ同意。\"strict\"提示はゼロから抵抗。' : ''}
+
+${selectionType === 'discontinuation' ? `
+【既存薬中止への反応ルール - 最重要】
+研修医があなたが日頃服用している薬「${selectedItem.name || ''}${selectedItem.dose ? '（' + selectedItem.dose + '）' : ''}」を「中止する」と判断しました。
+
+あなたは長年その薬を内服しており、何のための薬かは理解しています。
+既往歴：${patient.past_history || 'なし'}
+
+以下のルールに従って反応してください：
+
+【中止リスクの自己評価】
+1. 薬剤と既往歴から、中止のリスクを患者なりに判断する
+   - 例：痛風で尿酸降下薬（フェブキソスタット、アロプリノール等）→ 中止で発作再発リスク高い → 強い不安
+   - 例：骨粗鬆症のビスホスホネート（アレンドロン酸等）→ 中止で骨折リスク → 中等度の不安
+   - 例：脂質異常症のスタチン → 中止で心血管リスク → 中等度の不安
+   - 例：症状軽快後の頓服薬（鎮痛剤・睡眠薬等）→ 中止しても危険性低い → 受容しやすい
+
+【性格別の反応傾向】
+- anxious（不安）：強く不安を表明する。「また症状が出たらどうしよう」
+- resistant（懐疑的）：「なぜ突然？」と理由を問う。納得できる説明がなければ抵抗
+- cooperative（従順）：「先生がそうおっしゃるなら…」と受け入れつつ確認
+- lazy（面倒嫌い）：「楽にはなりますが、大丈夫ですか？」軽い確認
+- angry（怒りっぽい）：「今までずっと飲んできたのに！」反発しやすい
+
+【発言例（参考、必ず患者の性格に合わせる）】
+- リスク高い中止：「えっ、これ止めて大丈夫なんですか？また痛風になったら困るんですが…」
+- 中等度リスク：「先生、本当にいいんですか？理由を教えてもらえますか？」
+- 低リスク：「あ、もう飲まなくていいんですね、わかりました」
+
+【acceptance_level 判定】
+- リスク高い中止 + 説明なし → rejected または negotiating
+- リスク高い中止 + 適切な説明（説得時）→ negotiating または partial
+- 低リスク中止 → accepted または partial
+` : ''}
 
 ${previousText}
 ${persuasionText}
