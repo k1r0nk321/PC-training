@@ -119,6 +119,10 @@ function buildFromPreviousVisit(prev, visitNumber) {
     initial_lifestyle_motivation: prev.lifestyle_motivation,
     initial_medication_motivation: prev.medication_motivation,
     initial_trust_level: prev.trust_level || 0,
+    smoking_label: prev.smoking_label || null,
+    smoking_comment: prev.smoking_comment || null,
+    drinking_label: prev.drinking_label || null,
+    drinking_comment: prev.drinking_comment || null,
     pending_treatment_changes: Object.keys(pendingChanges).length > 0 ? pendingChanges : null
   }
 }
