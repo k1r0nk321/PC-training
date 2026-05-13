@@ -9,7 +9,8 @@ const ACCEPTANCE_LABEL = { accepted: '同意', partial: '一部同意', rejected
 const CATEGORY_LABEL = {
   diet: '食事指導', exercise: '運動指導', medication: '服薬指導',
   monitoring: 'モニタリング', lifestyle: '生活習慣',
-  psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防'
+  psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防',
+  smoking: '禁煙指導', drinking: '飲酒指導'
 }
 const STRICTNESS_COLOR = { very_strict: '#dc2626', strict: '#d97706', moderate: '#0369a1', mild: '#16a34a', very_mild: '#10b981', none: '#94a3b8' }
 const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', moderate: '標準', mild: '緩やか', very_mild: '最小限', none: 'なし' }
@@ -276,6 +277,12 @@ function ParameterPanel({ data, caseId, visitNumber }) {
         <div style={hi('lifestyle_motivation')}><span style={labelStyle}>生活改善意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.lifestyle_motivation)}</span><span style={arrowStyle('lifestyle_motivation')}>{ind('lifestyle_motivation')}</span></div>
         <div style={hi('medication_motivation')}><span style={labelStyle}>服薬意欲:</span><span style={{ color: '#16a34a', letterSpacing: '1px' }}>{stars(data.medication_motivation)}</span><span style={arrowStyle('medication_motivation')}>{ind('medication_motivation')}</span></div>
         <div style={hi('trust_level')}><span style={labelStyle}>信頼度:</span><span style={{ color: '#0369a1', letterSpacing: '1px' }}>{stars(data.trust_level)}</span><span style={arrowStyle('trust_level')}>{ind('trust_level')}</span></div>
+        {data.smoking_label && (
+          <div style={baseRow}><span style={labelStyle}>喫煙:</span>{data.smoking_label}{data.smoking_comment ? ' (' + data.smoking_comment + ')' : ''}</div>
+        )}
+        {data.drinking_label && (
+          <div style={baseRow}><span style={labelStyle}>飲酒:</span>{data.drinking_label}{data.drinking_comment ? ' (' + data.drinking_comment + ')' : ''}</div>
+        )}
       </div>
     </div>
   )
@@ -332,6 +339,8 @@ export default function Visit3Page({ params }) {
   const [selectedEducation, setSelectedEducation] = useState([])
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
+  const [consultation, setConsultation] = useState({ performed: false, specialty: '', reason: '' })
+  const [discontinuedExistingMeds, setDiscontinuedExistingMeds] = useState([])
 
   const [reactionLog, setReactionLog] = useState([])
   const [reactionLoading, setReactionLoading] = useState(false)
@@ -447,6 +456,8 @@ export default function Visit3Page({ params }) {
         if (Array.isArray(savedV3.selected_education)) setSelectedEducation(savedV3.selected_education)
         if (Array.isArray(savedV3.selected_devices)) setSelectedDevices(savedV3.selected_devices)
         if (savedV3.selected_sub_options) setSelectedSubOptions(savedV3.selected_sub_options)
+        if (savedV3.consultation) setConsultation(savedV3.consultation)
+        if (Array.isArray(savedV3.discontinued_existing_meds)) setDiscontinuedExistingMeds(savedV3.discontinued_existing_meds)
         if (Array.isArray(savedV3.reaction_log)) setReactionLog(savedV3.reaction_log)
         if (savedV3.feedback) setFeedback(savedV3.feedback)
         if (typeof savedV3.final_score === 'number') setFinalScore(savedV3.final_score)
@@ -602,6 +613,8 @@ export default function Visit3Page({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
+            consultation: consultation,
+            discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             feedback: feedback,
             visit3Data: visit3Data,
@@ -1158,6 +1171,33 @@ export default function Visit3Page({ params }) {
           </AccordionSection>
 
           <AccordionSection title="💊 投薬選択" badge={selectedMeds.length > 0 ? selectedMeds.length + '剤' : null} defaultOpen={true}>
+            {/* 既存薬プリチェック */}
+            {caseData && caseData.patient_data && Array.isArray(caseData.patient_data.current_medications) && caseData.patient_data.current_medications.length > 0 && (
+              <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#9a3412', marginBottom: '6px' }}>📋 現在服用中の薬剤（来院前から）</p>
+                {caseData.patient_data.current_medications.map(function(med, idx) {
+                  const medKey = (med.name || '') + '_' + idx
+                  const isDiscontinued = discontinuedExistingMeds.includes(medKey)
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
+                        <input type="checkbox" checked={!isDiscontinued} onChange={function() {
+                          setDiscontinuedExistingMeds(function(prev) {
+                            if (isDiscontinued) return prev.filter(function(k) { return k !== medKey })
+                            return [...prev, medKey]
+                          })
+                        }} />
+                        <span style={{ color: isDiscontinued ? '#94a3b8' : '#1e293b', textDecoration: isDiscontinued ? 'line-through' : 'none' }}>
+                          {med.name} {med.dose ? '（' + med.dose + '）' : ''} {med.frequency ? '・' + med.frequency : ''}
+                        </span>
+                      </label>
+                      {isDiscontinued && <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 'bold' }}>中止</span>}
+                    </div>
+                  )
+                })}
+                <p style={{ fontSize: '10px', color: '#9a3412', marginTop: '4px', marginBottom: 0 }}>※ チェックを外すと中止扱いになります</p>
+              </div>
+            )}
             <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>Visit 1の投薬を継続・変更・追加できます。</p>
             {Object.entries(medsByCategory).map(function([category, meds]) {
               return (
@@ -1188,6 +1228,55 @@ export default function Visit3Page({ params }) {
                 </div>
               )
             })}
+          </AccordionSection>
+
+          {/* 専門医コンサルト */}
+          <AccordionSection
+            title="🏥 専門医コンサルト"
+            badge={consultation.performed ? '紹介あり' : null}
+            defaultOpen={false}>
+            <div style={{ padding: '4px 0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                <input type="checkbox" checked={consultation.performed} onChange={function(e) {
+                  setConsultation(function(prev) { return { ...prev, performed: e.target.checked } })
+                }} />
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b' }}>専門医にコンサルトする</span>
+              </label>
+
+              {consultation.performed && (
+                <div style={{ paddingLeft: '20px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
+                  <select value={consultation.specialty} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, specialty: e.target.value } })
+                    }}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '10px' }}>
+                    <option value="">選択してください</option>
+                    <option value="循環器">循環器</option>
+                    <option value="内分泌・代謝">内分泌・代謝</option>
+                    <option value="腎臓">腎臓</option>
+                    <option value="眼科">眼科</option>
+                    <option value="神経内科">神経内科</option>
+                    <option value="産婦人科">産婦人科</option>
+                    <option value="精神科">精神科</option>
+                    <option value="消化器">消化器</option>
+                    <option value="呼吸器">呼吸器</option>
+                    <option value="脂質代謝専門医">脂質代謝専門医</option>
+                    <option value="禁煙外来">禁煙外来</option>
+                    <option value="減酒外来">減酒外来</option>
+                    <option value="地域包括支援センター">地域包括支援センター</option>
+                    <option value="その他">その他</option>
+                  </select>
+
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
+                  <textarea value={consultation.reason} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, reason: e.target.value } })
+                    }}
+                    placeholder="例: コントロール不良のため、合併症精査のため、等"
+                    rows={3}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                </div>
+              )}
+            </div>
           </AccordionSection>
 
         </div>
