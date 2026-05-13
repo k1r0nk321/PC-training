@@ -897,8 +897,47 @@ export default function Visit2Page({ params }) {
         <div><b>生活改善意欲：</b>{starRow('lifestyle_motivation', 'higher_is_better')}</div>
         <div><b>服薬意欲：</b>{starRow('medication_motivation', 'higher_is_better')}</div>
         <div><b>信頼度：</b>{starRow('trust_level', 'higher_is_better')}</div>
+        {params.smoking_label && (
+          <div style={{ gridColumn: '1 / -1' }}><b>喫煙：</b>{params.smoking_label}{params.smoking_comment ? '（' + params.smoking_comment + '）' : ''}{textChange('smoking_label')}</div>
+        )}
+        {params.drinking_label && (
+          <div style={{ gridColumn: '1 / -1' }}><b>飲酒：</b>{params.drinking_label}{params.drinking_comment ? '（' + params.drinking_comment + '）' : ''}{textChange('drinking_label')}</div>
+        )}
       </div>
     )
+  }
+
+  // ===== カルテ用：専門医コンサルト表示 =====
+  function renderConsultation(consultation) {
+    if (!consultation || !consultation.performed) {
+      return <p style={{ margin: '0 0 12px', color: '#64748b' }}>紹介なし</p>
+    }
+    return (
+      <div style={{ margin: '0 0 12px', padding: '8px 10px', backgroundColor: '#fef3c7', borderRadius: '6px' }}>
+        <p style={{ margin: '0 0 4px', fontSize: '12px' }}><b>紹介先：</b>{consultation.specialty || '未選択'}</p>
+        <p style={{ margin: 0, fontSize: '12px' }}><b>紹介理由：</b>{consultation.reason || '記入なし'}</p>
+      </div>
+    )
+  }
+
+  // ===== カルテ用：既存薬の継続/中止判断表示 =====
+  function renderDiscontinuedMeds(existingMeds, discontinuedList) {
+    if (!existingMeds || existingMeds.length === 0) {
+      return <p style={{ margin: '0 0 12px', color: '#64748b' }}>来院前服用薬なし</p>
+    }
+    const items = existingMeds.map(function(med, idx) {
+      const key = (med.name || '') + '_' + idx
+      const isDiscontinued = (discontinuedList || []).includes(key)
+      return (
+        <div key={idx} style={{ fontSize: '12px', margin: '2px 0' }}>
+          {med.name}{med.dose ? '（' + med.dose + '）' : ''}：
+          <span style={{ color: isDiscontinued ? '#dc2626' : '#059669', fontWeight: 'bold', marginLeft: '6px' }}>
+            {isDiscontinued ? '中止' : '継続'}
+          </span>
+        </div>
+      )
+    })
+    return <div style={{ margin: '0 0 12px', padding: '8px 10px', backgroundColor: '#f0f9ff', borderRadius: '6px' }}>{items}</div>
   }
 
   // ===== カルテモーダル（全ステップ共通・3タブ・患者特性付き） =====
@@ -936,6 +975,10 @@ export default function Visit2Page({ params }) {
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 治療方針</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 専門医コンサルト</h3>
+              {renderConsultation((caseData && caseData.visit1_consultation) || (caseData && caseData.visit1_data && caseData.visit1_data.consultation))}
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 既存薬の継続/中止</h3>
+              {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit1_data && caseData.visit1_data.discontinuedExistingMeds) || [])}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 患者特性（初診時の見立て）</h3>
               <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v1Params, null)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 問診内容</h3>
@@ -955,6 +998,10 @@ export default function Visit2Page({ params }) {
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 治療方針（現在の選択）</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 専門医コンサルト</h3>
+              {renderConsultation(consultation)}
+              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 既存薬の継続/中止</h3>
+              {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], discontinuedExistingMeds)}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
               <div style={{ marginBottom: '12px' }}>{renderParamsBlock(visitParams || v2Params, v1Params)}</div>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 問診内容</h3>
@@ -975,6 +1022,10 @@ export default function Visit2Page({ params }) {
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針</h3>
                 <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit3_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
                 <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 専門医コンサルト</h3>
+                {renderConsultation((caseData && caseData.visit3_consultation) || (caseData && caseData.visit3_data && caseData.visit3_data.consultation))}
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 既存薬の継続/中止</h3>
+                {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit3_data && caseData.visit3_data.discontinuedExistingMeds) || [])}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
                 <div style={{ marginBottom: '12px' }}>{renderParamsBlock(v3Params, v2Params)}</div>
                 {typeof caseData.visit3_data?.finalScore === 'number' && (
