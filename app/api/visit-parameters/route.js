@@ -41,7 +41,7 @@ function convertHiddenParams(hidden, visitNumber) {
   // very_negative / negative の患者は初期是ˇ0-2（薄薬への抵抗感を反映）
   let medMotivation
   if (medAttitude === 'very_negative') {
-    medMotivation = adherenceStar >= 4 ? 1 : 0
+    medMotivation = adherenceStar >= 4 ? 1 : 1
   } else if (medAttitude === 'negative') {
     medMotivation = adherenceStar >= 4 ? 2 : 1
   } else if (medAttitude === 'neutral') {
@@ -51,6 +51,8 @@ function convertHiddenParams(hidden, visitNumber) {
   } else {
     medMotivation = 3
   }
+  // CHECK 制約 (1-5) に確実に収める
+  medMotivation = clamp(medMotivation, 1, 5)
   const lifestyleMot = ENUM_TO_STARS[hidden.lifestyle_motivation] || 3
 
   return {
