@@ -18,7 +18,8 @@ const ACCEPTANCE_LABEL = {
 const CATEGORY_LABEL = {
   diet: '食事指導', exercise: '運動指導', medication: '服薬指導',
   monitoring: 'モニタリング', lifestyle: '生活習慣',
-  psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防'
+  psychosocial: '心理・社会的支援', emergency: '緊急時対応', prevention: '予防',
+  smoking: '禁煙指導', drinking: '飲酒指導'
 }
 const STRICTNESS_COLOR = {
   very_strict: '#dc2626', strict: '#d97706',
@@ -314,6 +315,8 @@ export default function CaseDetailPage({ params }) {
   const [selectedEducation, setSelectedEducation] = useState([])
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
+  const [consultation, setConsultation] = useState({ performed: false, specialty: '', reason: '' })
+  const [discontinuedExistingMeds, setDiscontinuedExistingMeds] = useState([])
 
   const [reactionLog, setReactionLog] = useState([])
   const [reactionLoading, setReactionLoading] = useState(false)
@@ -400,6 +403,8 @@ export default function CaseDetailPage({ params }) {
               if (Array.isArray(v1s.selected_education)) setSelectedEducation(v1s.selected_education)
               if (Array.isArray(v1s.selected_devices)) setSelectedDevices(v1s.selected_devices)
               if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
+              if (v1s.consultation) setConsultation(v1s.consultation)
+              if (Array.isArray(v1s.discontinued_existing_meds)) setDiscontinuedExistingMeds(v1s.discontinued_existing_meds)
               if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
               if (v1s.scoring) setScoring(v1s.scoring)
               if (v1s.step) setStep(v1s.step)
@@ -1008,6 +1013,33 @@ export default function CaseDetailPage({ params }) {
             title="💊 投薬選択"
             badge={selectedMeds.length > 0 ? selectedMeds.length + '剤選択中' : null}
             defaultOpen={false}>
+            {/* 既存薬プリチェック */}
+            {caseData && caseData.patient_data && Array.isArray(caseData.patient_data.current_medications) && caseData.patient_data.current_medications.length > 0 && (
+              <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#9a3412', marginBottom: '6px' }}>📋 現在服用中の薬剤</p>
+                {caseData.patient_data.current_medications.map(function(med, idx) {
+                  const medKey = (med.name || '') + '_' + idx
+                  const isDiscontinued = discontinuedExistingMeds.includes(medKey)
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '12px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
+                        <input type="checkbox" checked={!isDiscontinued} onChange={function() {
+                          setDiscontinuedExistingMeds(function(prev) {
+                            if (isDiscontinued) return prev.filter(function(k) { return k !== medKey })
+                            return [...prev, medKey]
+                          })
+                        }} />
+                        <span style={{ color: isDiscontinued ? '#94a3b8' : '#1e293b', textDecoration: isDiscontinued ? 'line-through' : 'none' }}>
+                          {med.name} {med.dose ? '（' + med.dose + '）' : ''} {med.frequency ? '・' + med.frequency : ''}
+                        </span>
+                      </label>
+                      {isDiscontinued && <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 'bold' }}>中止</span>}
+                    </div>
+                  )
+                })}
+                <p style={{ fontSize: '10px', color: '#9a3412', marginTop: '4px', marginBottom: 0 }}>※ チェックを外すと中止扱いになります（患者の反応は Phase K.1d で実装予定）</p>
+              </div>
+            )}
             <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>薬剤をクリックすると患者の反応が上の反応ログに表示されます。</p>
             {Object.entries(medsByCategory).map(function([category, meds]) {
               return (
@@ -1064,6 +1096,55 @@ export default function CaseDetailPage({ params }) {
               })}
             </AccordionSection>
           )}
+
+          {/* ⑤ 専門医コンサルト */}
+          <AccordionSection
+            title="🏥 専門医コンサルト"
+            badge={consultation.performed ? '紹介あり' : null}
+            defaultOpen={false}>
+            <div style={{ padding: '4px 0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                <input type="checkbox" checked={consultation.performed} onChange={function(e) {
+                  setConsultation(function(prev) { return { ...prev, performed: e.target.checked } })
+                }} />
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b' }}>専門医にコンサルトする</span>
+              </label>
+
+              {consultation.performed && (
+                <div style={{ paddingLeft: '20px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
+                  <select value={consultation.specialty} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, specialty: e.target.value } })
+                    }}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '10px' }}>
+                    <option value="">選択してください</option>
+                    <option value="循環器">循環器</option>
+                    <option value="内分泌・代謝">内分泌・代謝</option>
+                    <option value="腎臓">腎臓</option>
+                    <option value="眼科">眼科</option>
+                    <option value="神経内科">神経内科</option>
+                    <option value="産婦人科">産婦人科</option>
+                    <option value="精神科">精神科</option>
+                    <option value="消化器">消化器</option>
+                    <option value="呼吸器">呼吸器</option>
+                    <option value="脂質代謝専門医">脂質代謝専門医</option>
+                    <option value="禁煙外来">禁煙外来</option>
+                    <option value="減酒外来">減酒外来</option>
+                    <option value="地域包括支援センター">地域包括支援センター</option>
+                    <option value="その他">その他</option>
+                  </select>
+
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
+                  <textarea value={consultation.reason} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, reason: e.target.value } })
+                    }}
+                    placeholder="例: 増殖性網膜症の精査のため、家族性高コレステロール血症の遺伝学的検査と専門的管理のため、等"
+                    rows={3}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                </div>
+              )}
+            </div>
+          </AccordionSection>
 
         </div>
 
@@ -1293,6 +1374,8 @@ export default function CaseDetailPage({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
+            consultation: consultation,
+            discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             scoring: scoring
           }
