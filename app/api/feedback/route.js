@@ -13,7 +13,9 @@ function computeIntervention(category, selectedEducation, selectedSubOptions, re
   if (!edu) return { given: false, strength: 'none', accepted: false, sub_options: [] }
 
   const subIds = (selectedSubOptions || {})[edu.id] || []
-  const subIdArray = Array.isArray(subIds) ? subIds : []
+  const subIdArray = Array.isArray(subIds)
+    ? subIds
+    : (typeof subIds === 'object' ? Object.keys(subIds).filter(function(k) { return subIds[k] }) : [])
   const hasStrong = subIdArray.some(function(s) { return strongList.indexOf(s) >= 0 })
   const hasModerate = subIdArray.some(function(s) { return moderateList.indexOf(s) >= 0 })
   const strength = hasStrong ? 'strong' : (hasModerate ? 'moderate' : 'weak')
