@@ -612,6 +612,65 @@ export default function CaseDetailPage({ params }) {
       newMedCount >= 2 ? '今回で処方薬が' + newMedCount + '種類になる。' : null)
   }
 
+  // ===== 問診合意による自動 sub_options 選択 =====
+  function getAutoSubOptionsForAgreement(edu, info) {
+    if (!edu || !edu.sub_options || !Array.isArray(edu.sub_options)) return {}
+    const level = (info && info.level) || 'moderate'
+    const subs = edu.sub_options.filter(function(s) { return s.strictness !== 'none' })
+    let selectedIds = []
+    if (level === 'weak') {
+      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 1)
+      selectedIds = vMild.map(function(s) { return s.id })
+    } else if (level === 'moderate') {
+      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 1)
+      const mild = subs.filter(function(s) { return s.strictness === 'mild' }).slice(0, 1)
+      selectedIds = [...vMild, ...mild].map(function(s) { return s.id })
+    } else if (level === 'strong') {
+      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 2)
+      const mild = subs.filter(function(s) { return s.strictness === 'mild' }).slice(0, 1)
+      selectedIds = [...vMild, ...mild].map(function(s) { return s.id })
+    }
+    const obj = {}
+    selectedIds.forEach(function(id) { obj[id] = true })
+    return obj
+  }
+
+  // ===== 問診合意のクリックで治療方針を確定 =====
+  function handleAgreementApply(edu, info) {
+    if (!edu) return
+    const isAlreadySelected = selectedEducation.includes(edu.id)
+    if (isAlreadySelected) return
+    setSelectedEducation(function(prev) { return [...prev, edu.id] })
+    const autoSubs = getAutoSubOptionsForAgreement(edu, info)
+    if (Object.keys(autoSubs).length > 0) {
+      setSelectedSubOptions(function(prev) {
+        const next = Object.assign({}, prev)
+        next[edu.id] = autoSubs
+        return next
+      })
+    }
+    const detail = (info && info.detail) ? info.detail : '頑張ります'
+    const reactionEntry = {
+      id: 'edu_' + edu.id,
+      selectionType: 'education',
+      item: edu,
+      labelText: '✅ ' + edu.instruction_key + '（問診合意で確定）',
+      reaction: {
+        acceptance_level: 'accepted',
+        emotion: 'positive',
+        reaction: '問診でもお話ししたとおり、' + detail + '。最初の一歩としてやってみます。'
+      },
+      persuasionHistory: [{ role: 'patient', content: '問診でもお話ししたとおり、' + detail + '。最初の一歩としてやってみます。' }],
+      timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+      fromInterviewAgreement: true,
+      agreementLevel: (info && info.level) || 'moderate'
+    }
+    setReactionLog(function(prev) {
+      const filtered = prev.filter(function(e) { return e.id !== reactionEntry.id })
+      return [...filtered, reactionEntry]
+    })
+  }
+
   async function handleEduCategorySelect(edu) {
     const hasSubOptions = edu.sub_options && Array.isArray(edu.sub_options) && edu.sub_options.length > 0
     if (hasSubOptions) {
@@ -1059,7 +1118,7 @@ export default function CaseDetailPage({ params }) {
                     return matchingEdus.map(function(edu) {
                       const isAlreadySelected = selectedEducation.includes(edu.id)
                       return (
-                        <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleEduCategorySelect(edu) }}
+                        <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
                           {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
                           {info.detail && <span style={{ fontWeight: 'normal', marginLeft: '4px', opacity: 0.8 }}>（{info.detail}）</span>}
