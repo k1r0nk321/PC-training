@@ -31,8 +31,28 @@ export async function POST(req) {
     // Visit 2 の治療内容（直近4週間で患者に処方・指導されていた内容）
     const v2SelectedMeds = visit2.selectedMedications || []
     const v2SelectedEdu = visit2.selectedEducation || []
-    const v2SelectedSubs = visit2.selectedSubOptions || []
     const v2ReactionLog = visit2.reactionLog || []
+
+    // selectedSubOptions オブジェクト形式 { eduId: { subId: true } } を sub_option 配列に変換するヘルパー
+    function flattenSubOptions(raw, eduList) {
+      const arr = []
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        Object.entries(raw).forEach(function(entry) {
+          const edu = (eduList || []).find(function(e) { return e && e.id === entry[0] })
+          if (!edu || !Array.isArray(edu.sub_options)) return
+          Object.entries(entry[1] || {}).forEach(function(se) {
+            if (se[1]) {
+              const sub = edu.sub_options.find(function(s) { return s.id === se[0] })
+              if (sub) arr.push(sub)
+            }
+          })
+        })
+      } else if (Array.isArray(raw)) {
+        raw.forEach(function(s) { if (s && typeof s === 'object') arr.push(s) })
+      }
+      return arr
+    }
+    const v2SelectedSubs = flattenSubOptions(visit2.selectedSubOptions, v2SelectedEdu)
 
     // ===== 患者の同意が得られた介入のみを有効とする（Visit 2 の reactionLog 基準） =====
     function isConsentedItem(item, expectedType) {
@@ -54,7 +74,9 @@ export async function POST(req) {
 
     // ===== Visit 1 と Visit 2 の比較：V2 で新しく追加された治療を抽出 =====
     const v1MedIds = new Set((visit1.selectedMedications || []).map(function(m) { return m.id }))
-    const v1SubIds = new Set((visit1.selectedSubOptions || []).map(function(s) { return s.id }))
+    const v1SelectedEduForSubs = visit1.selectedEducation || []
+    const v1Subs = flattenSubOptions(visit1.selectedSubOptions, v1SelectedEduForSubs)
+    const v1SubIds = new Set(v1Subs.map(function(s) { return s.id }))
     const newlyAddedMeds = consentedMeds.filter(function(m) { return !v1MedIds.has(m.id) })
     const newlyAddedSubs = consentedSubs.filter(function(s) { return !v1SubIds.has(s.id) })
 
