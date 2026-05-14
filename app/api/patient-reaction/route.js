@@ -14,6 +14,7 @@ export async function POST(req) {
       persuasionMessage,
       extraContext,
       interviewMessages,
+      lifestyleAgreements,
     } = await req.json()
 
     const patient = patientData
@@ -215,7 +216,25 @@ ${selectedItem.description ? '説明：' + selectedItem.description : ''}
 ${selectedItem.strictness ? '厳しさ：' + selectedItem.strictness : ''}
 ${extraContext ? '補足：' + extraContext : ''}
 
-${interviewMessages && interviewMessages.length > 0 ? '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n【問診合意と治療方針の比較ルール - 最重要】\n1. 今回提示された治療の厳しさと、問診で患者が合意・宣言したレベルを慎重に比較すること。\n2. 【スムーズ同意条件】提示治療が問診での合意・宣言と同等またはより緩い場合\n   → acceptance_levelは必ず\"accepted\"。「それならできます」「問診でお話しした通りですね」など自然に受け入れる。\n3. 【ゼロから抵抗条件】提示治療が問診での合意より明らかに厳しい場合\n   → 問診合意を無視し、治療内容の厳しさに対してゼロから戸惑い・交渉・抵抗を示す。\n4. 問診で一切触れていない治療 → 患者の性格・態度に基づく初回自然反応。\n5. 厳しさ順位（強→弱）：very_strict ＞ strict ＞ moderate ＞ mild ＞ very_mild ＞ none。\n   問診で\"moderate\"合意 → \"mild\"提示はスムーズ同意。\"strict\"提示はゼロから抵抗。' : ''}
+${(function() {
+  let block = ''
+  if (interviewMessages && interviewMessages.length > 0) {
+    block += '【問診での会話内容（必ずこれを踏まえて反応すること）】\n' + interviewMessages.slice(-14).map(function(m) { return (m.role === 'user' ? '医師' : '患者') + '：' + m.content }).join('\n') + '\n\n'
+  }
+  if (lifestyleAgreements && typeof lifestyleAgreements === 'object') {
+    const agreedList = Object.keys(lifestyleAgreements).filter(function(k) { return lifestyleAgreements[k] && lifestyleAgreements[k].agreed }).map(function(k) {
+      const info = lifestyleAgreements[k]
+      return '・' + k + ': level=' + (info.level || 'moderate') + (info.detail ? '（' + info.detail + '）' : '')
+    })
+    if (agreedList.length > 0) {
+      block += '【問診で患者が合意した生活指導項目（重要）】\n' + agreedList.join('\n') + '\n→ これらに該当する治療（同じカテゴリ）が提示された場合、患者は積極的に受け入れる（acceptance_level=accepted）。具体的に「問診でお話しした通り、頑張ります」など合意を踏まえた反応を返すこと。同等以下のより軽い治療も同様に受容する。\n\n'
+    }
+  }
+  if (block.length > 0) {
+    block += '【問診合意と治療方針の比較ルール - 最重要】\n1. 今回提示された治療の厳しさと、問診で患者が合意・宣言したレベルを慎重に比較すること。\n2. 【スムーズ同意条件】提示治療が問診での合意・宣言と同等またはより緩い場合\n   → acceptance_levelは必ず"accepted"。「それならできます」「問診でお話しした通りですね」など自然に受け入れる。\n3. 【ゼロから抵抗条件】提示治療が問診での合意より明らかに厳しい場合\n   → 問診合意を無視し、治療内容の厳しさに対してゼロから戸惑い・交渉・抵抗を示す。\n4. 問診で一切触れていない治療 → 患者の性格・態度に基づく初回自然反応。\n5. 厳しさ順位（強→弱）：very_strict ＞ strict ＞ moderate ＞ mild ＞ very_mild ＞ none。\n   問診で"moderate"合意 → "mild"提示はスムーズ同意。"strict"提示はゼロから抵抗。'
+  }
+  return block
+})()}
 
 ${selectionType === 'discontinuation' ? `
 【既存薬中止への反応ルール - 最重要】
