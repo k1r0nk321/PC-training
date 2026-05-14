@@ -102,7 +102,9 @@ export async function POST(req) {
       const partial = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'partial' }).length
       const rejected = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'rejected' }).length
       const negotiating = log.filter(function(r) { return r.reaction && r.reaction.acceptance_level === 'negotiating' }).length
-      return '同意 ' + accepted + ' 件・一部同意 ' + partial + ' 件・拒否 ' + rejected + ' 件・交渉中 ' + negotiating + ' 件'
+      const fromAgreement = log.filter(function(r) { return r.fromInterviewAgreement === true }).length
+      const agreementNote = fromAgreement > 0 ? '（うち問診合意で確定 ' + fromAgreement + ' 件）' : ''
+      return '同意 ' + accepted + ' 件・一部同意 ' + partial + ' 件・拒否 ' + rejected + ' 件・交渉中 ' + negotiating + ' 件' + agreementNote
     }
 
     const v1Vitals = patient.vitals
@@ -117,6 +119,11 @@ export async function POST(req) {
 患者：${patient.name}（${patient.age}歳・${patient.gender}）
 主訴：${patient.chief_complaint}
 初診時バイタル：血圧 ${v1Vitals.bp}、体重 ${v1Vitals.weight}kg、BMI ${v1Vitals.bmi}
+
+【評価における重要原則】
+- 問診の段階で患者から生活指導の合意を引き出し、その合意に基づいて治療方針を確定した項目（reaction に fromInterviewAgreement=true）は「患者中心アプローチ」として高く評価する。
+- 仮にガイドライン基準では控えめな介入であっても、患者の自発的な変化意欲を引き出した上での初期合意としては「適切」と判定する。
+- 段階的強化を次の Visit で行う方針が妥当な臨床判断。
 
 ================================================================
 【Visit 1（初診）の経過】
