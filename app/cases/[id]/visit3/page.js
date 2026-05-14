@@ -759,22 +759,38 @@ export default function Visit3Page({ params }) {
   function getAutoSubOptionsForAgreement(edu, info) {
     if (!edu || !edu.sub_options || !Array.isArray(edu.sub_options)) return {}
     const level = (info && info.level) || 'moderate'
-    const subs = edu.sub_options.filter(function(s) { return s.strictness !== 'none' })
-    let selectedIds = []
-    if (level === 'weak') {
-      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 1)
-      selectedIds = vMild.map(function(s) { return s.id })
-    } else if (level === 'moderate') {
-      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 1)
-      const mild = subs.filter(function(s) { return s.strictness === 'mild' }).slice(0, 1)
-      selectedIds = [...vMild, ...mild].map(function(s) { return s.id })
-    } else if (level === 'strong') {
-      const vMild = subs.filter(function(s) { return s.strictness === 'very_mild' }).slice(0, 2)
-      const mild = subs.filter(function(s) { return s.strictness === 'mild' }).slice(0, 1)
-      selectedIds = [...vMild, ...mild].map(function(s) { return s.id })
-    }
+    const strictnessRank = { 'very_mild': 1, 'mild': 2, 'moderate': 3, 'strict': 4, 'very_strict': 5 }
+    // 合意レベルに応じた「目標とする strictness 集合」
+    let targetStrictness
+    if (level === 'weak') targetStrictness = ['very_mild']
+    else if (level === 'strong') targetStrictness = ['very_mild', 'mild', 'moderate']
+    else targetStrictness = ['very_mild', 'mild']
+    // 候補抽出
+    const candidates = edu.sub_options.filter(function(s) {
+      return s.strictness !== 'none' && targetStrictness.indexOf(s.strictness) >= 0
+    })
+    // category 別にグルーピング
+    const byCat = {}
+    const noCat = []
+    candidates.forEach(function(s) {
+      const cat = s.category
+      if (!cat) {
+        noCat.push(s)
+        return
+      }
+      if (!byCat[cat]) byCat[cat] = []
+      byCat[cat].push(s)
+    })
+    // 各 category で目標 strictness 内の「最も厳しい」を 1 つ選ぶ（より厳しい制限を優先）
+    const finalSelected = []
+    Object.values(byCat).forEach(function(candArr) {
+      candArr.sort(function(a, b) { return (strictnessRank[b.strictness] || 0) - (strictnessRank[a.strictness] || 0) })
+      finalSelected.push(candArr[0])
+    })
+    // category 無い sub_option は全て含める（独立性のため）
+    noCat.forEach(function(s) { finalSelected.push(s) })
     const obj = {}
-    selectedIds.forEach(function(id) { obj[id] = true })
+    finalSelected.forEach(function(s) { obj[s.id] = true })
     return obj
   }
 
