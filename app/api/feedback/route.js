@@ -46,7 +46,7 @@ export async function POST(req) {
       caseId, visitNumber, diseaseId, diseaseName,
       patientData, scenarioData, selectedMedications, selectedEducation,
       selectedSubOptions, selectedDevices, reactionLog,
-      interviewMessages, visit2Vitals,
+      interviewMessages, visit2Vitals, visit2Labs,
       consultation, discontinuedExistingMeds,
     } = await req.json()
 
@@ -129,20 +129,44 @@ export async function POST(req) {
     // 問診回数
     const interviewCount = (interviewMessages || []).filter(function(m) { return m.role === 'user' }).length
 
-    // 疾患別のバイタル/検査値変化サマリー（高血圧症のみ BP を含む、他疾患は体重のみ）
-    function buildVisit2Summary(disease, vitals) {
-      if (!vitals) return ''
-      const wStr = vitals.weight != null ? (String(vitals.weight).match(/kg/) ? String(vitals.weight) : vitals.weight + 'kg') : null
-      const wChangeStr = vitals.weight_change != null ? '（変化：' + (vitals.weight_change > 0 ? '+' : '') + vitals.weight_change + 'kg）' : ''
+    // 疾患別のバイタル/検査値変化サマリー
+    function buildVisit2Summary(disease, vitals, labs, baselineLabs) {
+      if (!vitals && !labs) return ''
       const lines = ['【Visit 2の結果】']
-      if (disease === '高血圧症' && vitals.bp) {
-        const bpChangeStr = vitals.bp_change != null ? '（変化：-' + vitals.bp_change + 'mmHg）' : ''
-        lines.push('血圧：' + vitals.bp + bpChangeStr)
+      if (vitals) {
+        const wStr = vitals.weight != null ? (String(vitals.weight).match(/kg/) ? String(vitals.weight) : vitals.weight + 'kg') : null
+        const wChangeStr = vitals.weight_change != null ? '（変化：' + (vitals.weight_change > 0 ? '+' : '') + vitals.weight_change + 'kg）' : ''
+        if (disease === '高血圧症' && vitals.bp) {
+          const bpChangeStr = vitals.bp_change != null ? '（変化：-' + vitals.bp_change + 'mmHg）' : ''
+          lines.push('血圧：' + vitals.bp + bpChangeStr)
+        }
+        if (wStr) lines.push('体重：' + wStr + wChangeStr)
       }
-      if (wStr) lines.push('体重：' + wStr + wChangeStr)
+      // 疾患別の代表検査値変化
+      if (labs) {
+        const fmtDelta = function(v2, v1, unit, signFlip) {
+          if (v2 == null || v1 == null) return ''
+          const delta = signFlip ? (v1 - v2) : (v2 - v1)
+          const sign = delta > 0 ? '+' : ''
+          return '（変化：' + sign + (Math.round(delta * 10) / 10) + unit + '）'
+        }
+        const bl = baselineLabs || {}
+        if (disease === '2型糖尿病') {
+          if (labs.hba1c != null) lines.push('HbA1c：' + labs.hba1c + '%' + fmtDelta(labs.hba1c, bl.hba1c, '%'))
+          if (labs.glucose != null) lines.push('血糖：' + labs.glucose + 'mg/dL' + fmtDelta(labs.glucose, bl.glucose, 'mg/dL'))
+        } else if (disease === '脂質異常症') {
+          if (labs.ldl != null) lines.push('LDL-C：' + labs.ldl + 'mg/dL' + fmtDelta(labs.ldl, bl.ldl, 'mg/dL'))
+          if (labs.hdl != null) lines.push('HDL-C：' + labs.hdl + 'mg/dL' + fmtDelta(labs.hdl, bl.hdl, 'mg/dL'))
+          if (labs.tg != null) lines.push('TG：' + labs.tg + 'mg/dL' + fmtDelta(labs.tg, bl.tg, 'mg/dL'))
+        } else if (disease === '高血圧症') {
+          if (labs.k != null && bl.k != null && Math.abs(labs.k - bl.k) >= 0.2) lines.push('K：' + labs.k + 'mEq/L' + fmtDelta(labs.k, bl.k, 'mEq/L'))
+          if (labs.ua != null && bl.ua != null && Math.abs(labs.ua - bl.ua) >= 0.3) lines.push('UA：' + labs.ua + 'mg/dL' + fmtDelta(labs.ua, bl.ua, 'mg/dL'))
+        }
+      }
       return '\n' + lines.join('\n')
     }
-    const visit2Summary = buildVisit2Summary(diseaseName, visit2Vitals)
+    const baselineLabs = (patientData && patientData.labs) || null
+    const visit2Summary = buildVisit2Summary(diseaseName, visit2Vitals, visit2Labs, baselineLabs)
 
     // ===== 介入の適切さを判定するための情報 =====
     const interventionFitAnalysis = `
@@ -272,7 +296,10 @@ ${guidelineText}
       updateData.visit1_consultation = consultation || null
     } else if (visitNumber === 2) {
       updateData.visit2_feedback = feedbackText
-      updateData.visit2_data = {
+      // 既存の visit2_data から生成データ（visit2Vitals/visit2Labs/patientOpeningComment 等）を保護
+      const { data: existingCase } = await supabase.from('cases').select('visit2_data').eq('id', caseId).single()
+      const existingV2 = (existingCase && existingCase.visit2_data) || {}
+      updateData.visit2_data = Object.assign({}, existingV2, {
         selectedMedications: selectedMedications || [],
         selectedEducation: selectedEducation || [],
         selectedSubOptions: selectedSubOptions || {},
@@ -282,7 +309,7 @@ ${guidelineText}
         vitals: visit2Vitals,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
-      }
+      })
       updateData.visit2_consultation = consultation || null
     }
 
