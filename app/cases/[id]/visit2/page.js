@@ -426,7 +426,12 @@ export default function Visit2Page({ params }) {
 
       // Visit 1の治療を初期選択として引き継ぎ
       const v1 = data.visit1_data || {}
-      if (v1.selectedMedications) setSelectedMeds(v1.selectedMedications.map(function(m) { return m.id }))
+      if (Array.isArray(v1.selectedMedications)) setSelectedMeds(v1.selectedMedications.map(function(m) { return m.id }))
+      if (Array.isArray(v1.selectedEducation)) setSelectedEducation(v1.selectedEducation.map(function(e) { return e.id }))
+      if (Array.isArray(v1.selectedDevices)) setSelectedDevices(v1.selectedDevices.map(function(d) { return d.id }))
+      if (v1.selectedSubOptions && typeof v1.selectedSubOptions === 'object') setSelectedSubOptions(v1.selectedSubOptions)
+      if (v1.consultation) setConsultation(v1.consultation)
+      if (Array.isArray(v1.discontinuedExistingMeds)) setDiscontinuedExistingMeds(v1.discontinuedExistingMeds)
 
       // 患者の最初のコメントをセット
       setMessages([{
