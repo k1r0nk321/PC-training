@@ -803,11 +803,35 @@ export default function Visit3Page({ params }) {
     setSelectedEducation(function(prev) { return [...prev, edu.id] })
     const autoSubs = getAutoSubOptionsForAgreement(edu, info)
     if (Object.keys(autoSubs).length > 0) {
-      setSelectedSubOptions(function(prev) {
-        const next = Object.assign({}, prev)
-        next[edu.id] = autoSubs
-        return next
+      // 既に他の edu で同じ sub_option ID または同じ category が選択されていれば追加しない
+      const globalSubIds = new Set()
+      const globalCategories = new Set()
+      Object.entries(selectedSubOptions).forEach(function(entry) {
+        const otherEduId = entry[0]
+        const subMap = entry[1] || {}
+        const otherEdu = (educationItems || []).find(function(e) { return e && e.id === otherEduId })
+        if (!otherEdu) return
+        Object.entries(subMap).forEach(function(se) {
+          if (!se[1]) return
+          globalSubIds.add(se[0])
+          const subObj = (otherEdu.sub_options || []).find(function(s) { return s && s.id === se[0] })
+          if (subObj && subObj.category) globalCategories.add(subObj.category)
+        })
       })
+      const filteredSubs = {}
+      Object.keys(autoSubs).forEach(function(subId) {
+        if (globalSubIds.has(subId)) return
+        const subObj = (edu.sub_options || []).find(function(s) { return s && s.id === subId })
+        if (subObj && subObj.category && globalCategories.has(subObj.category)) return
+        filteredSubs[subId] = true
+      })
+      if (Object.keys(filteredSubs).length > 0) {
+        setSelectedSubOptions(function(prev) {
+          const next = Object.assign({}, prev)
+          next[edu.id] = filteredSubs
+          return next
+        })
+      }
     }
     const detail = (info && info.detail) ? info.detail : '頑張ります'
     const reactionEntry = {
