@@ -67,6 +67,7 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   - 患者「血圧、毎日測ります」→ monitoring: {agreed: true, level: "strong", detail: "家庭血圧測定"}\n` +
     `   - 患者「3kg痩せます」→ weight: {agreed: true, level: "moderate", detail: "3kg減量"}\n` +
     `   既に合意済みのカテゴリは上書きしない（level 弱化を避ける）。同じカテゴリで新たな合意があれば、より強い level に更新。\n` +
+    `   ★ 同じカテゴリで複数の数値（カロリー・塩分・コレステロール・脂質%・飲酒量）が会話に出てきた場合、必ず「最も厳しい（数値が小さい）制限」を detail に採用すること。\n` +
     `   合意が無い場合は lifestyle_agreements_update を {} とする。\n\n` +
     `G. 【最重要】medication_motivation_delta の特別ルール：\n` +
     `   服薬意欲★は、医師が「服薬のメリット・デメリット・効果・副作用・リスク」を具体的に説明した時のみ変動する。\n` +
@@ -162,6 +163,59 @@ export async function POST(req) {
     const agreementsUpdate = evaluation.lifestyle_agreements_update || {}
     const mergedAgreements = Object.assign({}, currentAgreements)
     const levelRank = { weak: 1, moderate: 2, strong: 3 }
+    // 同じカテゴリで複数の数値制限が提案された場合、より厳しい（小さい）方を採用
+    function extractNumericLimit(text, units) {
+      if (!text || typeof text !== 'string') return null
+      for (let i = 0; i < units.length; i++) {
+        const re = new RegExp('(\\d+\\.?\\d*)\\s*' + units[i])
+        const m = text.match(re)
+        if (m) return parseFloat(m[1])
+      }
+      return null
+    }
+    function isStricterDetail(newDetail, existingDetail) {
+      if (!newDetail || !existingDetail) return false
+      // カロリー: 数値が小さい方が厳しい
+      const nCal = extractNumericLimit(newDetail, ['kcal'])
+      const eCal = extractNumericLimit(existingDetail, ['kcal'])
+      if (nCal !== null && eCal !== null) return nCal < eCal
+      // 塩分（g）両方が塩分言及あり
+      if (/塩分|減塩|Na|ナトリウム/.test(newDetail) && /塩分|減塩|Na|ナトリウム/.test(existingDetail)) {
+        const nSalt = extractNumericLimit(newDetail, ['g'])
+        const eSalt = extractNumericLimit(existingDetail, ['g'])
+        if (nSalt !== null && eSalt !== null) return nSalt < eSalt
+      }
+      // コレステロール（mg）
+      if (/コレステロール/.test(newDetail) && /コレステロール/.test(existingDetail)) {
+        const nCh = extractNumericLimit(newDetail, ['mg'])
+        const eCh = extractNumericLimit(existingDetail, ['mg'])
+        if (nCh !== null && eCh !== null) return nCh < eCh
+      }
+      // 飽和脂肪酸（％）
+      if (/飽和脂肪|脂質|脂肪/.test(newDetail) && /飽和脂肪|脂質|脂肪/.test(existingDetail)) {
+        const nFat = extractNumericLimit(newDetail, ['%', '％'])
+        const eFat = extractNumericLimit(existingDetail, ['%', '％'])
+        if (nFat !== null && eFat !== null) return nFat < eFat
+      }
+      // 飲酒量（g、合）数値小さい方が厳しい
+      if (/酒|アルコール/.test(newDetail) && /酒|アルコール/.test(existingDetail)) {
+        const nAl = extractNumericLimit(newDetail, ['g', '合'])
+        const eAl = extractNumericLimit(existingDetail, ['g', '合'])
+        if (nAl !== null && eAl !== null) return nAl < eAl
+      }
+      // 運動量、体重減量: 数値大きい方が厳しい（より努力する）
+      if (/運動|歩行|散歩|ウォーキング/.test(newDetail) && /運動|歩行|散歩|ウォーキング/.test(existingDetail)) {
+        const nEx = extractNumericLimit(newDetail, ['分', '回'])
+        const eEx = extractNumericLimit(existingDetail, ['分', '回'])
+        if (nEx !== null && eEx !== null) return nEx > eEx
+      }
+      if (/減量|体重|kg/.test(newDetail) && /減量|体重|kg/.test(existingDetail)) {
+        const nWt = extractNumericLimit(newDetail, ['kg'])
+        const eWt = extractNumericLimit(existingDetail, ['kg'])
+        if (nWt !== null && eWt !== null) return nWt > eWt
+      }
+      return false
+    }
     Object.keys(agreementsUpdate).forEach(function(cat) {
       const incoming = agreementsUpdate[cat]
       if (!incoming || !incoming.agreed) return
@@ -172,6 +226,9 @@ export async function POST(req) {
         const newRank = levelRank[incoming.level] || 0
         const oldRank = levelRank[existing.level] || 0
         if (newRank > oldRank) {
+          mergedAgreements[cat] = incoming
+        } else if (newRank === oldRank && isStricterDetail(incoming.detail, existing.detail)) {
+          // 同じレベルでも、より厳しい数値制限ならその提案を採用
           mergedAgreements[cat] = incoming
         }
       }
