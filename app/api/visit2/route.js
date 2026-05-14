@@ -23,6 +23,23 @@ export async function POST(req) {
       return Response.json({ error: 'Case not found' }, { status: 404 })
     }
 
+    // ===== キャッシュチェック: 既に生成済みなら同じ値を返す（冪等化）=====
+    const existingV2 = caseData.visit2_data || {}
+    if (existingV2.visit2Vitals && existingV2.visit2Labs && existingV2.patientOpeningComment) {
+      return Response.json({
+        visit2Vitals: existingV2.visit2Vitals,
+        visit2Labs: existingV2.visit2Labs,
+        patientOpeningComment: existingV2.patientOpeningComment,
+        bpReduction: existingV2.bpReduction || 0,
+        weightReduction: existingV2.weightReduction || 0,
+        bpControlled: existingV2.bpControlled || false,
+        effectiveAdherence: existingV2.effectiveAdherence || 50,
+        lifestyleBadness: existingV2.lifestyleBadness || 0,
+        motivationBoost: existingV2.motivationBoost || 0,
+        cached: true,
+      })
+    }
+
     const patient = caseData.patient_data
     const hidden = patient.hidden_params
     const visit1 = caseData.visit1_data || {}
@@ -266,13 +283,7 @@ ${caseData.disease_name === '2型糖尿病' ? 'HbA1c は次回採血で確認予
 
     const patientOpeningComment = message.content[0].text.trim()
 
-    // DBを更新
-    await supabase.from('cases').update({
-      current_visit: 2,
-      status: 'visit2',
-    }).eq('id', caseId)
-
-    return Response.json({
+    const generatedData = {
       visit2Vitals,
       visit2Labs,
       patientOpeningComment,
@@ -282,7 +293,17 @@ ${caseData.disease_name === '2型糖尿病' ? 'HbA1c は次回採血で確認予
       effectiveAdherence: Math.round(effectiveAdherence * 100),
       lifestyleBadness,
       motivationBoost: Math.round(motivationBoost * 100),
-    })
+    }
+
+    // DBに生成データを保存（既存の visit2_data フィールドをマージ）
+    const mergedV2Data = Object.assign({}, existingV2, generatedData)
+    await supabase.from('cases').update({
+      current_visit: 2,
+      status: 'visit2',
+      visit2_data: mergedV2Data,
+    }).eq('id', caseId)
+
+    return Response.json(generatedData)
 
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
