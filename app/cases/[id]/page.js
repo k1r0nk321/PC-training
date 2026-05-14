@@ -131,8 +131,8 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
             </div>
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong></p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.hr}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong>　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? ' kg' : ''}　BMI：{patient.vitals.bmi}</p>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
