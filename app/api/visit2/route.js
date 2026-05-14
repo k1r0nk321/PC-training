@@ -29,8 +29,29 @@ export async function POST(req) {
 
     const selectedMeds = visit1.selectedMedications || []
     const selectedEdu = visit1.selectedEducation || []
-    const selectedSubs = visit1.selectedSubOptions || []
     const reactionLog = visit1.reactionLog || []
+
+    // selectedSubOptions は { eduId: { subId: true, ... } } 形式
+    // sub_option オブジェクト配列に変換（id, label, strictness 等を保持）
+    const selectedSubs = []
+    const rawSubs = visit1.selectedSubOptions
+    if (rawSubs && typeof rawSubs === 'object' && !Array.isArray(rawSubs)) {
+      Object.entries(rawSubs).forEach(function(entry) {
+        const eduId = entry[0]
+        const subMap = entry[1] || {}
+        const edu = selectedEdu.find(function(e) { return e && e.id === eduId })
+        if (!edu || !Array.isArray(edu.sub_options)) return
+        Object.entries(subMap).forEach(function(se) {
+          if (se[1]) {
+            const sub = edu.sub_options.find(function(s) { return s.id === se[0] })
+            if (sub) selectedSubs.push(sub)
+          }
+        })
+      })
+    } else if (Array.isArray(rawSubs)) {
+      // 旧形式（後方互換）
+      selectedSubs.push.apply(selectedSubs, rawSubs.filter(function(s) { return s && typeof s === 'object' }))
+    }
 
     // ===== 患者の同意が得られた介入のみを有効とする =====
     function isConsentedItem(item, expectedType) {
