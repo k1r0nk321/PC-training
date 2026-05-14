@@ -248,6 +248,7 @@ function buildFromPreviousVisit(prev, visitNumber) {
     smoking_comment: smokingResult.comment !== null ? smokingResult.comment : (prev.smoking_comment || null),
     drinking_label: drinkingResult.label,
     drinking_comment: drinkingResult.comment !== null ? drinkingResult.comment : (prev.drinking_comment || null),
+    lifestyle_agreements: {},
     pending_treatment_changes: Object.keys(pendingChanges).length > 0 ? pendingChanges : null
   }
 }
