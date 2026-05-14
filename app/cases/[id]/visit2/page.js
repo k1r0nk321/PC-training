@@ -81,7 +81,24 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
   const weightChange = visit2Vitals?.weight_change
   const v1Meds = visit1Data?.selectedMedications || []
   const v1Edu = visit1Data?.selectedEducation || []
-  const v1Subs = visit1Data?.selectedSubOptions || []
+  // 旧形式 (boolean 配列) と新形式 (object キーは eduId) の両方に対応
+  const v1SubsRaw = visit1Data?.selectedSubOptions
+  let v1Subs = []
+  if (v1SubsRaw && typeof v1SubsRaw === 'object' && !Array.isArray(v1SubsRaw)) {
+    // 新形式: { eduId: { subId: true, ... } } を sub_option 情報配列に変換
+    Object.entries(v1SubsRaw).forEach(function(entry) {
+      const eduId = entry[0]
+      const subMap = entry[1] || {}
+      const edu = v1Edu.find(function(e) { return e.id === eduId })
+      if (!edu || !Array.isArray(edu.sub_options)) return
+      Object.entries(subMap).forEach(function(se) {
+        if (se[1]) {
+          const sub = edu.sub_options.find(function(s) { return s.id === se[0] })
+          if (sub) v1Subs.push(sub)
+        }
+      })
+    })
+  }
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
@@ -856,10 +873,7 @@ export default function Visit2Page({ params }) {
       const selectedMedData = medications.filter(function(m) { return selectedMeds.includes(m.id) })
       const selectedEduData = educationItems.filter(function(e) { return selectedEducation.includes(e.id) })
       const selectedDeviceData = devices.filter(function(d) { return selectedDevices.includes(d.id) })
-      const allSubOptions = []
-      Object.entries(selectedSubOptions).forEach(function([eduId, groups]) {
-        Object.values(groups).forEach(function(sub) { if (sub) allSubOptions.push(sub) })
-      })
+
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -870,7 +884,7 @@ export default function Visit2Page({ params }) {
           scenarioData: caseData.scenario_data,
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData,
-          selectedSubOptions: allSubOptions,
+          selectedSubOptions: selectedSubOptions,
           selectedDevices: selectedDeviceData,
           reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           visit2Vitals: visit2Data?.visit2Vitals,
