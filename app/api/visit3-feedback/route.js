@@ -13,7 +13,10 @@ function computeIntervention(category, selectedEducation, selectedSubOptions, re
   if (!edu) return { given: false, strength: 'none', accepted: false, sub_options: [] }
 
   const subIds = (selectedSubOptions || {})[edu.id] || []
-  const subIdArray = Array.isArray(subIds) ? subIds : []
+  // object {subId: true} 形式と array 形式の両方に対応
+  const subIdArray = Array.isArray(subIds)
+    ? subIds
+    : (typeof subIds === 'object' ? Object.keys(subIds).filter(function(k) { return subIds[k] }) : [])
   const hasStrong = subIdArray.some(function(s) { return strongList.indexOf(s) >= 0 })
   const hasModerate = subIdArray.some(function(s) { return moderateList.indexOf(s) >= 0 })
   const strength = hasStrong ? 'strong' : (hasModerate ? 'moderate' : 'weak')
@@ -81,9 +84,30 @@ export async function POST(req) {
       if (!edu || edu.length === 0) return 'なし'
       return edu.map(function(e) { return e.instruction_key }).join('、')
     }
-    function formatVisitSubs(subs) {
-      if (!subs || subs.length === 0) return 'なし'
-      return subs.map(function(s) { return s.label || s.id }).join('、')
+    // selectedSubOptions オブジェクト形式 { eduId: { subId: true } } を sub_option 配列に変換するヘルパー
+    function flattenSubOptions(raw, eduList) {
+      const arr = []
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        Object.entries(raw).forEach(function(entry) {
+          const edu = (eduList || []).find(function(e) { return e && e.id === entry[0] })
+          if (!edu || !Array.isArray(edu.sub_options)) return
+          Object.entries(entry[1] || {}).forEach(function(se) {
+            if (se[1]) {
+              const sub = edu.sub_options.find(function(s) { return s.id === se[0] })
+              if (sub) arr.push(sub)
+            }
+          })
+        })
+      } else if (Array.isArray(raw)) {
+        raw.forEach(function(s) { if (s && typeof s === 'object') arr.push(s) })
+      }
+      return arr
+    }
+    function formatVisitSubs(subs, eduList) {
+      // subs が object (新形式) なら eduList を使って展開、array (旧形式) ならそのまま
+      const arr = Array.isArray(subs) ? subs : flattenSubOptions(subs, eduList)
+      if (!arr || arr.length === 0) return 'なし'
+      return arr.map(function(s) { return s.label || s.id }).join('、')
     }
     function formatMessagesShort(messages, maxLen) {
       if (!messages || messages.length === 0) return '（記録なし）'
@@ -133,7 +157,7 @@ ${formatMessagesShort(v1.interviewMessages, 1500)}
 選択した治療：
 - 投薬：${formatVisitMeds(v1.selectedMedications)}
 - 患者教育：${formatVisitEdu(v1.selectedEducation)}
-- 詳細指導：${formatVisitSubs(v1.selectedSubOptions)}
+- 詳細指導：${formatVisitSubs(v1.selectedSubOptions, v1.selectedEducation)}
 - 医療機器：${formatVisitEdu(v1.selectedDevices)}
 
 患者の反応：${summarizeReactions(v1.reactionLog)}
@@ -146,7 +170,7 @@ ${formatMessagesShort(v2.interviewMessages, 1500)}
 選択した治療：
 - 投薬：${formatVisitMeds(v2.selectedMedications)}
 - 患者教育：${formatVisitEdu(v2.selectedEducation)}
-- 詳細指導：${formatVisitSubs(v2.selectedSubOptions)}
+- 詳細指導：${formatVisitSubs(v2.selectedSubOptions, v2.selectedEducation)}
 - 医療機器：${formatVisitEdu(v2.selectedDevices)}
 
 患者の反応：${summarizeReactions(v2.reactionLog)}
@@ -162,7 +186,7 @@ ${formatMessagesShort(interviewMessages, 1500)}
 選択した治療：
 - 投薬：${formatVisitMeds(selectedMedications)}
 - 患者教育：${formatVisitEdu(selectedEducation)}
-- 詳細指導：${formatVisitSubs(selectedSubOptions)}
+- 詳細指導：${formatVisitSubs(selectedSubOptions, selectedEducation)}
 - 医療機器：${formatVisitEdu(selectedDevices)}
 
 患者の反応：${summarizeReactions(reactionLog)}
