@@ -676,7 +676,7 @@ export default function Visit3Page({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientData: caseData.patient_data, selectionType, selectedItem: item,
-          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages.slice(-20),
+          previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null.slice(-20),
         }),
       })
       const data = await res.json()
@@ -704,7 +704,7 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/patient-reaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
+        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
       })
       const data = await res.json()
       const updatedHistory = [...newHistory, { role: 'patient', content: data.reaction }]
@@ -814,7 +814,7 @@ export default function Visit3Page({ params }) {
           selectedEducation: selectedEduData,
           selectedSubOptions: allSubOptions,
           selectedDevices: selectedDeviceData,
-          reactionLog, interviewMessages: messages,
+          reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           visit3Vitals: visit3Data?.visit3Vitals,
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
@@ -1199,6 +1199,30 @@ export default function Visit3Page({ params }) {
           </div>
 
           <AccordionSection title="📋 生活指導・患者教育" badge={selectedEducation.length > 0 ? selectedEducation.length + '件' : null} defaultOpen={true}>
+            {/* ✅ 問診合意バナー - クイック選択 */}
+            {visitParams && visitParams.lifestyle_agreements && Object.keys(visitParams.lifestyle_agreements).some(function(k) { return visitParams.lifestyle_agreements[k] && visitParams.lifestyle_agreements[k].agreed }) && (
+              <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1.5px solid #86efac' }}>
+                <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', marginBottom: '4px' }}>✅ 問診で得られた合意事項</p>
+                <p style={{ fontSize: '10px', color: '#15803d', marginBottom: '8px' }}>クリックで関連する指導項目を選択できます。患者が既に同意しているため受け入れがスムーズです。</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {Object.keys(visitParams.lifestyle_agreements).map(function(category) {
+                    const info = visitParams.lifestyle_agreements[category]
+                    if (!info || !info.agreed) return null
+                    const matchingEdus = educationItems.filter(function(e) { return e.category === category })
+                    return matchingEdus.map(function(edu) {
+                      const isAlreadySelected = selectedEducation.includes(edu.id)
+                      return (
+                        <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleEduCategorySelect(edu) }}
+                          style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
+                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
+                          {info.detail && <span style={{ fontWeight: 'normal', marginLeft: '4px', opacity: 0.8 }}>（{info.detail}）</span>}
+                        </div>
+                      )
+                    })
+                  })}
+                </div>
+              </div>
+            )}
             {Object.entries(eduByCategory).map(function([category, items]) {
               return (
                 <div key={category} style={{ marginBottom: '10px' }}>
