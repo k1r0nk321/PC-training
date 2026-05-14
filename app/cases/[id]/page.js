@@ -738,10 +738,7 @@ export default function CaseDetailPage({ params }) {
       const selectedMedData = medications.filter(function(m) { return selectedMeds.includes(m.id) })
       const selectedEduData = educationItems.filter(function(e) { return selectedEducation.includes(e.id) })
       const selectedDeviceData = devices.filter(function(d) { return selectedDevices.includes(d.id) })
-      const allSubOptions = []
-      Object.entries(selectedSubOptions).forEach(function([eduId, groups]) {
-        Object.values(groups).forEach(function(sub) { if (sub) allSubOptions.push(sub) })
-      })
+
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -752,7 +749,7 @@ export default function CaseDetailPage({ params }) {
           scenarioData: caseData.scenario_data,
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData, selectedDevices: selectedDeviceData,
-          selectedSubOptions: allSubOptions, reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
+          selectedSubOptions: selectedSubOptions, reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
         }),
