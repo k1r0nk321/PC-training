@@ -448,11 +448,20 @@ export default function CaseDetailPage({ params }) {
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
+      // 検査結果は patient.labs にあれば必ずそれを使う（一貫性のため）
+      const labsText = patient.labs && typeof patient.labs === 'object'
+        ? '\n【検査結果（医師から指示された場合のみ提示すること）】\n' +
+          Object.entries(patient.labs).map(function(entry) {
+            return entry[0] + ': ' + entry[1]
+          }).join('、')
+        : ''
       const system = 'あなたは外来診療シミュレーションの患者AIです。名前：' + patient.name +
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
+        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。' +
+        labsText +
+        (labsText ? '\n※ 検査値を提示する場合は必ず上記の値を使用すること。値を勝手に変えたり創作したりしないこと。' : '')
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
