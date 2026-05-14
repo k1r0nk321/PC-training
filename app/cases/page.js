@@ -318,14 +318,30 @@ export default function CasesPage() {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
             {diseases.map(function(disease) {
+              const hasCases = (disease.case_count || 0) > 0
+              const cardBg = hasCases ? '#ecfdf5' : '#f1f5f9'
+              const cardBorder = hasCases ? '#10b981' : '#e2e8f0'
+              const hoverBg = hasCases ? '#d1fae5' : '#e2e8f0'
+              const hoverBorder = hasCases ? '#059669' : '#94a3b8'
+              const nameColor = hasCases ? '#065f46' : '#475569'
+              const enColor = hasCases ? '#059669' : '#94a3b8'
               return (
                 <div key={disease.id}
                   onClick={function() { handleDiseaseSelect(disease) }}
-                  style={{ padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer', transition: 'all 0.15s' }}
-                  onMouseEnter={function(e) { e.currentTarget.style.borderColor = '#0369a1'; e.currentTarget.style.backgroundColor = '#eff6ff' }}
-                  onMouseLeave={function(e) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#f8fafc' }}>
-                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 2px' }}>{disease.name_ja}</p>
-                  {disease.name_en && <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>{disease.name_en}</p>}
+                  style={{ padding: '12px 14px', borderRadius: '10px', border: '1.5px solid ' + cardBorder, backgroundColor: cardBg, cursor: 'pointer', transition: 'all 0.15s', position: 'relative' }}
+                  onMouseEnter={function(e) { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.backgroundColor = hoverBg }}
+                  onMouseLeave={function(e) { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.backgroundColor = cardBg }}>
+                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: nameColor, margin: '0 0 2px' }}>{disease.name_ja}</p>
+                  {disease.name_en && <p style={{ fontSize: '11px', color: enColor, margin: 0 }}>{disease.name_en}</p>}
+                  {hasCases ? (
+                    <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: '#059669', color: 'white', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }}>
+                      ✓ {disease.case_count} 症例
+                    </span>
+                  ) : (
+                    <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: '#94a3b8', color: 'white', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }}>
+                      📋 準備中
+                    </span>
+                  )}
                 </div>
               )
             })}
