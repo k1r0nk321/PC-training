@@ -90,11 +90,26 @@ export async function POST(req) {
     }[hidden.adherence_level]
 
     // ===== 介入の分析 =====
-    const interventionCount = (selectedSubOptions || []).length + (selectedEducation || []).length + (selectedMedications || []).length
-    const hasStrictIntervention = (selectedSubOptions || []).some(function(s) {
+    // selectedSubOptions は { eduId: { subId: true, ... } } 形式
+    // sub_option オブジェクト（label, strictness 等）を抽出
+    const subOptionObjects = []
+    Object.entries(selectedSubOptions || {}).forEach(function(entry) {
+      const eduId = entry[0]
+      const subMap = entry[1] || {}
+      const edu = (selectedEducation || []).find(function(e) { return e && e.id === eduId })
+      if (!edu || !Array.isArray(edu.sub_options)) return
+      Object.entries(subMap).forEach(function(se) {
+        if (se[1]) {
+          const sub = edu.sub_options.find(function(s) { return s.id === se[0] })
+          if (sub) subOptionObjects.push(sub)
+        }
+      })
+    })
+    const interventionCount = subOptionObjects.length + (selectedEducation || []).length + (selectedMedications || []).length
+    const hasStrictIntervention = subOptionObjects.some(function(s) {
       return s.strictness === 'very_strict' || s.strictness === 'strict'
     })
-    const hasMildIntervention = (selectedSubOptions || []).some(function(s) {
+    const hasMildIntervention = subOptionObjects.some(function(s) {
       return s.strictness === 'mild' || s.strictness === 'very_mild'
     })
 
