@@ -225,7 +225,7 @@ export async function POST(req) {
       : motivationBoost > 0 ? '少しずつ前向きになっている。' : ''
 
     const prompt = `あなたは外来診療シミュレーションの患者AIです。
-高血圧症で4週間前に初診し治療を開始した患者の再診時の第一声を生成してください。
+${caseData.disease_name}で4週間前に初診し治療を開始した患者の再診時の第一声を生成してください。
 
 【患者情報】
 名前：${patient.name}（${patient.age}歳・${patient.gender}）
@@ -243,9 +243,8 @@ ${rejectedMedNames.length > 0 ? '※同意を得ずに処方された薬：' + r
 ${rejectedSubLabels.length > 0 ? '※同意を得ずに指導された生活指導：' + rejectedSubLabels.slice(0, 3).join('・') + '（本人は守れていない）' : ''}
 
 【4週間の経過】
-血圧変化：${systolic1}/${diastolic1} → ${systolic2}/${diastolic2} mmHg
-体重変化：${weight1}kg → ${weight2}kg
-実効アドヒアランス：${Math.round(effectiveAdherence * 100)}%
+${caseData.disease_name === '高血圧症' ? '血圧変化：' + systolic1 + '/' + diastolic1 + ' → ' + systolic2 + '/' + diastolic2 + ' mmHg\n' : ''}体重変化：${weight1}kg → ${weight2}kg
+${caseData.disease_name === '2型糖尿病' ? 'HbA1c は次回採血で確認予定（4週間では大きな変化は出にくい）\n' : caseData.disease_name === '脂質異常症' ? 'LDL-C は次回採血で確認予定\n' : ''}実効アドヒアランス：${Math.round(effectiveAdherence * 100)}%
 
 【応答ルール】
 ・患者として自然な日本語で再診時の第一声（100〜150文字）
