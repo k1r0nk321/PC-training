@@ -129,9 +129,20 @@ export async function POST(req) {
     // 問診回数
     const interviewCount = (interviewMessages || []).filter(function(m) { return m.role === 'user' }).length
 
-    const visit2Summary = visit2Vitals
-      ? '\n【Visit 2の結果】\n血圧：' + visit2Vitals.bp + '（変化：-' + visit2Vitals.bp_change + 'mmHg）\n体重：' + visit2Vitals.weight + 'kg（変化：' + visit2Vitals.weight_change + 'kg）'
-      : ''
+    // 疾患別のバイタル/検査値変化サマリー（高血圧症のみ BP を含む、他疾患は体重のみ）
+    function buildVisit2Summary(disease, vitals) {
+      if (!vitals) return ''
+      const wStr = vitals.weight != null ? (String(vitals.weight).match(/kg/) ? String(vitals.weight) : vitals.weight + 'kg') : null
+      const wChangeStr = vitals.weight_change != null ? '（変化：' + (vitals.weight_change > 0 ? '+' : '') + vitals.weight_change + 'kg）' : ''
+      const lines = ['【Visit 2の結果】']
+      if (disease === '高血圧症' && vitals.bp) {
+        const bpChangeStr = vitals.bp_change != null ? '（変化：-' + vitals.bp_change + 'mmHg）' : ''
+        lines.push('血圧：' + vitals.bp + bpChangeStr)
+      }
+      if (wStr) lines.push('体重：' + wStr + wChangeStr)
+      return '\n' + lines.join('\n')
+    }
+    const visit2Summary = buildVisit2Summary(diseaseName, visit2Vitals)
 
     // ===== 介入の適切さを判定するための情報 =====
     const interventionFitAnalysis = `
