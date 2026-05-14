@@ -52,6 +52,22 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `D. 関連性のない発言・挨拶・短い相槌のみの場合は変動なし（全てnullまたは0）。\n\n` +
     `E. 変動幅の通常は -1〜+1 の整数。強い表現がある時のみ ±2。\n\n` +
     `F. 重要：lifestyle_motivation は減少しない。患者が後ろ向きでも lifestyle_motivation_delta=0 を返す。\n\n` +
+    `G. 【生活指導合意の検出 - 重要】患者が特定の生活指導カテゴリに合意・取り組み意向を示したら lifestyle_agreements に記録する。\n` +
+    `   カテゴリ：diet（食事）, exercise（運動）, smoking（禁煙）, drinking（節酒）, weight（減量）, monitoring（自己管理: 家庭血圧/SMBG）\n` +
+    `   level の判定：\n` +
+    `   - weak: 「考えてみます」「やってみるかも」など曖昧で消極的\n` +
+    `   - moderate: 「頑張ります」「減らします」「やります」など明確な意向\n` +
+    `   - strong: 「絶対やります」「すぐ始めます」「来週から」など強い決意・具体策\n` +
+    `   例：\n` +
+    `   - 患者「タバコ、減らしてみます」→ smoking: {agreed: true, level: "moderate", detail: "減量挑戦"}\n` +
+    `   - 患者「禁煙してみます」→ smoking: {agreed: true, level: "moderate", detail: "禁煙挑戦"}\n` +
+    `   - 患者「お酒、休肝日作ります」→ drinking: {agreed: true, level: "moderate", detail: "休肝日"}\n` +
+    `   - 患者「運動、週3回30分歩きます」→ exercise: {agreed: true, level: "strong", detail: "週3回30分歩行"}\n` +
+    `   - 患者「食事、塩分減らします」→ diet: {agreed: true, level: "moderate", detail: "減塩"}\n` +
+    `   - 患者「血圧、毎日測ります」→ monitoring: {agreed: true, level: "strong", detail: "家庭血圧測定"}\n` +
+    `   - 患者「3kg痩せます」→ weight: {agreed: true, level: "moderate", detail: "3kg減量"}\n` +
+    `   既に合意済みのカテゴリは上書きしない（level 弱化を避ける）。同じカテゴリで新たな合意があれば、より強い level に更新。\n` +
+    `   合意が無い場合は lifestyle_agreements_update を {} とする。\n\n` +
     `G. 【最重要】medication_motivation_delta の特別ルール：\n` +
     `   服薬意欲★は、医師が「服薬のメリット・デメリット・効果・副作用・リスク」を具体的に説明した時のみ変動する。\n` +
     `   - 医師「この薬は〜の効果があります」「副作用として〜が起きることがあります」「薬を飲まないと〜のリスクがあります」→ +1\n` +
@@ -66,6 +82,9 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `  "exercise_habit_label": "新しい定型句、変化なしならnull",\n` +
     `  "exercise_habit_comment": "新しいコメント、変化なしならnull",\n` +
     `  "lifestyle_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
+    `  "lifestyle_agreements_update": {\n` +
+    `    "カテゴリ名": { "agreed": true, "level": "moderate", "detail": "内容" }\n` +
+    `  },\n` +
     `  "medication_motivation_delta": 整数(0または+1、医師が服薬の効果・副作用・リスクを説明した時のみ変動。それ以外は必ず0),\n` +
     `  "trust_level_delta": 整数(-2〜+2、医師の態度のみで判定),\n` +
     `  "reasoning": "1〜2文の評価理由"\n` +
@@ -138,6 +157,26 @@ export async function POST(req) {
       Math.min(5, initialTrust + 2)
     )
 
+    // 生活指導合意のマージ（積み上げ式、level 弱化は避ける）
+    const currentAgreements = currentParams.lifestyle_agreements || {}
+    const agreementsUpdate = evaluation.lifestyle_agreements_update || {}
+    const mergedAgreements = Object.assign({}, currentAgreements)
+    const levelRank = { weak: 1, moderate: 2, strong: 3 }
+    Object.keys(agreementsUpdate).forEach(function(cat) {
+      const incoming = agreementsUpdate[cat]
+      if (!incoming || !incoming.agreed) return
+      const existing = mergedAgreements[cat]
+      if (!existing || !existing.agreed) {
+        mergedAgreements[cat] = incoming
+      } else {
+        const newRank = levelRank[incoming.level] || 0
+        const oldRank = levelRank[existing.level] || 0
+        if (newRank > oldRank) {
+          mergedAgreements[cat] = incoming
+        }
+      }
+    })
+
     // Stress and busyness do NOT change in interview/treatment context (only via social support effect at next visit)
     const newParams = {
       eating_habit_label: evaluation.eating_habit_label != null ? evaluation.eating_habit_label : currentParams.eating_habit_label,
@@ -145,6 +184,7 @@ export async function POST(req) {
       exercise_habit_label: evaluation.exercise_habit_label != null ? evaluation.exercise_habit_label : currentParams.exercise_habit_label,
       exercise_habit_comment: evaluation.exercise_habit_comment != null ? evaluation.exercise_habit_comment : currentParams.exercise_habit_comment,
       lifestyle_motivation: newLifestyle,
+      lifestyle_agreements: mergedAgreements,
       medication_motivation: newMedication,
       trust_level: newTrust,
     }
