@@ -173,7 +173,17 @@ export async function POST(req) {
     const v3Diastolic = Math.max(65, startDiastolic - Math.round(totalBpReduction * 0.5) + Math.floor(Math.random() * 4) - 2)
 
     // ===== 体重変化 =====
-    const height = parseFloat(patient.vitals.height) || 165
+    // 身長: 明示指定 > V2 vitals または初期 BMI と体重から逆算 > 165cm
+    let height = parseFloat(patient.vitals.height)
+    if (!height || isNaN(height)) {
+      const refWeight = parseFloat(patient.vitals.weight) || startWeight || 70
+      const refBmi = parseFloat(patient.vitals.bmi) || startBmi || 25
+      if (refWeight > 0 && refBmi > 0) {
+        height = Math.round(Math.sqrt(refWeight / refBmi) * 100 * 10) / 10
+      } else {
+        height = 165
+      }
+    }
     const hm = height / 100
     const idealWeight = Math.round(hm * hm * 22 * 10) / 10
     const age = patient.age
@@ -209,7 +219,7 @@ export async function POST(req) {
       hr: patient.vitals.hr,
       temp: patient.vitals.temp,
       spo2: patient.vitals.spo2,
-      height: patient.vitals.height,
+      height: height,
       weight: v3Weight,
       bmi: v3Bmi,
       weight_change: -weightReduction,
