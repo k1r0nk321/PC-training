@@ -929,6 +929,7 @@ export default function Visit2Page({ params }) {
           selectedDevices: selectedDeviceData,
           reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           visit2Vitals: visit2Data?.visit2Vitals,
+          visit2Labs: visit2Data?.visit2Labs,
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
         }),
@@ -1326,7 +1327,6 @@ export default function Visit2Page({ params }) {
                         <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
                           {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
-                          {info.detail && <span style={{ fontWeight: 'normal', marginLeft: '4px', opacity: 0.8 }}>（{info.detail}）</span>}
                         </div>
                       )
                     })
