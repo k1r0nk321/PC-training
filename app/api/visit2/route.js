@@ -154,8 +154,16 @@ export async function POST(req) {
 
 // ===== 体重変化 =====
     const weight1 = parseFloat(patient.vitals.weight) || 70
-    const height = parseFloat(patient.vitals.height) || 165
     const bmi1 = parseFloat(patient.vitals.bmi) || 25
+    // 身長: 明示指定 > BMI と体重から逆算 > 165cm のフォールバック
+    let height = parseFloat(patient.vitals.height)
+    if (!height || isNaN(height)) {
+      if (weight1 > 0 && bmi1 > 0) {
+        height = Math.round(Math.sqrt(weight1 / bmi1) * 100 * 10) / 10
+      } else {
+        height = 165
+      }
+    }
 
     const hm = height / 100
     const idealWeight = Math.round(hm * hm * 22 * 10) / 10
@@ -189,7 +197,7 @@ export async function POST(req) {
       hr: patient.vitals.hr,
       temp: patient.vitals.temp,
       spo2: patient.vitals.spo2,
-      height: patient.vitals.height,
+      height: height,
       weight: weight2,
       bmi: bmi2,
       weight_change: -weightReduction,
