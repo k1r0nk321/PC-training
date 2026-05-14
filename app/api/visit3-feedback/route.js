@@ -118,7 +118,7 @@ export async function POST(req) {
 疾患：${caseData.disease_name}
 患者：${patient.name}（${patient.age}歳・${patient.gender}）
 主訴：${patient.chief_complaint}
-初診時バイタル：血圧 ${v1Vitals.bp}、体重 ${v1Vitals.weight}kg、BMI ${v1Vitals.bmi}
+初診時バイタル：${caseData.disease_name === '高血圧症' ? '血圧 ' + v1Vitals.bp + '、' : ''}体重 ${v1Vitals.weight}${String(v1Vitals.weight || '').match(/kg/) ? '' : 'kg'}、BMI ${v1Vitals.bmi}
 
 【評価における重要原則】
 - 問診の段階で患者から生活指導の合意を引き出し、その合意に基づいて治療方針を確定した項目（reaction に fromInterviewAgreement=true）は「患者中心アプローチ」として高く評価する。
@@ -152,8 +152,7 @@ ${formatMessagesShort(v2.interviewMessages, 1500)}
 患者の反応：${summarizeReactions(v2.reactionLog)}
 
 Visit 2 のバイタル変化：
-- 血圧：${v1Vitals.bp} → ${v2Vitals.bp || '(記録なし)'}
-- 体重：${v1Vitals.weight}kg → ${v2Vitals.weight || '(記録なし)'}kg
+${caseData.disease_name === '高血圧症' ? '- 血圧：' + v1Vitals.bp + ' → ' + (v2Vitals.bp || '(記録なし)') + '\n' : ''}- 体重：${v1Vitals.weight}${String(v1Vitals.weight || '').match(/kg/) ? '' : 'kg'} → ${v2Vitals.weight || '(記録なし)'}${String(v2Vitals.weight || '').match(/kg/) ? '' : (v2Vitals.weight ? 'kg' : '')}
 
 ================================================================
 【Visit 3（8週後）の経過】※今回確定された治療
@@ -169,8 +168,7 @@ ${formatMessagesShort(interviewMessages, 1500)}
 患者の反応：${summarizeReactions(reactionLog)}
 
 Visit 3 のバイタル変化：
-- 血圧：${v2Vitals.bp || v1Vitals.bp} → ${visit3Vitals?.bp || '(記録なし)'}
-- 体重：${v2Vitals.weight || v1Vitals.weight}kg → ${visit3Vitals?.weight || '(記録なし)'}kg
+${caseData.disease_name === '高血圧症' ? '- 血圧：' + (v2Vitals.bp || v1Vitals.bp) + ' → ' + (visit3Vitals?.bp || '(記録なし)') + '\n' : ''}- 体重：${v2Vitals.weight || v1Vitals.weight}${String(v2Vitals.weight || v1Vitals.weight || '').match(/kg/) ? '' : 'kg'} → ${visit3Vitals?.weight || '(記録なし)'}${String(visit3Vitals?.weight || '').match(/kg/) ? '' : (visit3Vitals?.weight ? 'kg' : '')}
 
 ================================================================
 【専門医コンサルトの推奨】
@@ -208,8 +206,8 @@ ${(() => {
 3. **患者対応（コミュニケーション）**：患者の反応に対する説明・説得・共感、拒否時の対応（約8点）
 4. **アウトカム（治療効果・改善度）**：
     - Visit 1：治療プランの妥当性が将来の改善に繋がる設計か
-    - Visit 2：Visit 1→2 の血圧・体重・検査値の改善度
-    - Visit 3：Visit 2→3 の改善度、目標達成度（血圧 < 140/90 等）（約8点）
+    - Visit 2：Visit 1→2 の疾患関連指標（${caseData.disease_name === '高血圧症' ? '血圧' : caseData.disease_name === '2型糖尿病' ? 'HbA1c・体重' : caseData.disease_name === '脂質異常症' ? 'LDL-C・体重' : '体重'}）の改善度
+    - Visit 3：Visit 2→3 の改善度、目標達成度（${caseData.disease_name === '高血圧症' ? '血圧 < 140/90' : caseData.disease_name === '2型糖尿病' ? 'HbA1c < 7.0%' : caseData.disease_name === '脂質異常症' ? 'LDL-C 目標値達成' : '体重 -3%以上'} 等）（約8点）
 
 【追加評価ポイント：専門医コンサルト】
 - 推奨「必須」でいずれの Visit でもコンサルトなし → 治療選択点を重大に減点
