@@ -124,7 +124,8 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
                   {bpChange > 0 ? '↓' : '→'} {Math.abs(bpChange)}mmHg {bpChange > 0 ? '低下' : '変化なし'}
                 </p>
               )}
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : patient.vitals.weight}kg　BMI：{visit2Vitals ? visit2Vitals.bmi : patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}　身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : (patient.vitals.weight || '—')}{(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight) && !String(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{visit2Vitals ? visit2Vitals.bmi : patient.vitals.bmi}</p>
               {weightChange !== undefined && (
                 <p style={{ fontSize: '11px', color: weightChange < 0 ? '#16a34a' : '#64748b' }}>
                   {weightChange < 0 ? '↓' : '→'} {Math.abs(weightChange)}kg {weightChange < 0 ? '減少' : '変化なし'}
@@ -133,8 +134,8 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
             </div>
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>初診時バイタル</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>体重：{patient.vitals.weight}kg　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{patient.vitals.bmi}</p>
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
             </div>
           </div>
