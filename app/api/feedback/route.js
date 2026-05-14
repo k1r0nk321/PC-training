@@ -105,6 +105,12 @@ export async function POST(req) {
     const totalReactions = (reactionLog || []).length
     const persuasionRate = totalReactions > 0 ? Math.round(acceptedCount / totalReactions * 100) : 0
 
+    // 問診合意による治療決定の集計
+    const fromAgreementCount = (reactionLog || []).filter(function(r) { return r.fromInterviewAgreement === true }).length
+    const fromAgreementCategories = (reactionLog || []).filter(function(r) { return r.fromInterviewAgreement === true }).map(function(r) {
+      return (r.item && r.item.instruction_key) || (r.item && r.item.category) || ''
+    }).filter(Boolean).join('、')
+
     // 問診回数
     const interviewCount = (interviewMessages || []).filter(function(m) { return m.role === 'user' }).length
 
@@ -127,11 +133,13 @@ export async function POST(req) {
 - 緩やかな指導中心：${hasMildIntervention && !hasStrictIntervention ? 'はい' : 'いいえ'}
 - 患者の同意率：${persuasionRate}%（${acceptedCount}/${totalReactions}件）
 - 問診回数：${interviewCount}回
+- 問診合意による治療決定数：${fromAgreementCount}件${fromAgreementCount > 0 ? '（' + fromAgreementCategories + '）' : ''}
 
 【重要な評価ポイント】
 ${lifestyleBadness >= 4 ? '- この患者は生活習慣が非常に悪く改善余地が大きいため、緩やかな指導でも効果が出やすい。緩やかな指導を選択したことは適切な可能性がある。' : ''}
 ${resistanceLevel.includes('非常に高い') || resistanceLevel.includes('高い') ? '- この患者は治療への抵抗性が強いため、多くの介入より患者が受け入れられる範囲での指導が重要。少数の指導で同意を得られた場合は高評価。' : ''}
 ${persuasionRate >= 70 ? '- 患者の同意率が高く、説得が上手くいっている。' : persuasionRate < 40 ? '- 患者の同意率が低い。説得が不十分か介入が患者に合っていない可能性がある。' : ''}
+${fromAgreementCount > 0 ? '- 問診の段階で生活指導の合意を得て治療方針を確定した：' + fromAgreementCategories + '。これは患者中心アプローチとして高く評価される。仮にガイドライン的にはやや控えめな介入であっても、患者の自発的な変化意欲を引き出して同意を得た上での初期介入として「適切」と判定する。次回 Visit で段階的に強化していく方針が妥当。' : ''}
 `
 
     const prompt = `あなたはプライマリケア研修医の指導医AIです。
