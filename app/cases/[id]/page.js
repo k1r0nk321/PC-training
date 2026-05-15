@@ -208,7 +208,7 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
               <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
             </div>
           </div>
-          {patient.labs && (
+          {labsRevealed && patient.labs && (
             <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
               <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 4px' }}>💉 検査結果（Visit 1 初診時）</p>
               {renderLabTags(patient.labs, null)}
@@ -348,6 +348,7 @@ export default function CaseDetailPage({ params }) {
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [coachingMode, setCoachingMode] = useState('recommended_only')
+  const [labsRevealed, setLabsRevealed] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null)
 
   // 指導医モード設定をユーザー設定から取得
@@ -511,23 +512,44 @@ export default function CaseDetailPage({ params }) {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
+
+    // 検査オーダー検知: patient.labs から検査結果を chat に提示し、検査結果セクションを表示
+    if (userMessage.includes('検査') && caseData?.patient_data?.labs && !labsRevealed) {
+      setLabsRevealed(true)
+      const labs = caseData.patient_data.labs
+      const lines = []
+      if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
+      if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
+      if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
+      if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
+      if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
+      if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
+      if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
+      if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
+      if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
+      if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
+      if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
+      if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
+      if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
+      if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
+      if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
+      if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
+      if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
+      if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
+      const labText = '【血液・尿検査結果】\n\n' + lines.join('、')
+      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
+      return
+    }
+
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
-      // 検査結果は patient.labs にあれば必ずそれを使う（一貫性のため）
-      const labsText = patient.labs && typeof patient.labs === 'object'
-        ? '\n【検査結果（医師から指示された場合のみ提示すること）】\n' +
-          Object.entries(patient.labs).map(function(entry) {
-            return entry[0] + ': ' + entry[1]
-          }).join('、')
-        : ''
       const system = 'あなたは外来診療シミュレーションの患者AIです。名前：' + patient.name +
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。' +
-        (patient.labs ? '\n※ 検査値は画面上の「💉 検査結果」セクションに既に表示されています。患者から検査値を聞かれた場合は「検査結果はカルテをご覧ください」と返答し、自分から具体的な数値を述べないこと。' : '\n診察・検査を指示された場合は結果を提示する。')
+        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -867,6 +889,7 @@ export default function CaseDetailPage({ params }) {
           selectedSubOptions: selectedSubOptions, reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
+          labsRevealed: labsRevealed,
         }),
       })
       const data = await res.json()
