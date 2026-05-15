@@ -137,8 +137,8 @@ function renderLabTags(labs, prevLabs) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, collapsed, onToggle }) {
-  const [labsStep, setLabsStep] = useState(1)
+function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, labsRevealed, v1Revealed, v2Revealed, collapsed, onToggle }) {
+  const [labsStep, setLabsStep] = useState(v1Revealed ? 1 : (v2Revealed ? 2 : (labsRevealed ? 3 : 1)))
   const bpChange = visit3Vitals?.bp_change
   const weightChange = visit3Vitals?.weight_change
   const v1Meds = visit1Data?.selectedMedications || []
@@ -241,26 +241,34 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
             )}
           </div>
+          {(v1Revealed || v2Revealed || labsRevealed) && (
           <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
             <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 6px' }}>💉 検査結果</p>
             <div style={{ display: 'flex', gap: '4px', marginBottom: '4px', flexWrap: 'wrap' }}>
-              <button onClick={function() { setLabsStep(1) }}
-                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
-                Step 1: 初診時
-              </button>
-              <button onClick={function() { setLabsStep(2) }}
-                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
-                Step 2: 再診時（4週後）
-              </button>
-              <button onClick={function() { setLabsStep(3) }}
-                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 3 ? '#16a34a' : 'white', color: labsStep === 3 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 3 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 3 ? 'bold' : 'normal' }}>
-                Step 3: 第3回（8週後）
-              </button>
+              {v1Revealed && (
+                <button onClick={function() { setLabsStep(1) }}
+                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
+                  Step 1: 初診時
+                </button>
+              )}
+              {v2Revealed && (
+                <button onClick={function() { setLabsStep(2) }}
+                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
+                  Step 2: 再診時（4週後）
+                </button>
+              )}
+              {labsRevealed && (
+                <button onClick={function() { setLabsStep(3) }}
+                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 3 ? '#16a34a' : 'white', color: labsStep === 3 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 3 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 3 ? 'bold' : 'normal' }}>
+                  Step 3: 第3回（8週後）
+                </button>
+              )}
             </div>
-            {labsStep === 1 && renderLabTags(patient.labs, null)}
-            {labsStep === 2 && renderLabTags(visit2Data?.visit2Labs, patient.labs)}
-            {labsStep === 3 && renderLabTags(visit3Labs, visit2Data?.visit2Labs)}
+            {labsStep === 1 && v1Revealed && renderLabTags(patient.labs, null)}
+            {labsStep === 2 && v2Revealed && renderLabTags(visit2Data?.visit2Labs, patient.labs)}
+            {labsStep === 3 && labsRevealed && renderLabTags(visit3Labs, visit2Data?.visit2Labs)}
           </div>
+          )}
         </div>
       )}
     </div>
@@ -604,7 +612,7 @@ export default function Visit3Page({ params }) {
       const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
       const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
       const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
-      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' + + '\n※ 検査値は画面上の「💉 検査結果」セクションに表示されています。具体的な数値を聞かれた場合は「検査結果はカルテをご覧ください」と返答すること。'
+      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit3Vitals?.bp || patient.vitals.bp) + '。' +
@@ -1378,6 +1386,9 @@ export default function Visit3Page({ params }) {
             visit3Labs={visit3Data.visit3Labs}
             visit2Data={caseData.visit2_data}
             visit1Data={caseData.visit2_data}
+            labsRevealed={labsRevealed}
+            v1Revealed={!!(caseData.visit1_data && caseData.visit1_data.labsRevealed)}
+            v2Revealed={!!(caseData.visit2_data && caseData.visit2_data.labsRevealed)}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
@@ -1741,6 +1752,9 @@ export default function Visit3Page({ params }) {
           visit3Labs={visit3Data.visit3Labs}
           visit2Data={caseData.visit2_data}
           visit1Data={caseData.visit2_data}
+          labsRevealed={labsRevealed}
+          v1Revealed={!!(caseData.visit1_data && caseData.visit1_data.labsRevealed)}
+          v2Revealed={!!(caseData.visit2_data && caseData.visit2_data.labsRevealed)}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
