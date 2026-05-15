@@ -32,6 +32,67 @@ const STRICTNESS_LABEL = {
   very_mild: '最小限', none: 'なし'
 }
 
+// ===== 検査結果表示用 定数とヘルパー =====
+const LAB_LABELS = {
+  hba1c: { name: 'HbA1c', unit: '%' },
+  glucose: { name: '空腹時血糖', unit: 'mg/dL' },
+  ldl: { name: 'LDL-C', unit: 'mg/dL' },
+  hdl: { name: 'HDL-C', unit: 'mg/dL' },
+  tg: { name: 'TG', unit: 'mg/dL' },
+  total_cholesterol: { name: 'TC', unit: 'mg/dL' },
+  non_hdl_c: { name: 'Non-HDL-C', unit: 'mg/dL' },
+  na: { name: 'Na', unit: 'mEq/L' },
+  k: { name: 'K', unit: 'mEq/L' },
+  cr: { name: 'Cr', unit: 'mg/dL' },
+  bun: { name: 'BUN', unit: 'mg/dL' },
+  egfr: { name: 'eGFR', unit: 'mL/min/1.73m²' },
+  ua: { name: 'UA', unit: 'mg/dL' },
+  ast: { name: 'AST', unit: 'U/L' },
+  alt: { name: 'ALT', unit: 'U/L' },
+  ck: { name: 'CK', unit: 'U/L' },
+  urine_alb: { name: '尿Alb', unit: 'mg/g·Cr' },
+  urine_protein: { name: '尿蛋白', unit: '' },
+  bnp: { name: 'BNP', unit: 'pg/mL' },
+  alb: { name: 'Alb', unit: 'g/dL' },
+}
+const LAB_ORDER = ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ast', 'alt', 'ck', 'urine_alb', 'urine_protein', 'bnp', 'alb']
+
+function renderLabTag(key, val, prevVal) {
+  const def = LAB_LABELS[key]
+  if (!def) return null
+  let deltaText = ''
+  let deltaColor = '#64748b'
+  if (prevVal != null && typeof val === 'number' && typeof prevVal === 'number') {
+    const delta = Math.round((val - prevVal) * 100) / 100
+    if (delta !== 0) {
+      const sign = delta > 0 ? '+' : ''
+      deltaText = ' (' + sign + delta + ')'
+      // 改善 = 緑 (HDL は上、それ以外は下が改善)
+      const higherIsBetter = key === 'hdl' || key === 'egfr'
+      const improved = higherIsBetter ? delta > 0 : delta < 0
+      deltaColor = improved ? '#16a34a' : '#dc2626'
+    }
+  }
+  return (
+    <span key={key} style={{ display: 'inline-block', padding: '4px 10px', backgroundColor: 'white', borderRadius: '999px', fontSize: '11px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+      <span style={{ color: '#64748b' }}>{def.name}:</span>{' '}
+      <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{val}</span>
+      {def.unit ? <span style={{ color: '#94a3b8', fontSize: '10px' }}>{' ' + def.unit}</span> : null}
+      {deltaText ? <span style={{ color: deltaColor, fontWeight: 'bold', marginLeft: '3px' }}>{deltaText}</span> : null}
+    </span>
+  )
+}
+function renderLabTags(labs, prevLabs) {
+  if (!labs || typeof labs !== 'object') return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
+  const present = LAB_ORDER.filter(function(k) { return labs[k] != null && labs[k] !== '' })
+  if (present.length === 0) return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+      {present.map(function(k) { return renderLabTag(k, labs[k], prevLabs ? prevLabs[k] : null) })}
+    </div>
+  )
+}
+
 function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
   const [open, setOpen] = useState(defaultOpen !== false)
   return (
@@ -147,6 +208,12 @@ function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
               <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
             </div>
           </div>
+          {patient.labs && (
+            <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
+              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 4px' }}>💉 検査結果（Visit 1 初診時）</p>
+              {renderLabTags(patient.labs, null)}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -459,9 +526,8 @@ export default function CaseDetailPage({ params }) {
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。' +
-        labsText +
-        (labsText ? '\n※ 検査値を提示する場合は必ず上記の値を使用すること。値を勝手に変えたり創作したりしないこと。' : '')
+        '。患者として自然な日本語で150文字以内で応答する。' +
+        (patient.labs ? '\n※ 検査値は画面上の「💉 検査結果」セクションに既に表示されています。患者から検査値を聞かれた場合は「検査結果はカルテをご覧ください」と返答し、自分から具体的な数値を述べないこと。' : '\n診察・検査を指示された場合は結果を提示する。')
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
