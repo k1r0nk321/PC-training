@@ -286,9 +286,23 @@ export async function POST(req) {
           alt: rI(baselineForV3.alt),
         }
       } else if (disease === '2型糖尿病') {
-        // 4 週間後はさらに -0.1〜-0.3% / 月の改善
-        const hba1cDelta = -(dmDrugCount * 0.15) - (lifestyleFactor * 0.1) + (hasInsulin ? -0.3 : 0)
-        const glucoseDelta = -(dmDrugCount * 8) - (lifestyleFactor * 5) + (hasInsulin ? -10 : 0)
+        // === 1 Visit (4 週間) あたりの HbA1c 変化（先生指定値、V2→V3 にも同じ式を適用）===
+        // 体重 1kg減 → -0.2%、生活習慣 → 最大 -0.5%
+        // 経口薬: 1剤目 -0.7%、2剤目追加 -0.6%、3剤目追加 -0.5%
+        // BOT → -1.0%、アドヒアランス補正のみ、総 cap なし
+        // weightReduction は V2→V3 の追加 kg
+        const wKg3 = (typeof weightReduction === 'number' && weightReduction > 0) ? weightReduction : 0
+        const v3WeightEffect = -(wKg3 * 0.20)
+        const v3LifestyleEffect = -Math.min(lifestyleFactor * 1.0, 0.5)
+        const oralCount3 = [hasMetformin, hasSGLT2, hasGLP1 && !hasInsulin, hasDPP4, hasSU].filter(function(b) { return b }).length
+        let oralEffect3 = 0
+        if (oralCount3 >= 1) oralEffect3 -= 0.7
+        if (oralCount3 >= 2) oralEffect3 -= 0.6
+        if (oralCount3 >= 3) oralEffect3 -= 0.5
+        const insulinEffect3 = hasInsulin ? -1.0 : 0
+        const adherenceFactor3 = Math.max(0.5, Math.min(1.0, effectiveAdherence || 0.7))
+        const hba1cDelta = (v3WeightEffect + v3LifestyleEffect + oralEffect3 + insulinEffect3) * adherenceFactor3
+        const glucoseDelta = hba1cDelta * 30
         visit3Labs = {
           hba1c: r1((baselineForV3.hba1c || 7.0) + hba1cDelta),
           glucose: rI((baselineForV3.glucose || 130) + glucoseDelta),
