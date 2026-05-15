@@ -76,7 +76,69 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, collapsed, onToggle }) {
+// ===== 検査結果表示用 定数とヘルパー =====
+const LAB_LABELS = {
+  hba1c: { name: 'HbA1c', unit: '%' },
+  glucose: { name: '空腹時血糖', unit: 'mg/dL' },
+  ldl: { name: 'LDL-C', unit: 'mg/dL' },
+  hdl: { name: 'HDL-C', unit: 'mg/dL' },
+  tg: { name: 'TG', unit: 'mg/dL' },
+  total_cholesterol: { name: 'TC', unit: 'mg/dL' },
+  non_hdl_c: { name: 'Non-HDL-C', unit: 'mg/dL' },
+  na: { name: 'Na', unit: 'mEq/L' },
+  k: { name: 'K', unit: 'mEq/L' },
+  cr: { name: 'Cr', unit: 'mg/dL' },
+  bun: { name: 'BUN', unit: 'mg/dL' },
+  egfr: { name: 'eGFR', unit: 'mL/min/1.73m²' },
+  ua: { name: 'UA', unit: 'mg/dL' },
+  ast: { name: 'AST', unit: 'U/L' },
+  alt: { name: 'ALT', unit: 'U/L' },
+  ck: { name: 'CK', unit: 'U/L' },
+  urine_alb: { name: '尿Alb', unit: 'mg/g·Cr' },
+  urine_protein: { name: '尿蛋白', unit: '' },
+  bnp: { name: 'BNP', unit: 'pg/mL' },
+  alb: { name: 'Alb', unit: 'g/dL' },
+}
+const LAB_ORDER = ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ast', 'alt', 'ck', 'urine_alb', 'urine_protein', 'bnp', 'alb']
+
+function renderLabTag(key, val, prevVal) {
+  const def = LAB_LABELS[key]
+  if (!def) return null
+  let deltaText = ''
+  let deltaColor = '#64748b'
+  if (prevVal != null && typeof val === 'number' && typeof prevVal === 'number') {
+    const delta = Math.round((val - prevVal) * 100) / 100
+    if (delta !== 0) {
+      const sign = delta > 0 ? '+' : ''
+      deltaText = ' (' + sign + delta + ')'
+      // 改善 = 緑 (HDL は上、それ以外は下が改善)
+      const higherIsBetter = key === 'hdl' || key === 'egfr'
+      const improved = higherIsBetter ? delta > 0 : delta < 0
+      deltaColor = improved ? '#16a34a' : '#dc2626'
+    }
+  }
+  return (
+    <span key={key} style={{ display: 'inline-block', padding: '4px 10px', backgroundColor: 'white', borderRadius: '999px', fontSize: '11px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+      <span style={{ color: '#64748b' }}>{def.name}:</span>{' '}
+      <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{val}</span>
+      {def.unit ? <span style={{ color: '#94a3b8', fontSize: '10px' }}>{' ' + def.unit}</span> : null}
+      {deltaText ? <span style={{ color: deltaColor, fontWeight: 'bold', marginLeft: '3px' }}>{deltaText}</span> : null}
+    </span>
+  )
+}
+function renderLabTags(labs, prevLabs) {
+  if (!labs || typeof labs !== 'object') return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
+  const present = LAB_ORDER.filter(function(k) { return labs[k] != null && labs[k] !== '' })
+  if (present.length === 0) return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+      {present.map(function(k) { return renderLabTag(k, labs[k], prevLabs ? prevLabs[k] : null) })}
+    </div>
+  )
+}
+
+function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit1Data, collapsed, onToggle }) {
+  const [labsStep, setLabsStep] = useState(1)
   const bpChange = visit2Vitals?.bp_change
   const weightChange = visit2Vitals?.weight_change
   const v1Meds = visit1Data?.selectedMedications || []
@@ -178,6 +240,21 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit1Data, colla
             {v1Meds.length === 0 && v1Subs.length === 0 && v1Edu.length === 0 && (
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
             )}
+          </div>
+          <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 6px' }}>💉 検査結果</p>
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+              <button onClick={function() { setLabsStep(1) }}
+                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
+                Step 1: 初診時
+              </button>
+              <button onClick={function() { setLabsStep(2) }}
+                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
+                Step 2: 再診時（4週後）
+              </button>
+            </div>
+            {labsStep === 1 && renderLabTags(patient.labs, null)}
+            {labsStep === 2 && renderLabTags(visit2Labs, patient.labs)}
           </div>
         </div>
       )}
@@ -518,7 +595,7 @@ export default function Visit2Page({ params }) {
       const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
       const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
       const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
-      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
+      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' + + '\n※ 検査値は画面上の「💉 検査結果」セクションに表示されています。具体的な数値を聞かれた場合は「検査結果はカルテをご覧ください」と返答すること。'
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
@@ -1286,6 +1363,7 @@ export default function Visit2Page({ params }) {
             patient={patient}
             diseaseName={caseData.disease_name}
             visit2Vitals={visit2Data.visit2Vitals}
+            visit2Labs={visit2Data.visit2Labs}
             visit1Data={caseData.visit1_data}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
@@ -1646,6 +1724,7 @@ export default function Visit2Page({ params }) {
           patient={patient}
           diseaseName={caseData.disease_name}
           visit2Vitals={visit2Data.visit2Vitals}
+          visit2Labs={visit2Data.visit2Labs}
           visit1Data={caseData.visit1_data}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
