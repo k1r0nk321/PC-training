@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 
 function getAdminClient() {
   return createClient(
@@ -125,7 +126,7 @@ ${interviewSummary}
   ]
 }`
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }],
