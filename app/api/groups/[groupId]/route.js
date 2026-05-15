@@ -98,7 +98,7 @@ export async function GET(req, { params }) {
     const enriched = (members || []).map(function(m) {
       const profile = profileMap[m.user_id] || null
       const userCases = (allCases || []).filter(function(c) { return c.user_id === m.user_id })
-      const passedCases = userCases.filter(function(c) { return c.final_score !== null && c.final_score >= 80 })
+      const passedCases = userCases.filter(function(c) { return c.final_score !== null && c.final_score >= 70 })
       const passCount = passedCases.length
 
       const passedModelCaseIds = new Set(
