@@ -50,8 +50,7 @@ export async function POST(req) {
       patientData, scenarioData, selectedMedications, selectedEducation,
       selectedSubOptions, selectedDevices, reactionLog,
       interviewMessages, visit2Vitals, visit2Labs,
-      consultation, discontinuedExistingMeds,
-    } = await req.json()
+      consultation, discontinuedExistingMeds, labsRevealed} = await req.json()
 
     const supabase = getAdminClient()
     const hidden = patientData.hidden_params
@@ -295,6 +294,7 @@ ${guidelineText}
         interviewMessages: interviewMessages || [],
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
+        labsRevealed: !!labsRevealed,
       }
       updateData.visit1_consultation = consultation || null
     } else if (visitNumber === 2) {
@@ -312,6 +312,7 @@ ${guidelineText}
         vitals: visit2Vitals,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
+        labsRevealed: !!labsRevealed,
       })
       updateData.visit2_consultation = consultation || null
     }
