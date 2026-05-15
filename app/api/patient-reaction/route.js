@@ -1,6 +1,7 @@
 export const maxDuration = 60
 
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -282,7 +283,7 @@ JSONのみで返すこと（前後のテキスト一切不要）：
   "key_concern": "患者が最も気にしていること（15文字以内、なければ空文字）"
 }`
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
