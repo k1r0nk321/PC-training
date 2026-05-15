@@ -137,8 +137,8 @@ function renderLabTags(labs, prevLabs) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit1Data, collapsed, onToggle }) {
-  const [labsStep, setLabsStep] = useState(1)
+function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit1Data, labsRevealed, v1Revealed, collapsed, onToggle }) {
+  const [labsStep, setLabsStep] = useState(v1Revealed ? 1 : (labsRevealed ? 2 : 1))
   const bpChange = visit2Vitals?.bp_change
   const weightChange = visit2Vitals?.weight_change
   const v1Meds = visit1Data?.selectedMedications || []
@@ -241,21 +241,27 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
             )}
           </div>
+          {(v1Revealed || labsRevealed) && (
           <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
             <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 6px' }}>💉 検査結果</p>
             <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-              <button onClick={function() { setLabsStep(1) }}
-                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
-                Step 1: 初診時
-              </button>
-              <button onClick={function() { setLabsStep(2) }}
-                style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
-                Step 2: 再診時（4週後）
-              </button>
+              {v1Revealed && (
+                <button onClick={function() { setLabsStep(1) }}
+                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
+                  Step 1: 初診時
+                </button>
+              )}
+              {labsRevealed && (
+                <button onClick={function() { setLabsStep(2) }}
+                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
+                  Step 2: 再診時（4週後）
+                </button>
+              )}
             </div>
-            {labsStep === 1 && renderLabTags(patient.labs, null)}
-            {labsStep === 2 && renderLabTags(visit2Labs, patient.labs)}
+            {labsStep === 1 && v1Revealed && renderLabTags(patient.labs, null)}
+            {labsStep === 2 && labsRevealed && renderLabTags(visit2Labs, patient.labs)}
           </div>
+          )}
         </div>
       )}
     </div>
@@ -595,7 +601,7 @@ export default function Visit2Page({ params }) {
       const v1Meds = v1MedsArr.length > 0 ? v1MedsArr.join('、') : 'なし（処方なし）'
       const v1EduArr = (v1.selectedEducation || []).map(function(e) { return e.instruction_key })
       const v1Edu = v1EduArr.length > 0 ? v1EduArr.join('、') : 'なし（生活指導なし）'
-      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' + + '\n※ 検査値は画面上の「💉 検査結果」セクションに表示されています。具体的な数値を聞かれた場合は「検査結果はカルテをご覧ください」と返答すること。'
+      const system = 'あなたは外来診療シミュレーションの患者AIです。4週間前に' + caseData.disease_name + 'で初診し治療を開始した患者として応答してください。' +
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
