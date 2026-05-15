@@ -112,8 +112,8 @@ export async function GET(req) {
 
     const allCompleted = completed || []
 
-    // 合格 = final_score >= 80（モデル症例 + ランダム症例 すべて含む）
-    const passedCases = allCompleted.filter(function(c) { return c.final_score !== null && c.final_score >= 80 })
+    // 合格 = final_score >= 70（モデル症例 + ランダム症例 すべて含む）
+    const passedCases = allCompleted.filter(function(c) { return c.final_score !== null && c.final_score >= 70 })
     const passCount = passedCases.length
 
     // 領域達成度計算: モデル症例のみが対象
