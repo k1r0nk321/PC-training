@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 import { createClient } from '@supabase/supabase-js'
 
 export const maxDuration = 30
@@ -49,7 +50,7 @@ export async function POST(req) {
       '  "rationale": "ガイドライン参照根拠（30文字以内）"' + '\n' +
       '}'
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
       messages: [{ role: 'user', content: prompt }],
