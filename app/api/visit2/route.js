@@ -222,18 +222,116 @@ export async function POST(req) {
       bp_change: systolic1 - systolic2,
     }
 
-    // ===== 血液検査結果 =====
-    const visit2Labs = {
-      na: 140 + Math.floor(Math.random() * 5),
-      k: Math.round((3.8 + Math.random() * 0.6) * 10) / 10,
-      cr: Math.round((0.7 + Math.random() * 0.4) * 10) / 10,
-      bun: 14 + Math.floor(Math.random() * 6),
-      egfr: 65 + Math.floor(Math.random() * 25),
-      ldl: Math.round(120 + Math.random() * 30 - totalLifestyleEffect * 0.5),
-      hdl: Math.round(55 + Math.random() * 15),
-      tg: Math.round(130 + Math.random() * 40 - totalLifestyleEffect * 0.8),
-      hba1c: Math.round((5.8 + Math.random() * 0.6) * 10) / 10,
-      ua: Math.round((5.0 + Math.random() * 2.0) * 10) / 10,
+    // ===== 血液検査結果（baseline labs + 疾患別 intervention delta）=====
+    const baselineLabs = (patient.labs && typeof patient.labs === 'object') ? patient.labs : null
+    const disease = caseData.disease_name
+    const r1 = function(v) { return v == null ? null : Math.round(v * 10) / 10 }
+    const rI = function(v) { return v == null ? null : Math.round(v) }
+    let visit2Labs
+
+    if (baselineLabs) {
+      const totalLE = totalLifestyleEffect || 0
+      const consentedMedNames = consentedMeds.map(function(m) { return (m.drug_name_generic || '') + '|' + (m.drug_name_brand || '') + '|' + (m.medication_class || '') }).join(' ')
+      const hasDiuretic = /thiazide|diuretic|フロセミド|ヒドロクロロチアジド|スピロノラクトン|トリクロル|インダパミド|利尿/.test(consentedMedNames)
+      const hasARB_ACE = /ARB|ACE|RAS|バルサルタン|オルメサルタン|アジルサルタン|テルミサルタン|ロサルタン|カンデサルタン|イルベサルタン|エナラプリル|ペリンドプリル/.test(consentedMedNames)
+      const hasStatin = /スタチン|statin|ロスバスタチン|アトルバスタチン|プラバスタチン|ピタバスタチン|シンバスタチン/.test(consentedMedNames)
+      const hasEzetimibe = /エゼチミブ|ゼチーア/.test(consentedMedNames)
+      const hasFibrate = /フィブラート|フェノフィブラート|ベザフィブラート/.test(consentedMedNames)
+      const hasMetformin = /メトホルミン/.test(consentedMedNames)
+      const hasSGLT2 = /エンパグリフロジン|ダパグリフロジン|カナグリフロジン|イプラグリフロジン|トホグリフロジン|SGLT2/.test(consentedMedNames)
+      const hasGLP1 = /セマグルチド|デュラグルチド|リラグルチド|オゼンピック|リベルサス|マンジャロ|チルゼパチド|GLP/.test(consentedMedNames)
+      const hasDPP4 = /シタグリプチン|リナグリプチン|テネリグリプチン|ビルダグリプチン|アログリプチン|アナグリプチン|オマリグリプチン/.test(consentedMedNames)
+      const hasSU = /グリメピリド|グリクラジド|グリベンクラミド/.test(consentedMedNames)
+      const hasInsulin = /インスリン|グラルギン|デグルデク|トレシーバ|アスパルト|リスプロ/.test(consentedMedNames)
+      const lifestyleFactor = Math.min(totalLE * 0.01, 1.0)
+
+      if (disease === '高血圧症') {
+        visit2Labs = {
+          na: rI(baselineLabs.na),
+          k: r1((baselineLabs.k || 4.0) + (hasDiuretic ? -0.3 : 0) + (hasARB_ACE ? 0.2 : 0)),
+          cr: r1(baselineLabs.cr),
+          bun: rI(baselineLabs.bun),
+          egfr: rI(baselineLabs.egfr),
+          ldl: rI((baselineLabs.ldl || 120) * (1 - lifestyleFactor * 0.05) + (hasStatin ? -(baselineLabs.ldl || 120) * 0.3 : 0)),
+          hdl: rI(baselineLabs.hdl),
+          tg: rI((baselineLabs.tg || 130) * (1 - lifestyleFactor * 0.1) + (hasFibrate ? -(baselineLabs.tg || 130) * 0.3 : 0)),
+          hba1c: r1(baselineLabs.hba1c),
+          glucose: rI(baselineLabs.glucose),
+          ua: r1((baselineLabs.ua || 5.0) + (hasDiuretic ? 0.5 : 0)),
+          ast: rI(baselineLabs.ast),
+          alt: rI(baselineLabs.alt),
+        }
+      } else if (disease === '2型糖尿病') {
+        // === 1 Visit (4 週間) あたりの HbA1c 変化（先生指定値）===
+        // 体重 1kg減 → -0.2%、生活習慣改善 → 最大 -0.5%
+        // 経口薬: 1剤目 -0.7%、2剤目追加 -0.6%、3剤目追加 -0.5%
+        // BOT (インスリン) → -1.0%、アドヒアランス補正 (×0.5〜1.0)、総 cap なし
+        const wKg = (typeof weightReduction === 'number' && weightReduction > 0) ? weightReduction : 0
+        const weightEffect = -(wKg * 0.20)
+        const lifestyleHba1cEffect = -Math.min(lifestyleFactor * 1.0, 0.5)
+        const oralCount = [hasMetformin, hasSGLT2, hasGLP1 && !hasInsulin, hasDPP4, hasSU].filter(function(b) { return b }).length
+        let oralEffect = 0
+        if (oralCount >= 1) oralEffect -= 0.7
+        if (oralCount >= 2) oralEffect -= 0.6
+        if (oralCount >= 3) oralEffect -= 0.5
+        const insulinEffect = hasInsulin ? -1.0 : 0
+        const adherenceFactor = Math.max(0.5, Math.min(1.0, effectiveAdherence || 0.7))
+        const hba1cDelta = (weightEffect + lifestyleHba1cEffect + oralEffect + insulinEffect) * adherenceFactor
+        const glucoseDelta = hba1cDelta * 30  // HbA1c -1% ≈ FPG -30 mg/dL (一般則)
+
+        visit2Labs = {
+          hba1c: r1((baselineLabs.hba1c || 7.0) + hba1cDelta),
+          glucose: rI((baselineLabs.glucose || 130) + glucoseDelta),
+          ldl: rI((baselineLabs.ldl || 120) * (1 - lifestyleFactor * 0.08) + (hasStatin ? -(baselineLabs.ldl || 120) * 0.3 : 0)),
+          hdl: rI(baselineLabs.hdl),
+          tg: rI((baselineLabs.tg || 130) * (1 - lifestyleFactor * 0.15)),
+          cr: r1((baselineLabs.cr || 0.9) + (hasSGLT2 ? 0.05 : 0)),
+          egfr: rI((baselineLabs.egfr || 75) + (hasSGLT2 ? -3 : 0)),
+          bun: rI(baselineLabs.bun),
+          ua: r1(baselineLabs.ua),
+          ast: rI(baselineLabs.ast),
+          alt: rI(baselineLabs.alt),
+          urine_alb: baselineLabs.urine_alb != null ? rI((baselineLabs.urine_alb || 20) * (hasSGLT2 || hasARB_ACE ? 0.85 : 1)) : null,
+          urine_protein: baselineLabs.urine_protein,
+        }
+        if (baselineLabs.bnp != null) visit2Labs.bnp = rI(baselineLabs.bnp * (hasSGLT2 ? 0.8 : 1))
+        if (baselineLabs.k != null) visit2Labs.k = r1(baselineLabs.k)
+        if (baselineLabs.na != null) visit2Labs.na = rI(baselineLabs.na)
+      } else if (disease === '脂質異常症') {
+        const ldlReductionPct = (hasStatin ? 0.35 : 0) + (hasEzetimibe && !hasStatin ? 0.20 : 0) + (hasEzetimibe && hasStatin ? 0.15 : 0) + (lifestyleFactor * 0.03)
+        const tgReductionPct = (hasFibrate ? 0.30 : 0) + (hasStatin ? 0.10 : 0) + (lifestyleFactor * 0.04)
+        visit2Labs = {
+          ldl: rI((baselineLabs.ldl || 150) * (1 - ldlReductionPct)),
+          hdl: rI((baselineLabs.hdl || 50) + (hasStatin ? 3 : 0)),
+          tg: rI((baselineLabs.tg || 130) * (1 - tgReductionPct)),
+          total_cholesterol: baselineLabs.total_cholesterol != null ? rI((baselineLabs.total_cholesterol || 220) * (1 - ldlReductionPct * 0.7)) : null,
+          non_hdl_c: baselineLabs.non_hdl_c != null ? rI((baselineLabs.non_hdl_c || 180) * (1 - ldlReductionPct * 0.9)) : null,
+          hba1c: r1(baselineLabs.hba1c),
+          glucose: rI(baselineLabs.glucose),
+          ast: rI((baselineLabs.ast || 22) + (hasStatin ? 2 : 0)),
+          alt: rI((baselineLabs.alt || 24) + (hasStatin ? 2 : 0)),
+          ck: rI((baselineLabs.ck || 110) + (hasStatin ? 15 : 0)),
+          cr: r1(baselineLabs.cr),
+          egfr: rI(baselineLabs.egfr),
+          bun: rI(baselineLabs.bun),
+          ua: r1(baselineLabs.ua),
+        }
+      } else {
+        visit2Labs = Object.assign({}, baselineLabs)
+      }
+    } else {
+      visit2Labs = {
+        na: 140 + Math.floor(Math.random() * 5),
+        k: Math.round((3.8 + Math.random() * 0.6) * 10) / 10,
+        cr: Math.round((0.7 + Math.random() * 0.4) * 10) / 10,
+        bun: 14 + Math.floor(Math.random() * 6),
+        egfr: 65 + Math.floor(Math.random() * 25),
+        ldl: Math.round(120 + Math.random() * 30 - totalLifestyleEffect * 0.5),
+        hdl: Math.round(55 + Math.random() * 15),
+        tg: Math.round(130 + Math.random() * 40 - totalLifestyleEffect * 0.8),
+        hba1c: Math.round((5.8 + Math.random() * 0.6) * 10) / 10,
+        ua: Math.round((5.0 + Math.random() * 2.0) * 10) / 10,
+      }
     }
 
     // ===== 患者の4週間コメント生成 =====
