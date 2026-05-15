@@ -1,6 +1,7 @@
 export const maxDuration = 60
 
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -72,7 +73,7 @@ ${patient.social_history}
 田村内科クリニック
 医師　田村 健一`
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
