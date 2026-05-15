@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 
 export const maxDuration = 30
 
@@ -34,7 +35,7 @@ export async function POST(req) {
       + '- 2〜3文で完結\n'
       + '- 改行は使わず1〜2段落に収める'
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
