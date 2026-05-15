@@ -168,7 +168,7 @@ function groupSubOptions(subOptions) {
 }
 
 // 患者情報コンパクトカード（治療方針画面用）
-function PatientInfoCard({ patient, diseaseName, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, labsRevealed, collapsed, onToggle }) {
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
       <div
@@ -1221,6 +1221,7 @@ export default function CaseDetailPage({ params }) {
           <PatientInfoCard
             patient={patient}
             diseaseName={caseData.disease_name}
+            labsRevealed={labsRevealed}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
@@ -1739,6 +1740,7 @@ export default function CaseDetailPage({ params }) {
         <PatientInfoCard
           patient={patient}
           diseaseName={caseData.disease_name}
+          labsRevealed={labsRevealed}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
