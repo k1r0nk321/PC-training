@@ -87,7 +87,7 @@ function GradeRow({ c, onRetry, onShowDetail, retrying, isAnon }) {
       <div style={{ textAlign: 'center', minWidth: '80px' }}>
         <span style={{
           display: 'inline-block', padding: '4px 12px', borderRadius: '999px',
-          background: c.score >= 80 ? 'linear-gradient(135deg, #059669, #047857)'
+          background: c.score >= 70 ? 'linear-gradient(135deg, #059669, #047857)'
                     : c.score >= 60 ? 'linear-gradient(135deg, #0369a1, #075985)'
                     : 'linear-gradient(135deg, #d97706, #b45309)',
           color: 'white', fontWeight: 'bold', fontSize: '14px'
@@ -417,7 +417,7 @@ export default function GradesPage() {
                   borderRadius: '8px', fontSize: '11px', color: '#64748b',
                   border: '1px solid #e2e8f0', marginTop: '8px',
                 }}>
-                  <b>📌 凡例</b>: 「N例〜」は累積合格症例数（80点以上）の閾値。<br />
+                  <b>📌 凡例</b>: 「N例〜」は累積合格症例数（70点以上）の閾値。<br />
                   専攻医フェーズ以降は累積数に加え、各疾患の全モデル症例で合格した疾患数の要件があります。
                 </div>
               </div>
