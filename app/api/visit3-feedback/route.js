@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -256,7 +257,7 @@ VISIT_3_SCORE: [0〜34の整数]
 COMMENT:
 （以下、研修医への建設的なフィードバック。具体的な強み・改善点を含めて 400〜700 文字程度。各 Visit ごとの簡潔な振り返りと、最終的な総評を含めること。Markdown は使わずプレーンテキストで。）`
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }],
