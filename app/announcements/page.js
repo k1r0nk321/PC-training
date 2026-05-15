@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
 
 const PRIORITY_STYLES = {
   high: { bg: '#fef2f2', border: '#fecaca', accent: '#dc2626', label: '重要' },
