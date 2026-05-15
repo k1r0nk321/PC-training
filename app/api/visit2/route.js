@@ -2,6 +2,7 @@ export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 
 function getAdminClient() {
   return createClient(
@@ -275,7 +276,7 @@ ${caseData.disease_name === '2型糖尿病' ? 'HbA1c は次回採血で確認予
 ・治療成功で意欲が上がった場合はそれを反映する
 ・性格（${hidden.personality_type}）に合った発言をする`
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
