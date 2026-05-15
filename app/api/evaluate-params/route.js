@@ -1,6 +1,7 @@
 export const maxDuration = 30
 
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeCreate } from '../../lib/claude-client'
 import { createClient } from '@supabase/supabase-js'
 
 function getAdminClient() {
@@ -103,7 +104,7 @@ export async function POST(req) {
 
     const prompt = buildPrompt(recentMessages || [], currentParams, context, personality)
 
-    const message = await anthropic.messages.create({
+    const message = await claudeCreate({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
