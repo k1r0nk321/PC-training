@@ -59,6 +59,9 @@ export async function POST(req) {
       visit3Vitals,
       consultation,
       discontinuedExistingMeds,
+      additionalLabs,
+      additionalImaging,
+      labsRevealed,
     } = body
 
     if (!caseId) {
@@ -287,6 +290,32 @@ COMMENT:
     if (totalScore < 0) totalScore = 0
 
     const commentText = commentMatch ? commentMatch[1].trim() : aiResponse
+
+    // ===== Phase C-2: 検査値サマリ保持（重量データ破棄前に抽出）=====
+    const v3 = caseData.visit3_data || {}
+    const labSummary = {
+      v1: {
+        baseline: (patient && patient.labs) || null,
+        labsRevealed: !!(v1 && v1.labsRevealed),
+        additional: (v1 && Array.isArray(v1.additionalLabs)) ? v1.additionalLabs : [],
+        imaging: (v1 && Array.isArray(v1.additionalImaging)) ? v1.additionalImaging : [],
+      },
+      v2: {
+        baseline: (v2 && v2.visit2Labs) || null,
+        vitals: (v2 && v2.visit2Vitals) || null,
+        labsRevealed: !!(v2 && v2.labsRevealed),
+        additional: (v2 && Array.isArray(v2.additionalLabs)) ? v2.additionalLabs : [],
+        imaging: (v2 && Array.isArray(v2.additionalImaging)) ? v2.additionalImaging : [],
+      },
+      v3: {
+        baseline: (v3 && v3.visit3Labs) || null,
+        vitals: (v3 && v3.visit3Vitals) || visit3Vitals || null,
+        labsRevealed: !!labsRevealed,
+        additional: Array.isArray(additionalLabs) ? additionalLabs : [],
+        imaging: Array.isArray(additionalImaging) ? additionalImaging : [],
+      },
+    }
+    breakdown.labSummary = labSummary
 
     // ===== Save to DB and ARCHIVE (Phase F: 軽量化) =====
     // 成績評価で必要な情報だけ残し、重量データはクリア
