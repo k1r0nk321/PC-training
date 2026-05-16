@@ -310,7 +310,7 @@ export async function POST(req) {
       // HbA1c (先生指定式 — SGLT2/GLP-1 は薬効でなく体重減少経由のみ)
       // デュラグルチドのみ HbA1c 直接 -1.0%（体重減少効果なし）
       // oralCount は メトホルミン/DPP4/SU のみカウント
-      const hasGLP1Dulaglutide = /デュラグルチド|トルリシティ/.test(consentedMedNames)
+      const hasGLP1Dulaglutide = /デュラグルチド|トルリシティ/.test(v3MedNames)
       const weightEffH = -(wKg * 0.20)
       const lifestyleEffH = -Math.min(lifestyleFactor * 1.0, 0.5)
       const oralCount = [hasMetformin, hasDPP4, hasSU].filter(function(b) { return b }).length
