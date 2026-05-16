@@ -493,6 +493,44 @@ export default function CaseDetailPage({ params }) {
   const [activeDeviceModal, setActiveDeviceModal] = useState(null)
 
   const [scoring, setScoring] = useState(null)
+
+  // ===== 自動保存（Q19-C: 節目で saved_state を更新） =====
+  async function autoSaveStateV1() {
+    if (!caseData || !caseData.id) return
+    try {
+      const savedState = {
+        current_visit: 1,
+        visit1: {
+          step: step,
+          messages: messages,
+          selected_meds: selectedMeds,
+          selected_education: selectedEducation,
+          selected_devices: selectedDevices,
+          selected_sub_options: selectedSubOptions,
+          consultation: consultation,
+          discontinued_existing_meds: discontinuedExistingMeds,
+          reaction_log: reactionLog,
+          scoring: scoring,
+          labs_revealed: labsRevealed,
+          additional_labs: additionalLabs,
+          additional_imaging: additionalImaging
+        }
+      }
+      await fetch('/api/save-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id, visitNumber: 1, messages: messages, labData: null, savedState: savedState })
+      })
+    } catch (e) {}
+  }
+  useEffect(function() {
+    if (!caseData || !caseData.id) return
+    // 初期状態スキップ
+    if (step === 'interview' && messages.length <= 1 && !labsRevealed && additionalLabs.length === 0 && additionalImaging.length === 0) return
+    const t = setTimeout(function() { autoSaveStateV1() }, 1500)
+    return function() { clearTimeout(t) }
+  }, [step, labsRevealed, additionalLabs.length, additionalImaging.length])
+
   const [scoringLoading, setScoringLoading] = useState(false)
 
   const messagesEndRef = useRef(null)
@@ -572,6 +610,9 @@ export default function CaseDetailPage({ params }) {
               if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
               if (v1s.scoring) setScoring(v1s.scoring)
               if (v1s.step) setStep(v1s.step)
+              if (typeof v1s.labs_revealed === 'boolean') setLabsRevealed(v1s.labs_revealed)
+              if (Array.isArray(v1s.additional_labs)) setAdditionalLabs(v1s.additional_labs)
+              if (Array.isArray(v1s.additional_imaging)) setAdditionalImaging(v1s.additional_imaging)
               resumed = true
             } else {
               // 新規開始: saved_state をクリア
@@ -1821,7 +1862,10 @@ export default function CaseDetailPage({ params }) {
             consultation: consultation,
             discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
-            scoring: scoring
+            scoring: scoring,
+            labs_revealed: labsRevealed,
+            additional_labs: additionalLabs,
+            additional_imaging: additionalImaging
           }
         }
         await fetch('/api/save-record', {
