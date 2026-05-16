@@ -254,7 +254,7 @@ function groupSubOptions(subOptions) {
 }
 
 // 患者情報コンパクトカード（治療方針画面用）
-function PatientInfoCard({ patient, diseaseName, labsRevealed, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, additionalImaging, collapsed, onToggle }) {
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
       <div
@@ -294,10 +294,12 @@ function PatientInfoCard({ patient, diseaseName, labsRevealed, collapsed, onTogg
               <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
             </div>
           </div>
-          {labsRevealed && patient.labs && (
+          {(labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0)) && (
             <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
               <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 4px' }}>💉 検査結果（Visit 1 初診時）</p>
-              {renderLabTags(patient.labs, null, diseaseName)}
+              {labsRevealed && patient.labs && renderLabTags(patient.labs, null, diseaseName)}
+              {renderAdditionalLabTags(additionalLabs, null)}
+              {renderImagingFindings(additionalImaging)}
             </div>
           )}
         </div>
@@ -435,6 +437,8 @@ export default function CaseDetailPage({ params }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [coachingMode, setCoachingMode] = useState('recommended_only')
   const [labsRevealed, setLabsRevealed] = useState(false)
+  const [additionalLabs, setAdditionalLabs] = useState([])
+  const [additionalImaging, setAdditionalImaging] = useState([])
   const [currentUserId, setCurrentUserId] = useState(null)
 
   // 指導医モード設定をユーザー設定から取得
@@ -627,6 +631,58 @@ export default function CaseDetailPage({ params }) {
       if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
       const labText = '【血液・尿検査結果】\n\n' + lines.join('、')
       setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
+      return
+    }
+
+    // ===== 追加検査検知（疾患外項目・画像）→ AI 生成 =====
+    const detectedTest = detectTestKeyword(userMessage)
+    if (detectedTest) {
+      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+      setAiLoading(true)
+      try {
+        const patient = caseData.patient_data
+        const vitals = patient.vitals || {}
+        const labs = patient.labs || {}
+        const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
+          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?')
+        const isLab = detectedTest.type === 'lab'
+        const sysPrompt = isLab
+          ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
+          : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
+        const prompt = isLab
+          ? '以下の患者の【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + '\n出力形式: 「<数値> <単位>」のみ（例: 「1.8 ng/mL」）'
+          : '以下の患者の【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + '\n出力形式: 所見テキストのみ（例: 「心胸郭比48%、両肺野浸潤影なし」）'
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system: sysPrompt, prompt: prompt, history: [] })
+        })
+        const data = await res.json()
+        const aiResult = (data.text || '').trim()
+        // chat に表示
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
+        // state に保存
+        if (isLab) {
+          const m = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
+          if (m) {
+            const valNum = parseFloat(m[1].replace(/,/g, ''))
+            const unit = m[2].trim()
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: unit }]) })
+          } else {
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
+          }
+        } else {
+          setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
+        }
+        // 検査結果セクションも自動的に開示状態に
+        if (!labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
+          setLabsRevealed(true)
+        }
+      } catch (e) {
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
+      } finally {
+        setAiLoading(false)
+      }
       return
     }
 
@@ -979,6 +1035,8 @@ export default function CaseDetailPage({ params }) {
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
           labsRevealed: labsRevealed,
+          additionalLabs: additionalLabs,
+          additionalImaging: additionalImaging,
         }),
       })
       const data = await res.json()
@@ -1311,6 +1369,8 @@ export default function CaseDetailPage({ params }) {
             patient={patient}
             diseaseName={caseData.disease_name}
             labsRevealed={labsRevealed}
+            additionalLabs={additionalLabs}
+            additionalImaging={additionalImaging}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
@@ -1830,6 +1890,8 @@ export default function CaseDetailPage({ params }) {
           patient={patient}
           diseaseName={caseData.disease_name}
           labsRevealed={labsRevealed}
+          additionalLabs={additionalLabs}
+          additionalImaging={additionalImaging}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
