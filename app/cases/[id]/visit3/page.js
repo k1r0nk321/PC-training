@@ -223,7 +223,7 @@ function renderImagingFindings(imaging) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, labsRevealed, v1Revealed, v2Revealed, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, labsRevealed, v1Revealed, v2Revealed, additionalLabs, additionalImaging, v1AdditionalLabs, v1AdditionalImaging, v2AdditionalLabs, v2AdditionalImaging, collapsed, onToggle }) {
   const [labsStep, setLabsStep] = useState(v1Revealed ? 1 : (v2Revealed ? 2 : (labsRevealed ? 3 : 1)))
   const bpChange = visit3Vitals?.bp_change
   const weightChange = visit3Vitals?.weight_change
@@ -351,8 +351,14 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
               )}
             </div>
             {labsStep === 1 && v1Revealed && renderLabTags(patient.labs, null, diseaseName)}
+            {labsStep === 1 && v1Revealed && renderAdditionalLabTags(v1AdditionalLabs, null)}
+            {labsStep === 1 && v1Revealed && renderImagingFindings(v1AdditionalImaging)}
             {labsStep === 2 && v2Revealed && renderLabTags(visit2Data?.visit2Labs, patient.labs, diseaseName)}
+            {labsStep === 2 && v2Revealed && renderAdditionalLabTags(v2AdditionalLabs, v1AdditionalLabs)}
+            {labsStep === 2 && v2Revealed && renderImagingFindings(v2AdditionalImaging)}
             {labsStep === 3 && labsRevealed && renderLabTags(visit3Labs, visit2Data?.visit2Labs, diseaseName)}
+            {labsStep === 3 && renderAdditionalLabTags(additionalLabs, v2AdditionalLabs)}
+            {labsStep === 3 && renderImagingFindings(additionalImaging)}
           </div>
           )}
         </div>
@@ -525,6 +531,8 @@ export default function Visit3Page({ params }) {
     }
   }
   const [labsRevealed, setLabsRevealed] = useState(false)
+  const [additionalLabs, setAdditionalLabs] = useState([])
+  const [additionalImaging, setAdditionalImaging] = useState([])
 
   const [medications, setMedications] = useState([])
   const [educationItems, setEducationItems] = useState([])
@@ -690,6 +698,62 @@ export default function Visit3Page({ params }) {
       setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
       return
     }
+
+    // ===== 追加検査検知（疾患外項目・画像）→ AI 生成 =====
+    const detectedTest = detectTestKeyword(userMessage)
+    if (detectedTest) {
+      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+      setAiLoading(true)
+      try {
+        const patient = caseData.patient_data
+        const vitals = patient.vitals || {}
+        const baseLabs = patient.labs || {}
+        const v3Labs = (visit3Data && visit3Data.visit3Labs) || {}
+        const v1Add = (caseData.visit1_data && caseData.visit1_data.additionalLabs) || []
+        const v2Add = (caseData.visit2_data && caseData.visit2_data.additionalLabs) || []
+        const v1Img = (caseData.visit1_data && caseData.visit1_data.additionalImaging) || []
+        const v2Img = (caseData.visit2_data && caseData.visit2_data.additionalImaging) || []
+        const priorLab = v2Add.find(function(x) { return x.name === detectedTest.keyword }) || v1Add.find(function(x) { return x.name === detectedTest.keyword })
+        const priorImg = v2Img.find(function(x) { return x.name === detectedTest.keyword }) || v1Img.find(function(x) { return x.name === detectedTest.keyword })
+        const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
+          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (v3Labs.hba1c != null ? v3Labs.hba1c + '%（Visit 1: ' + (baseLabs.hba1c || '?') + '%）' : '?')
+        const treatCtx = '8週間後（Visit 3）'
+        const isLab = detectedTest.type === 'lab'
+        const priorText = isLab && priorLab ? '\n前回値: ' + priorLab.value + ' ' + (priorLab.unit || '') : (!isLab && priorImg ? '\n前回所見: ' + priorImg.finding : '')
+        const sysPrompt = isLab
+          ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
+          : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
+        const prompt = isLab
+          ? '以下の患者の' + treatCtx + '【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + priorText + '\n出力形式: 「<数値> <単位>」のみ'
+          : '以下の患者の' + treatCtx + '【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + priorText + '\n出力形式: 所見テキストのみ'
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system: sysPrompt, prompt: prompt, history: [] })
+        })
+        const data = await res.json()
+        const aiResult = (data.text || '').trim()
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
+        if (isLab) {
+          const m2 = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
+          if (m2) {
+            const valNum = parseFloat(m2[1].replace(/,/g, ''))
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: m2[2].trim() }]) })
+          } else {
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
+          }
+        } else {
+          setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
+        }
+        if (!labsRevealed && visit3Data && visit3Data.visit3Labs) setLabsRevealed(true)
+      } catch (e) {
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
+      } finally {
+        setAiLoading(false)
+      }
+      return
+    }
+
 
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
@@ -1116,6 +1180,9 @@ export default function Visit3Page({ params }) {
           visit3Vitals: visit3Data?.visit3Vitals,
           consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
+          labsRevealed: labsRevealed,
+          additionalLabs: additionalLabs,
+          additionalImaging: additionalImaging,
         }),
       })
       const data = await res.json()
@@ -1478,6 +1545,12 @@ export default function Visit3Page({ params }) {
             labsRevealed={labsRevealed}
             v1Revealed={!!(caseData.visit1_data && caseData.visit1_data.labsRevealed)}
             v2Revealed={!!(caseData.visit2_data && caseData.visit2_data.labsRevealed)}
+            additionalLabs={additionalLabs}
+            additionalImaging={additionalImaging}
+            v1AdditionalLabs={(caseData.visit1_data && caseData.visit1_data.additionalLabs) || []}
+            v1AdditionalImaging={(caseData.visit1_data && caseData.visit1_data.additionalImaging) || []}
+            v2AdditionalLabs={(caseData.visit2_data && caseData.visit2_data.additionalLabs) || []}
+            v2AdditionalImaging={(caseData.visit2_data && caseData.visit2_data.additionalImaging) || []}
             collapsed={patientCardCollapsed}
             onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
           />
@@ -1844,6 +1917,12 @@ export default function Visit3Page({ params }) {
           labsRevealed={labsRevealed}
           v1Revealed={!!(caseData.visit1_data && caseData.visit1_data.labsRevealed)}
           v2Revealed={!!(caseData.visit2_data && caseData.visit2_data.labsRevealed)}
+          additionalLabs={additionalLabs}
+          additionalImaging={additionalImaging}
+          v1AdditionalLabs={(caseData.visit1_data && caseData.visit1_data.additionalLabs) || []}
+          v1AdditionalImaging={(caseData.visit1_data && caseData.visit1_data.additionalImaging) || []}
+          v2AdditionalLabs={(caseData.visit2_data && caseData.visit2_data.additionalLabs) || []}
+          v2AdditionalImaging={(caseData.visit2_data && caseData.visit2_data.additionalImaging) || []}
           collapsed={patientCardCollapsed}
           onToggle={function() { setPatientCardCollapsed(!patientCardCollapsed) }}
         />
