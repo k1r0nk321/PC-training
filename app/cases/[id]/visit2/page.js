@@ -101,9 +101,56 @@ const LAB_LABELS = {
 }
 const LAB_ORDER = ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ast', 'alt', 'ck', 'urine_alb', 'urine_protein', 'bnp', 'alb']
 
-function renderLabTag(key, val, prevVal) {
-  const def = LAB_LABELS[key]
-  if (!def) return null
+// 疾患別 baseline 表示項目（「検査」入力時に一括表示）
+const DISEASE_LAB_MAP = {
+  '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
+  '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt'],
+  '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr'],
+}
+function diseaseLabKeys(disease) {
+  return DISEASE_LAB_MAP[disease] || LAB_ORDER
+}
+
+// 追加血液検査キーワード辞書（疾患外項目・問診で個別オーダー）
+const ADDITIONAL_LAB_KEYWORDS = [
+  'TSH', 'FT3', 'FT4', 'fT3', 'fT4', '甲状腺',
+  'CPR', 'Cペプチド', 'C-ペプチド', 'C peptide', 'インスリン分泌',
+  'Ca', 'カルシウム', 'P', 'リン', 'Mg', 'マグネシウム',
+  'NT-proBNP', 'NTproBNP', 'トロポニン', 'troponin',
+  'D-dimer', 'Dダイマー', 'アンモニア', 'NH3',
+  '葉酸', 'ビタミンB12', 'VB12', 'フェリチン', 'ferritin',
+  'CRP', '白血球', 'WBC', '赤血球', 'RBC', 'ヘモグロビン', 'Hb', '血小板', 'PLT',
+  'PT-INR', 'APTT', 'PT', 'β2-MG', 'β2ミクログロブリン',
+  '抗核抗体', 'ANA', 'IgG', 'IgA', 'IgM', 'コルチゾール', 'ACTH',
+  'アルドステロン', 'レニン', 'PRA', 'カテコラミン', 'ノルアドレナリン',
+  'HbA1c以外', 'グリコアルブミン', 'GA', '1,5-AG',
+]
+// 画像・生理検査キーワード辞書
+const IMAGING_KEYWORDS = [
+  '胸部X', '胸部レントゲン', '胸部単純', 'CXR', '胸写',
+  'X線', 'X-P', 'レントゲン', '単純写真',
+  'CT', '単純CT', '造影CT', 'MRI', 'MRA',
+  '腹部エコー', '腹部超音波', '心エコー', '心臓超音波', '頸動脈エコー', 'エコー', '超音波', 'US',
+  '心電図', 'ECG', '12誘導', 'ホルター', '24時間心電図',
+  'ABI', 'PWV', 'TBI', 'CAVI', '心臓足首血管指数',
+  '呼吸機能', 'スパイロ', '肺機能',
+  '胃カメラ', '上部内視鏡', '上部消化管', '大腸内視鏡', '下部内視鏡', '下部消化管', '大腸ファイバー',
+  '眼底', '眼底検査', '骨密度', 'DEXA', 'シンチ', 'PET',
+]
+// メッセージから検査キーワードを検出（最初の 1 件）
+function detectTestKeyword(msg) {
+  if (!msg) return null
+  for (var i = 0; i < IMAGING_KEYWORDS.length; i++) {
+    if (msg.indexOf(IMAGING_KEYWORDS[i]) !== -1) return { type: 'imaging', keyword: IMAGING_KEYWORDS[i] }
+  }
+  for (var j = 0; j < ADDITIONAL_LAB_KEYWORDS.length; j++) {
+    if (msg.indexOf(ADDITIONAL_LAB_KEYWORDS[j]) !== -1) return { type: 'lab', keyword: ADDITIONAL_LAB_KEYWORDS[j] }
+  }
+  return null
+}
+
+function renderLabTag(key, val, prevVal, labelOverride, unitOverride) {
+  const def = LAB_LABELS[key] || { name: labelOverride || key, unit: unitOverride || '' }
   let deltaText = ''
   let deltaColor = '#64748b'
   if (prevVal != null && typeof val === 'number' && typeof prevVal === 'number') {
@@ -111,7 +158,6 @@ function renderLabTag(key, val, prevVal) {
     if (delta !== 0) {
       const sign = delta > 0 ? '+' : ''
       deltaText = ' (' + sign + delta + ')'
-      // 改善 = 緑 (HDL は上、それ以外は下が改善)
       const higherIsBetter = key === 'hdl' || key === 'egfr'
       const improved = higherIsBetter ? delta > 0 : delta < 0
       deltaColor = improved ? '#16a34a' : '#dc2626'
@@ -126,13 +172,53 @@ function renderLabTag(key, val, prevVal) {
     </span>
   )
 }
-function renderLabTags(labs, prevLabs) {
+// baseline 検査タグ（疾患別フィルタ）
+function renderLabTags(labs, prevLabs, disease) {
   if (!labs || typeof labs !== 'object') return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
-  const present = LAB_ORDER.filter(function(k) { return labs[k] != null && labs[k] !== '' })
+  const order = diseaseLabKeys(disease)
+  const present = order.filter(function(k) { return labs[k] != null && labs[k] !== '' })
   if (present.length === 0) return <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0' }}>検査未実施</p>
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
       {present.map(function(k) { return renderLabTag(k, labs[k], prevLabs ? prevLabs[k] : null) })}
+    </div>
+  )
+}
+// 追加血液検査タグ（AI 生成項目）
+function renderAdditionalLabTags(additionalLabs, prevAdditional) {
+  if (!Array.isArray(additionalLabs) || additionalLabs.length === 0) return null
+  const prevMap = {}
+  if (Array.isArray(prevAdditional)) {
+    prevAdditional.forEach(function(a) { if (a && a.name) prevMap[a.name] = a.value })
+  }
+  return (
+    <div style={{ marginTop: '6px' }}>
+      <p style={{ fontSize: '10px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 3px' }}>＋ 追加血液検査</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        {additionalLabs.map(function(a, idx) {
+          const prevVal = prevMap[a.name]
+          return renderLabTag('add_' + idx, a.value, (typeof prevVal === 'number' ? prevVal : null), a.name, a.unit || '')
+        })}
+      </div>
+    </div>
+  )
+}
+// 画像・生理検査の所見表示（AI 生成テキスト）
+function renderImagingFindings(imaging) {
+  if (!Array.isArray(imaging) || imaging.length === 0) return null
+  return (
+    <div style={{ marginTop: '8px' }}>
+      <p style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 'bold', margin: '0 0 3px' }}>＋ 画像・生理検査</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {imaging.map(function(im, idx) {
+          return (
+            <div key={'img' + idx} style={{ backgroundColor: 'white', borderRadius: '6px', padding: '5px 9px', fontSize: '11px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontWeight: 'bold', color: '#7c3aed' }}>{im.name}：</span>
+              <span style={{ color: '#334155' }}>{im.finding}</span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -258,8 +344,8 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
                 </button>
               )}
             </div>
-            {labsStep === 1 && v1Revealed && renderLabTags(patient.labs, null)}
-            {labsStep === 2 && labsRevealed && renderLabTags(visit2Labs, patient.labs)}
+            {labsStep === 1 && v1Revealed && renderLabTags(patient.labs, null, diseaseName)}
+            {labsStep === 2 && labsRevealed && renderLabTags(visit2Labs, patient.labs, diseaseName)}
           </div>
           )}
         </div>
