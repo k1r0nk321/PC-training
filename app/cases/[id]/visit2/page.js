@@ -525,6 +525,44 @@ export default function Visit2Page({ params }) {
   const [additionalLabs, setAdditionalLabs] = useState([])
   const [additionalImaging, setAdditionalImaging] = useState([])
 
+  // ===== 自動保存（Q19-C: 節目で saved_state を更新） =====
+  async function autoSaveStateV2() {
+    if (!caseData || !caseData.id) return
+    try {
+      const savedState = {
+        current_visit: 2,
+        visit2: {
+          step: step,
+          messages: messages,
+          selected_meds: selectedMeds,
+          selected_education: selectedEducation,
+          selected_devices: selectedDevices,
+          selected_sub_options: selectedSubOptions,
+          consultation: consultation,
+          discontinued_existing_meds: discontinuedExistingMeds,
+          reaction_log: reactionLog,
+          feedback: feedback,
+          visit2Data: visit2Data,
+          labs_revealed: labsRevealed,
+          additional_labs: additionalLabs,
+          additional_imaging: additionalImaging
+        }
+      }
+      await fetch('/api/save-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id, visitNumber: 2, messages: messages, savedState: savedState })
+      })
+    } catch (e) {}
+  }
+  useEffect(function() {
+    if (!caseData || !caseData.id) return
+    if (step === 'interview' && messages.length <= 1 && !labsRevealed && additionalLabs.length === 0 && additionalImaging.length === 0) return
+    const t = setTimeout(function() { autoSaveStateV2() }, 1500)
+    return function() { clearTimeout(t) }
+  }, [step, labsRevealed, additionalLabs.length, additionalImaging.length])
+
+
   const [medications, setMedications] = useState([])
   const [educationItems, setEducationItems] = useState([])
   const [devices, setDevices] = useState([])
@@ -658,6 +696,8 @@ export default function Visit2Page({ params }) {
         if (savedV2.feedback) setFeedback(savedV2.feedback)
         if (savedV2.visit2Data) setVisit2Data(savedV2.visit2Data)
         if (typeof savedV2.labs_revealed === 'boolean') setLabsRevealed(savedV2.labs_revealed)
+        if (Array.isArray(savedV2.additional_labs)) setAdditionalLabs(savedV2.additional_labs)
+        if (Array.isArray(savedV2.additional_imaging)) setAdditionalImaging(savedV2.additional_imaging)
         if (savedV2.step) setStep(savedV2.step)
       }
 
@@ -889,7 +929,9 @@ export default function Visit2Page({ params }) {
             reaction_log: reactionLog,
             feedback: feedback,
             visit2Data: visit2Data,
-            labs_revealed: labsRevealed
+            labs_revealed: labsRevealed,
+            additional_labs: additionalLabs,
+            additional_imaging: additionalImaging
           }
         }
         await fetch('/api/save-record', {
