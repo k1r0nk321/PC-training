@@ -34,7 +34,7 @@ export async function POST(req) {
     } catch (e) {}
     const { data: src, error: sErr } = await supabase
       .from('cases')
-      .select('user_id, disease_id, disease_name, model_case_id, patient_data, scenario_data')
+      .select('user_id, disease_id, disease_name, model_case_id, patient_data, scenario_data, category')
       .eq('id', sourceCaseId)
       .single()
     if (sErr || !src) {
@@ -52,8 +52,9 @@ export async function POST(req) {
         model_case_id: src.model_case_id,
         patient_data: src.patient_data,
         scenario_data: src.scenario_data,
+        category: src.category,
         current_visit: 1,
-        status: 'visit1',
+        status: 'in_progress',
       })
       .select('id')
       .single()
