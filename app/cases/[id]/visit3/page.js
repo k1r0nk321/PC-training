@@ -330,23 +330,23 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
           {(v1Revealed || v2Revealed || labsRevealed) && (
           <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
             <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 6px' }}>💉 検査結果</p>
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '4px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0', marginBottom: '8px', borderBottom: '1px solid #d1d5db', flexWrap: 'wrap' }}>
               {v1Revealed && (
                 <button onClick={function() { setLabsStep(1) }}
-                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 1 ? '#16a34a' : 'white', color: labsStep === 1 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 1 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
-                  Step 1: 初診時
+                  style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: 'transparent', color: labsStep === 1 ? '#16a34a' : '#64748b', border: 'none', borderBottom: labsStep === 1 ? '3px solid #16a34a' : '3px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontWeight: labsStep === 1 ? 'bold' : 'normal' }}>
+                  Visit 1
                 </button>
               )}
               {v2Revealed && (
                 <button onClick={function() { setLabsStep(2) }}
-                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 2 ? '#16a34a' : 'white', color: labsStep === 2 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 2 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
-                  Step 2: 再診時（4週後）
+                  style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: 'transparent', color: labsStep === 2 ? '#16a34a' : '#64748b', border: 'none', borderBottom: labsStep === 2 ? '3px solid #16a34a' : '3px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontWeight: labsStep === 2 ? 'bold' : 'normal' }}>
+                  Visit 2
                 </button>
               )}
               {labsRevealed && (
                 <button onClick={function() { setLabsStep(3) }}
-                  style={{ padding: '2px 10px', fontSize: '11px', backgroundColor: labsStep === 3 ? '#16a34a' : 'white', color: labsStep === 3 ? 'white' : '#475569', border: '1px solid ' + (labsStep === 3 ? '#16a34a' : '#cbd5e1'), borderRadius: '6px', cursor: 'pointer', fontWeight: labsStep === 3 ? 'bold' : 'normal' }}>
-                  Step 3: 第3回（8週後）
+                  style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: 'transparent', color: labsStep === 3 ? '#16a34a' : '#64748b', border: 'none', borderBottom: labsStep === 3 ? '3px solid #16a34a' : '3px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontWeight: labsStep === 3 ? 'bold' : 'normal' }}>
+                  Visit 3
                 </button>
               )}
             </div>
