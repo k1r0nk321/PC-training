@@ -772,8 +772,19 @@ export default function Visit2Page({ params }) {
         const v1Img = (caseData.visit1_data && caseData.visit1_data.additionalImaging) || []
         const priorVal = v1Add.find(function(x) { return x.name === detectedTest.keyword })
         const priorImg = v1Img.find(function(x) { return x.name === detectedTest.keyword })
+        const pastHist = patient.past_history || ''
+        const histShort = (patient.history || '').slice(0, 200)
+        const labLines = []
+        if (v2Labs.bnp != null) labLines.push('BNP ' + v2Labs.bnp + ' pg/mL')
+        if (v2Labs.cr != null) labLines.push('Cr ' + v2Labs.cr)
+        if (v2Labs.egfr != null) labLines.push('eGFR ' + v2Labs.egfr)
+        if (v2Labs.urine_alb != null) labLines.push('尿Alb ' + v2Labs.urine_alb)
+        const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
         const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
-          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (v2Labs.hba1c != null ? v2Labs.hba1c + '%（Visit 1: ' + (baseLabs.hba1c || '?') + '%）' : '?')
+          (pastHist ? '、既往: ' + pastHist : '') +
+          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (v2Labs.hba1c != null ? v2Labs.hba1c + '%（Visit 1: ' + (baseLabs.hba1c || '?') + '%）' : '?') +
+          labCtx +
+          (histShort ? '、現病歴: ' + histShort : '')
         const treatCtx = '4週間後（Visit 2）'
         const isLab = detectedTest.type === 'lab'
         const priorText = isLab && priorVal ? '\n前回 Visit 1 値: ' + priorVal.value + ' ' + (priorVal.unit || '') : (!isLab && priorImg ? '\n前回 Visit 1 所見: ' + priorImg.finding : '')
