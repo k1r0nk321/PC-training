@@ -680,7 +680,10 @@ export default function Visit3Page({ params }) {
     setInput('')
 
     // 検査結果確認の特別処理
-    if (userMessage.includes('検査') && visit3Data?.visit3Labs && !labsRevealed) {
+    if ((function() {
+      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般']
+      return triggers.some(function(t) { return userMessage.includes(t) }) && visit3Data?.visit3Labs && !labsRevealed
+    })()) {
       setLabsRevealed(true)
       const labs = visit3Data.visit3Labs
       const labText = `【血液検査結果（8週後）】\n\nNa ${labs.na} mEq/L　K ${labs.k} mEq/L\nCr ${labs.cr} mg/dL　BUN ${labs.bun} mg/dL　eGFR ${labs.egfr} mL/min\nLDL ${labs.ldl} mg/dL　HDL ${labs.hdl} mg/dL　TG ${labs.tg} mg/dL\nHbA1c ${labs.hba1c}%　UA ${labs.ua} mg/dL`
