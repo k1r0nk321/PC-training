@@ -600,7 +600,10 @@ export default function CaseDetailPage({ params }) {
     setInput('')
 
     // 検査オーダー検知: patient.labs から検査結果を chat に提示し、検査結果セクションを表示
-    if (userMessage.includes('検査') && caseData?.patient_data?.labs && !labsRevealed) {
+    if ((function() {
+      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般']
+      return triggers.some(function(t) { return userMessage.includes(t) }) && caseData?.patient_data?.labs && !labsRevealed
+    })()) {
       setLabsRevealed(true)
       const labs = caseData.patient_data.labs
       const lines = []
