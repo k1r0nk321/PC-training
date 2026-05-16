@@ -534,6 +534,46 @@ export default function Visit3Page({ params }) {
   const [additionalLabs, setAdditionalLabs] = useState([])
   const [additionalImaging, setAdditionalImaging] = useState([])
 
+  // ===== 自動保存（Q19-C: 節目で saved_state を更新） =====
+  async function autoSaveStateV3() {
+    if (!caseData || !caseData.id) return
+    try {
+      const savedState = {
+        current_visit: 3,
+        visit3: {
+          step: step,
+          messages: messages,
+          selected_meds: selectedMeds,
+          selected_education: selectedEducation,
+          selected_devices: selectedDevices,
+          selected_sub_options: selectedSubOptions,
+          consultation: consultation,
+          discontinued_existing_meds: discontinuedExistingMeds,
+          reaction_log: reactionLog,
+          feedback: feedback,
+          visit3Data: visit3Data,
+          final_score: finalScore,
+          score_breakdown: scoreBreakdown,
+          labs_revealed: labsRevealed,
+          additional_labs: additionalLabs,
+          additional_imaging: additionalImaging
+        }
+      }
+      await fetch('/api/save-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id, visitNumber: 3, messages: messages, savedState: savedState })
+      })
+    } catch (e) {}
+  }
+  useEffect(function() {
+    if (!caseData || !caseData.id) return
+    if (step === 'interview' && messages.length <= 1 && !labsRevealed && additionalLabs.length === 0 && additionalImaging.length === 0) return
+    const t = setTimeout(function() { autoSaveStateV3() }, 1500)
+    return function() { clearTimeout(t) }
+  }, [step, labsRevealed, additionalLabs.length, additionalImaging.length])
+
+
   const [medications, setMedications] = useState([])
   const [educationItems, setEducationItems] = useState([])
   const [devices, setDevices] = useState([])
@@ -671,6 +711,8 @@ export default function Visit3Page({ params }) {
         if (savedV3.score_breakdown) setScoreBreakdown(savedV3.score_breakdown)
         if (savedV3.visit3Data) setVisit3Data(savedV3.visit3Data)
         if (typeof savedV3.labs_revealed === 'boolean') setLabsRevealed(savedV3.labs_revealed)
+        if (Array.isArray(savedV3.additional_labs)) setAdditionalLabs(savedV3.additional_labs)
+        if (Array.isArray(savedV3.additional_imaging)) setAdditionalImaging(savedV3.additional_imaging)
         if (savedV3.step) setStep(savedV3.step)
       }
 
@@ -906,7 +948,9 @@ export default function Visit3Page({ params }) {
             visit3Data: visit3Data,
             final_score: finalScore,
             score_breakdown: scoreBreakdown,
-            labs_revealed: labsRevealed
+            labs_revealed: labsRevealed,
+            additional_labs: additionalLabs,
+            additional_imaging: additionalImaging
           }
         }
         await fetch('/api/save-record', {
