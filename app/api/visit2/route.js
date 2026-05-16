@@ -203,10 +203,30 @@ export async function POST(req) {
       ? (0.2 + lifestyleBadness * 0.05)
       : 0.1 + Math.random() * 0.2
 
-    const weightReduction = Math.round(
+    const lifestyleWeightReduction = Math.round(
       Math.max(0, weightLossBase * effectiveAdherence * (0.8 + Math.random() * 0.4)) * 10
     ) / 10
 
+    // ===== 薬剤による体重減少効果（先生指定）=====
+    const consentedMedNames_wr = consentedMeds.map(function(m) { return (m.drug_name_generic || '') + '|' + (m.drug_name_brand || '') + '|' + (m.medication_class || '') }).join(' ')
+    const hasMetformin_wr = /メトホルミン/.test(consentedMedNames_wr)
+    const hasSGLT2_wr = /エンパグリフロジン|ダパグリフロジン|カナグリフロジン|イプラグリフロジン|トホグリフロジン|SGLT2/.test(consentedMedNames_wr)
+    const hasGLP1Dulaglutide_wr = /デュラグルチド|トルリシティ/.test(consentedMedNames_wr)
+    const hasGLP1Liraglutide_wr = /リラグルチド|ビクトーザ/.test(consentedMedNames_wr)
+    const hasGLP1Semaglutide_wr = /セマグルチド|オゼンピック|リベルサス/.test(consentedMedNames_wr)
+    const hasGLP1Tirzepatide_wr = /チルゼパチド|マンジャロ/.test(consentedMedNames_wr)
+    const hasAnyWeightLossDrug = hasSGLT2_wr || hasGLP1Liraglutide_wr || hasGLP1Semaglutide_wr || hasGLP1Tirzepatide_wr
+    let drugWeightLossPct = 0
+    if (hasSGLT2_wr) drugWeightLossPct += 3
+    if (hasGLP1Liraglutide_wr) drugWeightLossPct += 4
+    if (hasGLP1Semaglutide_wr) drugWeightLossPct += 5
+    if (hasGLP1Tirzepatide_wr) drugWeightLossPct += 7
+    // デュラグルチドは加算しない（体重減少効果なし）
+    if (hasMetformin_wr && !hasAnyWeightLossDrug) drugWeightLossPct += 1
+    drugWeightLossPct = Math.min(drugWeightLossPct, 7)  // 絶対上限 7%
+    const drugWeightLoss = Math.round(weight1 * drugWeightLossPct / 100 * effectiveAdherence * 10) / 10
+
+    const weightReduction = Math.round((lifestyleWeightReduction + drugWeightLoss) * 10) / 10
     const weight2 = Math.round((weight1 - weightReduction) * 10) / 10
     const bmi2 = Math.round(weight2 / ((height / 100) * (height / 100)) * 10) / 10
 
@@ -245,80 +265,139 @@ export async function POST(req) {
       const hasInsulin = /インスリン|グラルギン|デグルデク|トレシーバ|アスパルト|リスプロ/.test(consentedMedNames)
       const lifestyleFactor = Math.min(totalLE * 0.01, 1.0)
 
-      if (disease === '高血圧症') {
-        visit2Labs = {
-          na: rI(baselineLabs.na),
-          k: r1((baselineLabs.k || 4.0) + (hasDiuretic ? -0.3 : 0) + (hasARB_ACE ? 0.2 : 0)),
-          cr: r1(baselineLabs.cr),
-          bun: rI(baselineLabs.bun),
-          egfr: rI(baselineLabs.egfr),
-          ldl: rI((baselineLabs.ldl || 120) * (1 - lifestyleFactor * 0.05) + (hasStatin ? -(baselineLabs.ldl || 120) * 0.3 : 0)),
-          hdl: rI(baselineLabs.hdl),
-          tg: rI((baselineLabs.tg || 130) * (1 - lifestyleFactor * 0.1) + (hasFibrate ? -(baselineLabs.tg || 130) * 0.3 : 0)),
-          hba1c: r1(baselineLabs.hba1c),
-          glucose: rI(baselineLabs.glucose),
-          ua: r1((baselineLabs.ua || 5.0) + (hasDiuretic ? 0.5 : 0)),
-          ast: rI(baselineLabs.ast),
-          alt: rI(baselineLabs.alt),
-        }
-      } else if (disease === '2型糖尿病') {
-        // === 1 Visit (4 週間) あたりの HbA1c 変化（先生指定値）===
-        // 体重 1kg減 → -0.2%、生活習慣改善 → 最大 -0.5%
-        // 経口薬: 1剤目 -0.7%、2剤目追加 -0.6%、3剤目追加 -0.5%
-        // BOT (インスリン) → -1.0%、アドヒアランス補正 (×0.5〜1.0)、総 cap なし
-        const wKg = (typeof weightReduction === 'number' && weightReduction > 0) ? weightReduction : 0
-        const weightEffect = -(wKg * 0.20)
-        const lifestyleHba1cEffect = -Math.min(lifestyleFactor * 1.0, 0.5)
-        const oralCount = [hasMetformin, hasSGLT2, hasGLP1 && !hasInsulin, hasDPP4, hasSU].filter(function(b) { return b }).length
-        let oralEffect = 0
-        if (oralCount >= 1) oralEffect -= 0.7
-        if (oralCount >= 2) oralEffect -= 0.6
-        if (oralCount >= 3) oralEffect -= 0.5
-        const insulinEffect = hasInsulin ? -1.0 : 0
-        const adherenceFactor = Math.max(0.5, Math.min(1.0, effectiveAdherence || 0.7))
-        const hba1cDelta = (weightEffect + lifestyleHba1cEffect + oralEffect + insulinEffect) * adherenceFactor
-        const glucoseDelta = hba1cDelta * 30  // HbA1c -1% ≈ FPG -30 mg/dL (一般則)
+      // === 包括的 lab 計算（先生指定式、全疾患共通）===
+      const wKg = (typeof weightReduction === 'number' && weightReduction > 0) ? weightReduction : 0
+      const adherenceFactor = Math.max(0.5, Math.min(1.0, effectiveAdherence || 0.7))
+      const baseLabs = baselineLabs || {}
+      const baseLDL = baseLabs.ldl || 0
+      const baseHDL = baseLabs.hdl || 0
+      const baseTG = baseLabs.tg || 0
+      const baseUA = baseLabs.ua || 0
+      const baseAST = baseLabs.ast
+      const baseALT = baseLabs.alt
+      const baseCr = baseLabs.cr || 0
+      const baseEGFR = baseLabs.egfr || 0
+      const baseAlb = baseLabs.urine_alb || 0
+      const baseBNP = baseLabs.bnp
+      const baseNa = baseLabs.na
+      const baseK = baseLabs.k
+      const baseCK = baseLabs.ck
+      const baseHbA1c = baseLabs.hba1c || 0
+      const baseGlucose = baseLabs.glucose || 0
 
-        visit2Labs = {
-          hba1c: r1((baselineLabs.hba1c || 7.0) + hba1cDelta),
-          glucose: rI((baselineLabs.glucose || 130) + glucoseDelta),
-          ldl: rI((baselineLabs.ldl || 120) * (1 - lifestyleFactor * 0.08) + (hasStatin ? -(baselineLabs.ldl || 120) * 0.3 : 0)),
-          hdl: rI(baselineLabs.hdl),
-          tg: rI((baselineLabs.tg || 130) * (1 - lifestyleFactor * 0.15)),
-          cr: r1((baselineLabs.cr || 0.9) + (hasSGLT2 ? 0.05 : 0)),
-          egfr: rI((baselineLabs.egfr || 75) + (hasSGLT2 ? -3 : 0)),
-          bun: rI(baselineLabs.bun),
-          ua: r1(baselineLabs.ua),
-          ast: rI(baselineLabs.ast),
-          alt: rI(baselineLabs.alt),
-          urine_alb: baselineLabs.urine_alb != null ? rI((baselineLabs.urine_alb || 20) * (hasSGLT2 || hasARB_ACE ? 0.85 : 1)) : null,
-          urine_protein: baselineLabs.urine_protein,
-        }
-        if (baselineLabs.bnp != null) visit2Labs.bnp = rI(baselineLabs.bnp * (hasSGLT2 ? 0.8 : 1))
-        if (baselineLabs.k != null) visit2Labs.k = r1(baselineLabs.k)
-        if (baselineLabs.na != null) visit2Labs.na = rI(baselineLabs.na)
-      } else if (disease === '脂質異常症') {
-        const ldlReductionPct = (hasStatin ? 0.35 : 0) + (hasEzetimibe && !hasStatin ? 0.20 : 0) + (hasEzetimibe && hasStatin ? 0.15 : 0) + (lifestyleFactor * 0.03)
-        const tgReductionPct = (hasFibrate ? 0.30 : 0) + (hasStatin ? 0.10 : 0) + (lifestyleFactor * 0.04)
-        visit2Labs = {
-          ldl: rI((baselineLabs.ldl || 150) * (1 - ldlReductionPct)),
-          hdl: rI((baselineLabs.hdl || 50) + (hasStatin ? 3 : 0)),
-          tg: rI((baselineLabs.tg || 130) * (1 - tgReductionPct)),
-          total_cholesterol: baselineLabs.total_cholesterol != null ? rI((baselineLabs.total_cholesterol || 220) * (1 - ldlReductionPct * 0.7)) : null,
-          non_hdl_c: baselineLabs.non_hdl_c != null ? rI((baselineLabs.non_hdl_c || 180) * (1 - ldlReductionPct * 0.9)) : null,
-          hba1c: r1(baselineLabs.hba1c),
-          glucose: rI(baselineLabs.glucose),
-          ast: rI((baselineLabs.ast || 22) + (hasStatin ? 2 : 0)),
-          alt: rI((baselineLabs.alt || 24) + (hasStatin ? 2 : 0)),
-          ck: rI((baselineLabs.ck || 110) + (hasStatin ? 15 : 0)),
-          cr: r1(baselineLabs.cr),
-          egfr: rI(baselineLabs.egfr),
-          bun: rI(baselineLabs.bun),
-          ua: r1(baselineLabs.ua),
-        }
+      // HbA1c (先生指定式 — SGLT2/GLP-1 は薬効でなく体重減少経由のみ)
+      // デュラグルチドのみ HbA1c 直接 -1.0%（体重減少効果なし）
+      // oralCount は メトホルミン/DPP4/SU のみカウント
+      const hasGLP1Dulaglutide = /デュラグルチド|トルリシティ/.test(consentedMedNames)
+      const weightEffH = -(wKg * 0.20)
+      const lifestyleEffH = -Math.min(lifestyleFactor * 1.0, 0.5)
+      const oralCount = [hasMetformin, hasDPP4, hasSU].filter(function(b) { return b }).length
+      let oralEff = 0
+      if (oralCount >= 1) oralEff -= 0.7
+      if (oralCount >= 2) oralEff -= 0.6
+      if (oralCount >= 3) oralEff -= 0.5
+      const dulaEff = hasGLP1Dulaglutide ? -0.6 : 0
+      const insulinEff = hasInsulin ? -1.0 : 0
+      const hba1cDelta = (weightEffH + lifestyleEffH + oralEff + dulaEff + insulinEff) * adherenceFactor
+      const glucoseDelta = hba1cDelta * 30
+
+      const hdlDelta = (wKg * 0.3 + lifestyleFactor * 3 + (hasStatin ? 2 : 0) + (hasFibrate ? 3 : 0)) * adherenceFactor
+
+      let newTG
+      if (baseTG > 0 && baseTG < 150) {
+        let tgDelta = -(wKg * 4 + lifestyleFactor * 15)
+        if (hasFibrate) tgDelta -= baseTG * 0.30
+        if (hasStatin) tgDelta -= baseTG * 0.10
+        tgDelta *= adherenceFactor
+        newTG = baseTG + tgDelta
+      } else if (baseTG >= 150) {
+        let tgPct = (wKg * 0.04 + lifestyleFactor * 0.10 + (hasFibrate ? 0.30 : 0) + (hasStatin ? 0.10 : 0)) * adherenceFactor
+        newTG = baseTG * (1 - tgPct)
       } else {
-        visit2Labs = Object.assign({}, baselineLabs)
+        newTG = baseTG
       }
+
+      let ldlDelta = -(wKg * 1.5 + lifestyleFactor * 5)
+      if (hasStatin) ldlDelta -= baseLDL * 0.35
+      if (hasEzetimibe && !hasStatin) ldlDelta -= baseLDL * 0.20
+      if (hasEzetimibe && hasStatin) ldlDelta -= baseLDL * 0.15
+      ldlDelta *= adherenceFactor
+
+      let uaDelta = -(wKg * 0.05 + lifestyleFactor * 0.2 + (hasSGLT2 ? 0.3 : 0)) + (hasDiuretic ? 0.5 : 0)
+      uaDelta *= adherenceFactor
+
+      // AST/ALT (条件付き、cumulative cap V1-20)
+      const v1AST = (patient.labs && typeof patient.labs.ast === 'number') ? patient.labs.ast : null
+      const v1ALT = (patient.labs && typeof patient.labs.alt === 'number') ? patient.labs.alt : null
+      function calcLiverEnz(baseVal, baselineV1Val, perKg) {
+        if (baseVal == null) return null
+        let d = 0
+        if (baseVal < 35) {
+          d = -(wKg * perKg + lifestyleFactor * 0.5)
+          if (hasStatin) d += 2
+          d *= adherenceFactor
+          d = Math.max(d, -10)
+        } else {
+          let pct = Math.min(wKg * 0.10 + lifestyleFactor * 0.05, 0.20)
+          d = -baseVal * pct
+          if (hasStatin) d += 2
+          d *= adherenceFactor
+        }
+        let newVal = baseVal + d
+        if (baselineV1Val != null && newVal < baselineV1Val - 20) newVal = baselineV1Val - 20
+        return newVal
+      }
+      const newAST = calcLiverEnz(baseAST, v1AST, 0.5)
+      const newALT = calcLiverEnz(baseALT, v1ALT, 1.0)
+
+      const crDelta = (hasSGLT2 ? 0.05 : 0) * adherenceFactor
+      const egfrDelta = (hasSGLT2 ? -3 : 0) * adherenceFactor
+      const kDelta = ((hasDiuretic ? -0.3 : 0) + (hasARB_ACE ? 0.2 : 0)) * adherenceFactor
+      const naDelta = (hasDiuretic ? -1 : 0) * adherenceFactor
+
+      let albDelta = -(wKg * 2 + lifestyleFactor * 3)
+      if (hasSGLT2 || hasARB_ACE) albDelta -= baseAlb * 0.15
+      albDelta *= adherenceFactor
+
+      const bnpFactor = hasSGLT2 ? 0.8 : 1.0
+      const ckDelta = (hasStatin ? 15 : 0) * adherenceFactor
+
+      visit2Labs = {
+        hba1c: baseHbA1c > 0 ? r1(baseHbA1c + hba1cDelta) : r1(baseHbA1c),
+        glucose: baseGlucose > 0 ? rI(baseGlucose + glucoseDelta) : rI(baseGlucose),
+        ldl: baseLDL > 0 ? rI(baseLDL + ldlDelta) : null,
+        hdl: baseHDL > 0 ? rI(baseHDL + hdlDelta) : null,
+        tg: baseTG > 0 ? rI(newTG) : null,
+        cr: baseCr > 0 ? r1(baseCr + crDelta) : null,
+        bun: rI(baseLabs.bun),
+        egfr: baseEGFR > 0 ? rI(baseEGFR + egfrDelta) : null,
+        ua: baseUA > 0 ? r1(baseUA + uaDelta) : null,
+        ast: newAST != null ? rI(newAST) : null,
+        alt: newALT != null ? rI(newALT) : null,
+        urine_alb: baseLabs.urine_alb != null ? rI(Math.max(0, baseAlb + albDelta)) : null,
+        urine_protein: baseLabs.urine_protein,
+      }
+      if (baseBNP != null) visit2Labs.bnp = rI(Math.max(0, baseBNP * bnpFactor))
+      if (baseK != null) visit2Labs.k = r1(baseK + kDelta)
+      if (baseNa != null) visit2Labs.na = rI(baseNa + naDelta)
+      if (baseCK != null) visit2Labs.ck = rI(baseCK + ckDelta)
+      if (baseLabs.total_cholesterol != null) visit2Labs.total_cholesterol = rI(baseLabs.total_cholesterol + ldlDelta * 0.7)
+      if (baseLabs.non_hdl_c != null) visit2Labs.non_hdl_c = rI(baseLabs.non_hdl_c + ldlDelta * 0.9)
+      if (baseLabs.alb != null) visit2Labs.alb = r1(baseLabs.alb)
+
+      // === 臨床的妥当性 floor / cap ===
+      if (visit2Labs.hba1c != null && visit2Labs.hba1c < 5.0) visit2Labs.hba1c = 5.0
+      if (visit2Labs.ldl != null && visit2Labs.ldl < 50) visit2Labs.ldl = 50
+      if (visit2Labs.hdl != null) {
+        if (visit2Labs.hdl < 30) visit2Labs.hdl = 30
+        if (visit2Labs.hdl > 100) visit2Labs.hdl = 100
+      }
+      if (visit2Labs.tg != null && visit2Labs.tg < 50) visit2Labs.tg = 50
+      if (visit2Labs.ua != null && visit2Labs.ua < 2.0) visit2Labs.ua = 2.0
+      if (visit2Labs.ast != null && visit2Labs.ast < 10) visit2Labs.ast = 10
+      if (visit2Labs.alt != null && visit2Labs.alt < 10) visit2Labs.alt = 10
+      if (visit2Labs.glucose != null && visit2Labs.glucose < 70) visit2Labs.glucose = 70
+      if (visit2Labs.urine_alb != null && visit2Labs.urine_alb < 0) visit2Labs.urine_alb = 0
     } else {
       visit2Labs = {
         na: 140 + Math.floor(Math.random() * 5),
