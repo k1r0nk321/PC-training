@@ -696,8 +696,19 @@ export default function CaseDetailPage({ params }) {
         const patient = caseData.patient_data
         const vitals = patient.vitals || {}
         const labs = patient.labs || {}
+        const pastHist = patient.past_history || ''
+        const histShort = (patient.history || '').slice(0, 200)
+        const labLines = []
+        if (labs.bnp != null) labLines.push('BNP ' + labs.bnp + ' pg/mL')
+        if (labs.cr != null) labLines.push('Cr ' + labs.cr)
+        if (labs.egfr != null) labLines.push('eGFR ' + labs.egfr)
+        if (labs.urine_alb != null) labLines.push('尿Alb ' + labs.urine_alb)
+        const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
         const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
-          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?')
+          (pastHist ? '、既往: ' + pastHist : '') +
+          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?') +
+          labCtx +
+          (histShort ? '、現病歴: ' + histShort : '')
         const isLab = detectedTest.type === 'lab'
         const sysPrompt = isLab
           ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
