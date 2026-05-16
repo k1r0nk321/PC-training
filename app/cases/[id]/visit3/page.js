@@ -694,7 +694,27 @@ export default function Visit3Page({ params }) {
     })()) {
       setLabsRevealed(true)
       const labs = visit3Data.visit3Labs
-      const labText = `【血液検査結果（8週後）】\n\nNa ${labs.na} mEq/L　K ${labs.k} mEq/L\nCr ${labs.cr} mg/dL　BUN ${labs.bun} mg/dL　eGFR ${labs.egfr} mL/min\nLDL ${labs.ldl} mg/dL　HDL ${labs.hdl} mg/dL　TG ${labs.tg} mg/dL\nHbA1c ${labs.hba1c}%　UA ${labs.ua} mg/dL`
+      const lines = []
+      if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
+      if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
+      if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
+      if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
+      if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
+      if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
+      if (labs.non_hdl_c != null) lines.push('Non-HDL ' + labs.non_hdl_c + ' mg/dL')
+      if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
+      if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
+      if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
+      if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
+      if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
+      if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
+      if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
+      if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
+      if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
+      if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
+      if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
+      if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
+      const labText = '【血液・尿検査結果（8週後）】\n\n' + lines.join('、')
       setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
       return
     }
