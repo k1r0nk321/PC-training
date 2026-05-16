@@ -43,18 +43,65 @@ export async function POST(req) {
 
     const ageGroups = ['35から45', '46から55', '56から65', '66から75', '76から80']
 const randomAge = ageGroups[Math.floor(Math.random() * ageGroups.length)]
-const chiefComplaints = [
-  '健診で血圧が高いと言われた',
-  '会社の健康診断で高血圧を指摘されてきた',
-  '家族に血圧が高いと言われて心配になってきた',
-  '自分で血圧を測ったら高かったので受診した',
-  '脳ドックで動脈硬化を指摘されて血圧の管理をしたい',
-  '親が脳卒中になったので自分の血圧が心配になってきた',
-  '以前から血圧が高いと言われていたが放置していた。そろそろ診てもらいたい',
-  'めまいがして血圧を測ったら高かったので受診した',
-  '職場の産業医から血圧が高いと指摘された',
-  '健康診断の再検査で受診した',
-]
+
+// 疾患別の設定（主訴・バイタル範囲・検査値ヒント）
+const DISEASE_CONFIGS = {
+  '高血圧症': {
+    chiefComplaints: [
+      '健診で血圧が高いと言われた',
+      '会社の健康診断で高血圧を指摘されてきた',
+      '家族に血圧が高いと言われて心配になってきた',
+      '自分で血圧を測ったら高かったので受診した',
+      '脳ドックで動脈硬化を指摘されて血圧の管理をしたい',
+      '親が脳卒中になったので自分の血圧が心配になってきた',
+      '以前から血圧が高いと言われていたが放置していた。そろそろ診てもらいたい',
+      'めまいがして血圧を測ったら高かったので受診した',
+      '職場の産業医から血圧が高いと指摘された',
+      '健康診断の再検査で受診した',
+    ],
+    bpHint: '140〜180/85〜110の範囲（高血圧症なので必ず収縮期140以上）',
+    labsHint: 'HbA1c は 5.4-6.4%、空腹時血糖 80-110 mg/dL、LDL 100-160 mg/dL、HDL 40-65 mg/dL、TG 80-180 mg/dL、Cr 0.6-1.2、eGFR 50-90、Na 138-145、K 3.8-4.8、UA 4.0-7.5。',
+    pastHistoryHint: 'なし・脂質異常症・糖尿病・痛風・喘息など多様に',
+  },
+  '2型糖尿病': {
+    chiefComplaints: [
+      '健診で血糖値が高いと言われた',
+      '会社の健康診断で糖尿病を指摘されてきた',
+      '口渇と多尿で受診した',
+      'HbA1c が高いと指摘された',
+      '親が糖尿病で自分も心配になってきた',
+      '視力低下で眼科に行ったら血糖値を調べるよう言われた',
+      '体重が増えてきて血糖値も気になってきた',
+      '健康診断の再検査で受診した',
+      '尿の泡立ちが気になってきた',
+      '足のしびれが気になって受診した',
+      '空腹時血糖が高いと言われた',
+      '糖負荷試験で異常を指摘された',
+    ],
+    bpHint: '110〜150/65〜95の範囲（糖尿病単独例は正常BP多い、合併で軽度高値もあり）',
+    labsHint: 'HbA1c は必ず 6.5%以上 7.0-10.0% の範囲。空腹時血糖は必ず 126 mg/dL 以上 130-250 の範囲。LDL 100-180 mg/dL、HDL 35-55 mg/dL、TG 120-300 mg/dL、Cr 0.6-1.2、eGFR 45-95、UA 4.5-8.0、AST 18-40、ALT 18-50（脂肪肝合併多い）、尿Alb 0-50 mg/g・Cr。',
+    pastHistoryHint: 'なし・脂質異常症・高血圧・脂肪肝・糖尿病家族歴など',
+    bmiNote: '糖尿病はBMI25-32の肥満合併例が多いが、高齢ではやせ型もあり',
+  },
+  '脂質異常症': {
+    chiefComplaints: [
+      '健診でコレステロールが高いと言われた',
+      'LDL コレステロールが高いと指摘された',
+      '中性脂肪が高いと言われた',
+      '家族に高脂血症がいて自分も心配になってきた',
+      '脳ドックで動脈硬化を指摘されて受診した',
+      '健康診断の再検査で受診した',
+      '体重が増えてコレステロールも気になってきた',
+      '親が心筋梗塞になったので自分も心配',
+      '頸動脈エコーで動脈硬化を指摘された',
+    ],
+    bpHint: '110〜145/70〜95の範囲（脂質異常症単独例は正常BP多い、合併で軽度高値）',
+    labsHint: 'LDL は必ず 140 mg/dL 以上、160-220 の範囲（脂質異常症の主病態）。HDL 30-55 mg/dL（低めも多い）、TG 150-400 mg/dL、TC 220-300、non-HDL-C 170-250、HbA1c 5.4-6.5%、空腹時血糖 85-125、AST/ALT 15-45、CK 50-150。',
+    pastHistoryHint: 'なし・高血圧・糖尿病・脂肪肝・甲状腺機能低下症など',
+  },
+}
+const diseaseConfig = DISEASE_CONFIGS[diseaseName] || DISEASE_CONFIGS['高血圧症']
+const chiefComplaints = diseaseConfig.chiefComplaints
 const randomComplaint = chiefComplaints[Math.floor(Math.random() * chiefComplaints.length)]
 
     const ageNum = parseInt(randomAge.split('から')[0])
@@ -86,11 +133,11 @@ const bmiProfile = ageNum >= 75
     "occupation": "会社員・自営業・主婦・農業・教師・医療職・無職・パート・管理職など多様な職業からランダムに選択",
     "chief_complaint": "${randomComplaint}（この主訴を必ず使うこと）",
     "history": "現病歴（2〜3文。発症時期・経緯・症状の特徴を多様に）",
-    "past_history": "既往歴（なし・糖尿病・脂質異常症・痛風・喘息など多様に）",
+    "past_history": "既往歴（${diseaseConfig.pastHistoryHint}）",
     "family_history": "家族歴（高血圧・脳卒中・心筋梗塞・糖尿病など多様に）",
     "social_history": "生活歴（飲酒習慣・喫煙歴・運動習慣・食事習慣・外食頻度・夜食習慣を具体的に記載）",
 "vitals": {
-      "bp": "${ageNum >= 75 ? '140〜190/70〜100の範囲（脈圧が広い収縮期高血圧が多い）' : '140〜180/85〜110の範囲'}でランダムな血圧（例：158/96 mmHg）",
+      "bp": "${ageNum >= 75 && diseaseName === '高血圧症' ? '140〜190/70〜100の範囲（脈圧が広い収縮期高血圧）' : diseaseConfig.bpHint}でランダムな血圧（例：158/96 mmHg）",
       "hr": "脈拍（55〜88 bpmの範囲でランダム）",
       "temp": "体温（36.2〜36.8℃の範囲でランダム）",
       "spo2": "SpO2（96〜99%の範囲でランダム）",
@@ -98,6 +145,7 @@ const bmiProfile = ageNum >= 75
       "weight": "体重（${bmiProfile.weightRange[0]}〜${bmiProfile.weightRange[1]}の範囲でランダム、数値のみ。${bmiProfile.bmiNote}）",
       "bmi": "BMI（小数点1桁、身長と体重から正確に計算すること）"
     },
+    "labs": "上記の labs_hint_for_visit1 の範囲に従って疾患のテーマに沿った検査値を生成（例: {hba1c: 7.8, glucose: 165, ldl: 135, hdl: 42, tg: 180, cr: 0.9, bun: 14, egfr: 78, ua: 6.2, ast: 24, alt: 28, urine_alb: 15}）。数値のみ、文字列ではない",
 "hidden_params": {
       "adherence_level": "high・medium・lowからランダムに選択",
       "lifestyle_motivation": "high・medium・lowからランダムに選択",
@@ -117,6 +165,7 @@ const bmiProfile = ageNum >= 75
       "needs_social_support": "${ageNum >= 75 ? 'true' : ageNum >= 65 ? 'ランダムにtrueまたはfalse' : 'false'}"
     }
   },
+  "labs_hint_for_visit1": "${diseaseConfig.labsHint}（この範囲で patient.labs を生成すること。疾患のテーマと整合性を保つ）",
   "scenario": {
     "difficulty": 1または2または3,
     "key_points": ["学習ポイント1", "学習ポイント2", "学習ポイント3"],
