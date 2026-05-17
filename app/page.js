@@ -408,6 +408,30 @@ export default function Home() {
     }}>
       <div style={{ maxWidth: '440px', margin: '0 auto', paddingTop: '24px' }}>
 
+        {/* プレビュー環境バナー(開発環境のみ表示) */}
+        {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '2px solid #f87171',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <span style={{ fontSize: '20px' }}>🧪</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#991b1b', margin: '0 0 2px' }}>
+                プレビュー環境(develop ブランチ)
+              </p>
+              <p style={{ fontSize: '10px', color: '#7f1d1d', margin: 0 }}>
+                ここで追加・編集した内容は本番には反映されません。
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ロゴ画像（後で /public/logo.png に差し替え可能） */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
           <div style={{
