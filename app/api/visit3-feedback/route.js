@@ -3,6 +3,7 @@ export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
+import { buildConsultationEvaluationBlock } from '../../lib/consultation-evaluator'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -202,15 +203,21 @@ ${caseData.disease_name === '高血圧症' ? '- 血圧：' + (v2Vitals.bp || v1V
 【専門医コンサルトの推奨】
 ${(() => {
   const rec = (scenarioData || caseData.scenario_data)?.consultation_recommendation
-  if (!rec) return '本症例ではコンサルト推奨情報なし'
+  if (!rec) return '本症例ではコンサルト推奨情報なし（一般症例）'
   const necJa = rec.necessity === 'required' ? '必須' : rec.necessity === 'recommended' ? '推奨' : '不要'
   return '- 推奨レベル：' + necJa + '\n- 推奨科：' + (rec.recommended_specialty || 'なし') + '\n- 推奨理由：' + (rec.reason || 'なし')
 })()}
 
 【研修医のコンサルト判断（各 Visit）】
-- Visit 1：${v1.consultation && v1.consultation.performed ? '紹介あり（' + (v1.consultation.specialty || '未選択') + '）' : '紹介なし'}
-- Visit 2：${v2.consultation && v2.consultation.performed ? '紹介あり（' + (v2.consultation.specialty || '未選択') + '）' : '紹介なし'}
+- Visit 1：${v1.consultation && v1.consultation.performed ? '紹介あり（' + (v1.consultation.specialty || '未選択') + '・理由：' + (v1.consultation.reason || '未記入') + '）' : '紹介なし'}
+- Visit 2：${v2.consultation && v2.consultation.performed ? '紹介あり（' + (v2.consultation.specialty || '未選択') + '・理由：' + (v2.consultation.reason || '未記入') + '）' : '紹介なし'}
 - Visit 3：${consultation && consultation.performed ? '紹介あり（' + (consultation.specialty || '未選択') + '・理由：' + (consultation.reason || '未記入') + '）' : '紹介なし'}
+
+${buildConsultationEvaluationBlock(caseData.disease_name, patient, [
+  { visit: 1, consultation: v1.consultation },
+  { visit: 2, consultation: v2.consultation },
+  { visit: 3, consultation: consultation },
+])}
 
 【既存薬の継続/中止判断（Visit 3 確定）】
 ${(() => {
@@ -238,10 +245,11 @@ ${(() => {
     - Visit 3：Visit 2→3 の改善度、目標達成度（${caseData.disease_name === '高血圧症' ? '血圧 < 140/90' : caseData.disease_name === '2型糖尿病' ? 'HbA1c < 7.0%' : caseData.disease_name === '脂質異常症' ? 'LDL-C 目標値達成' : '体重 -3%以上'} 等）（約8点）
 
 【追加評価ポイント：専門医コンサルト】
-- 推奨「必須」でいずれの Visit でもコンサルトなし → 治療選択点を重大に減点
-- 推奨「推奨」でコンサルトなし → 治療選択点を中程度減点
-- 推奨「不要」でコンサルトあり → 軽度減点（不要な専門医依頼）
-- 適切な判断 → プラス評価
+- **上記の【コンサルト適切性判定（ルールベース）】を最優先で尊重してください**
+- 【適切：定型連携】【適切：条件該当】【適切：生活指導専門資源】 → 絶対に減点しない（プラス評価）
+- 【過剰：条件非該当】 → 軽度減点（不要な専門医依頼）、教育コメントでPC医で完結すべき旨を指摘
+- 未実施の推奨連携（特に DM での眼科・皮膚科） → 減点はしないが、教育コメントで必ず言及（「年1回の網膜症スクリーニング依頼が望ましかった」等）
+- シナリオ独自の consultation_recommendation（必須/推奨）でコンサルトなし → ルールと矛盾しない範囲で減点
 - **重要**：適切な治療が選択されていれば、コンサルトの有無で治療の質評価は左右されない。「コンサルトなしでも良い治療」は減点しない
 
 【追加評価ポイント：既存薬の継続/中止判断】
