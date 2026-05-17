@@ -500,6 +500,7 @@ export default function CaseDetailPage({ params }) {
   const [examDoneIds, setExamDoneIds] = useState([])
   // 担当医に任せる(学習モード)用 state
   const [userPosition, setUserPosition] = useState(null)
+  const [userDisplayName, setUserDisplayName] = useState('')
   const [autoTreatmentUsed, setAutoTreatmentUsed] = useState(false)
   const [autoTreatmentLoading, setAutoTreatmentLoading] = useState(false)
   // 後方互換: 旧フォーマット({performed, specialty, reason})を配列に変換するヘルパー
@@ -597,7 +598,22 @@ export default function CaseDetailPage({ params }) {
       // 学習モード判定用に身分を取得
       fetch('/api/user-profile?userId=' + session.user.id)
         .then(function(r) { return r.json() })
-        .then(function(d) { if (d && d.profile && d.profile.position) setUserPosition(d.profile.position) })
+        .then(function(d) {
+          if (d && d.profile) {
+            if (d.profile.position) setUserPosition(d.profile.position)
+            // 表示名: display_preference=handle_name かつ handle_name 有 → handle_name、それ以外は real_name の苗字
+            const pref = d.profile.display_preference
+            const handle = d.profile.handle_name
+            const real = d.profile.real_name || ''
+            if (pref === 'handle_name' && handle) {
+              setUserDisplayName(handle)
+            } else if (real) {
+              // 半角・全角スペースで分割して最初のトークン(=苗字)を取得
+              const surname = real.split(/[\s\u3000]+/)[0] || real
+              setUserDisplayName(surname)
+            }
+          }
+        })
         .catch(function() {})
       fetchCase(session.user.id)
     })
@@ -726,7 +742,7 @@ export default function CaseDetailPage({ params }) {
             selectionType: 'medication',
             item: { id: m.id, drug_name_generic: m.drug_name_generic, typical_dose: m.typical_dose },
             labelText: '💊 ' + m.drug_name_generic + (m.typical_dose ? '（' + m.typical_dose + '）' : ''),
-            reaction: { reaction: '先生にお任せします。' },
+            reaction: { reaction: '先生にお任せします。', acceptance_level: 'accepted' },
             persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
             timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
           }
@@ -747,7 +763,7 @@ export default function CaseDetailPage({ params }) {
             selectionType: 'device',
             item: { id: d.id, device_name: d.device_name },
             labelText: '🔧 ' + d.device_name,
-            reaction: { reaction: '先生にお任せします。' },
+            reaction: { reaction: '先生にお任せします。', acceptance_level: 'accepted' },
             persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
             timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
           }
@@ -897,7 +913,8 @@ export default function CaseDetailPage({ params }) {
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。'
+        '。患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。' +
+        (isNonPhysicianRole(userPosition) && userDisplayName ? '【重要】相手は医師ではなく' + userPosition + 'です。「先生」と呼ばずに「' + userDisplayName + 'さん」と呼びかけてください。医療行為を依頼される文脈であっても、「先生」「医師」という呼称は使わないこと。' : '')
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -988,6 +1005,8 @@ export default function CaseDetailPage({ params }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userPosition: userPosition,
+          userDisplayName: userDisplayName,
           patientData: caseData.patient_data,
           selectionType, selectedItem: item,
           previousReactions: [], persuasionMessage: null,
@@ -1023,6 +1042,8 @@ export default function CaseDetailPage({ params }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userPosition: userPosition,
+          userDisplayName: userDisplayName,
           patientData: caseData.patient_data, selectionType: entry.selectionType,
           selectedItem: entry.item, previousReactions: newHistory, persuasionMessage: persuasionInput,
           interviewMessages: messages,
