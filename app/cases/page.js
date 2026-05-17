@@ -222,7 +222,11 @@ export default function CasesPage() {
             <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>PC Training</h1>
             <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>プライマリケア外来研修シミュレーター</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button onClick={function() { router.push('/usage') }}
+              style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+              📖 使い方
+            </button>
             <button onClick={function() { router.push('/') }}
               style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
               ← トップへ戻る
