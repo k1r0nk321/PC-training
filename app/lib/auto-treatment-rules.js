@@ -333,9 +333,22 @@ export function decideAutoTreatment(diseaseName, patient) {
   return null
 }
 
-// 医師以外の身分かを判定(担当医に任せる ボタン表示制御用)
-export const NON_PHYSICIAN_POSITIONS = ['医学生', '医療従事者', 'その他']
+// 医師(資格あり)の身分一覧
+export const PHYSICIAN_POSITIONS = ['1年目研修医', '2年目研修医', '専攻医', '指導医']
 
+// 医師以外の身分一覧(明示的)
+export const NON_PHYSICIAN_POSITIONS = ['医学生', '医療従事者', 'その他', '学習者']
+
+// 非医師(=学習モード対象)の判定。プロファイル未登録のデモユーザーも非医師扱い。
 export function isNonPhysicianRole(position) {
-  return NON_PHYSICIAN_POSITIONS.indexOf(position) >= 0
+  // 明示的に医師身分ならfalse、それ以外(null/undefined/空文字/その他リスト含む)はtrue
+  if (!position) return true
+  if (PHYSICIAN_POSITIONS.indexOf(position) >= 0) return false
+  return true
+}
+
+// 表示用の身分ラベル。position が null/不明なら '学習者' を返す。
+export function getDisplayPosition(position) {
+  if (!position) return '学習者'
+  return position
 }
