@@ -1,6 +1,7 @@
 export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
+import { shouldShowPreview } from '../../lib/preview-mode'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
 
@@ -25,11 +26,14 @@ export async function POST(req) {
     const supabase = getAdminClient()
 
     // ガイドライン引用を取得
-    const { data: guidelines } = await supabase
+    let scoringGuidelinesQuery = supabase
       .from('guideline_items')
       .select('item_type, content, guideline_name, page_ref')
       .eq('disease_id', diseaseId)
-      .eq('is_active', true)
+    if (!shouldShowPreview()) {
+      scoringGuidelinesQuery = scoringGuidelinesQuery.eq('is_active', true)
+    }
+    const { data: guidelines } = await scoringGuidelinesQuery
 
     // 第一選択薬を取得
     const { data: firstLineMeds } = await supabase
