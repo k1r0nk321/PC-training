@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { shouldShowPreview } from '../../lib/preview-mode'
 
 function getAdminClient() {
   return createClient(
@@ -17,12 +18,14 @@ export async function GET(req) {
     }
 
     const supabase = getAdminClient()
-    const { data, error } = await supabase
+    let devQuery = supabase
       .from('medical_devices')
       .select('id, device_category, device_name, device_name_en, indication, how_to_use, insurance_coverage, psychological_barrier, common_objections, key_benefits, sub_options, first_line')
       .eq('disease_id', diseaseId)
-      .eq('is_active', true)
-      .order('sort_order')
+    if (!shouldShowPreview()) {
+      devQuery = devQuery.eq('is_active', true)
+    }
+    const { data, error } = await devQuery.order('sort_order')
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 })
