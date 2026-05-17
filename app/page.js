@@ -83,6 +83,29 @@ export default function Home() {
     return function() { subscription.unsubscribe() }
   }, [])
 
+  // ユーザー切替時にプロフィール/進捗を再取得(ログアウト→再ログイン時のバグ修正)
+  useEffect(function() {
+    if (!user) {
+      setUserProfile(null)
+      setProgress(null)
+      return
+    }
+    async function refreshUserData() {
+      try {
+        const res = await fetch('/api/user-progress?userId=' + user.id)
+        const d = await res.json()
+        if (!d.error) setProgress(d)
+      } catch (e) {}
+      try {
+        const pr = await fetch('/api/user-profile?userId=' + user.id)
+        const pd = await pr.json()
+        if (pd.profile) setUserProfile(pd.profile)
+        else setUserProfile(null)
+      } catch (e) {}
+    }
+    refreshUserData()
+  }, [user])
+
   async function handleAuth() {
     setAuthLoading(true)
     setMessage('')
