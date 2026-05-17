@@ -60,6 +60,7 @@ export async function POST(req) {
       visit3Vitals,
       consultation,
       consultations,
+      autoTreatmentUsed,
       discontinuedExistingMeds,
       additionalLabs,
       additionalImaging,
@@ -251,7 +252,7 @@ ${(() => {
 【評価基準】
 各 Visit で以下の4軸を評価してください。各 Visit は約 33 点満点（合計 100 点）。
 
-評価軸（各 Visit 共通）：
+${autoTreatmentUsed ? '【学習モード(担当医に任せる)が使用されています】\n- 投薬・機器・専門医コンサルトは「担当医の推奨」を自動入力しており、学習者本人が選択していません\n- 評価対象は **問診(情報収集)・生活指導/患者教育・患者対応(コミュニケーション)** の3軸に限定\n- 投薬選択・コンサルト選択・治療効果(アウトカム)については **評価対象外** とし、コメントでも触れない\n- 配点目安: Visit 1〜3 で 問診33点 + 生活指導/患者教育34点 + 患者対応33点 = 100点満点\n- 学習者の身分は医師ではないため、治療選択能力ではなく患者教育・生活指導スキルを重点評価\n\n' : ''}評価軸（各 Visit 共通）：
 1. **問診（情報収集）**：適切な質問・症状確認・既往/家族歴/生活歴の聴取ができたか（約8点）
 2. **治療選択（薬剤・指導の妥当性）**：診断・ガイドラインに沿った治療か、患者背景を踏まえた選択か（約9点）
 3. **患者対応（コミュニケーション）**：患者の反応に対する説明・説得・共感、拒否時の対応（約8点）
@@ -340,6 +341,7 @@ COMMENT:
       },
     }
     breakdown.labSummary = labSummary
+    breakdown.auto_treatment_used = !!autoTreatmentUsed
 
     // ===== Save to DB and ARCHIVE (Phase F: 軽量化) =====
     // 成績評価で必要な情報だけ残し、重量データはクリア
