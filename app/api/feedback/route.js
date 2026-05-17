@@ -51,7 +51,7 @@ export async function POST(req) {
       patientData, scenarioData, selectedMedications, selectedEducation,
       selectedSubOptions, selectedDevices, reactionLog,
       interviewMessages, visit2Vitals, visit2Labs,
-      consultation, consultations, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
+      consultation, consultations, autoTreatmentUsed, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
 
     const supabase = getAdminClient()
     const hidden = patientData.hidden_params
@@ -250,7 +250,7 @@ ${visit2Summary}
 【参考ガイドライン】
 ${guidelineText}
 
-以下の点を特に重視して評価してください：
+${autoTreatmentUsed ? '【学習モード(担当医に任せる)が使用されています】\n- 投薬・機器・専門医コンサルトは「担当医の推奨」を自動入力しており、研修医本人が選択していません\n- 評価対象は **問診(情報収集)・生活指導/患者教育・患者対応(コミュニケーション)** の3軸に限定してください\n- 投薬選択・コンサルト選択・治療効果(アウトカム)については **評価対象外** とし、コメントでも触れないでください\n- 配点目安: 問診33点 + 生活指導/患者教育34点 + 患者対応33点 = 100点満点\n- 学習者の身分は医師ではない(医学生・医療従事者・その他)ため、治療選択の能力ではなく、患者教育・生活指導スキルを重点的に評価\n\n' : ''}以下の点を特に重視して評価してください：
 1. 患者の生活習慣の問題の大きさに対して、指導の強度が適切だったか（生活習慣が悪い患者への緩やかな指導も効果的な場合がある）
 2. 患者の性格・抵抗性に対して、介入数と説得の仕方が適切だったか（抵抗的な患者への多介入はドロップアウトリスクを高める）
 3. 患者が受け入れた治療の質（少ない介入でも高い同意率を得られた場合は高評価）
