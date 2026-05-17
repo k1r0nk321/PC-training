@@ -444,7 +444,7 @@ export default function Home() {
             <div>
               <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 12px' }}>アカウント登録なしで体験</h2>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px', lineHeight: 1.7 }}>
-                モデル症例 <b>3 例まで</b>体験できます。<br />
+                モデル症例 <b>10 例まで</b>体験できます。<br />
                 完遂したデータは保存されず、ログアウトでリセットされます。
               </p>
               <ul style={{ fontSize: '11px', color: '#64748b', margin: '0 0 16px', padding: '0 0 0 18px', lineHeight: 1.8 }}>
