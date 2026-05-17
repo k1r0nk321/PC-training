@@ -21,7 +21,10 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
   const isInterview = contextType !== 'treatment'
   const contextLabel = isInterview ? '問診場面' : '治療方針提示後の指導場面'
   const convo = recentMessages.map(function(m) {
-    const role = m.role === 'user' ? '医師' : '患者'
+    const NON_PHYSICIAN_LIST = ['医学生', '医療従事者', 'その他', '学習者']
+    const isNonPhysician = userPosition && NON_PHYSICIAN_LIST.indexOf(userPosition) >= 0
+    const learnerLabel = isNonPhysician ? (userDisplayName ? userDisplayName + 'さん' : '学習者') : '医師'
+    const role = m.role === 'user' ? learnerLabel : '患者'
     return role + ': ' + m.content
   }).join('\n')
 
@@ -34,7 +37,7 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `- 運動習慣: ` + (currentParams.exercise_habit_label || '') + ' (' + (currentParams.exercise_habit_comment || '') + `)\n` +
     `- 生活改善意欲★: ` + currentParams.lifestyle_motivation + `/5（★多=良い、増えれば改善）\n` +
     `- 服薬意欲★: ` + currentParams.medication_motivation + `/5（★多=良い、増えれば改善）\n` +
-    `- 信頼度★: ` + currentParams.trust_level + `/5（★多=良い、医師への信頼度）\n\n` +
+    `- 信頼度★: ` + currentParams.trust_level + `/5（★多=良い、' + learnerLabel + 'への信頼度）\n\n` +
     `【最近の会話】\n` + convo + `\n\n` +
     `【評価ルール - 重要】\n` +
     `A. 患者の発言を強く反映する。\n` +
@@ -45,9 +48,9 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   - 患者「週末だけ1時間運動してます」→ exercise_habit_label="1回1時間運動", exercise_habit_comment="週末のみ"\n` +
     `   - 患者「自炊するようにしました」→ eating_habit_label="自炊中心", eating_habit_comment="新しい習慣"\n` +
     `   - 患者「外食が多くて」→ eating_habit_label="外食中心", eating_habit_comment=""\n\n` +
-    `C. 信頼度★の評価（医師の発言・態度に基づく）：\n` +
-    `   - 医師の共感的な傾聴・患者の気持ちに寄り添う発言・納得のいく説明 → trust_level_delta=+1\n` +
-    `   - 医師の批判的・否定的・押付け・無関心・専門用語の押付け → trust_level_delta=-1\n` +
+    `C. 信頼度★の評価（' + learnerLabel + 'の発言・態度に基づく）：\n` +
+    `   - ' + learnerLabel + 'の共感的な傾聴・患者の気持ちに寄り添う発言・納得のいく説明 → trust_level_delta=+1\n` +
+    `   - ' + learnerLabel + 'の批判的・否定的・押付け・無関心・専門用語の押付け → trust_level_delta=-1\n` +
     `   - 中立的な普通の発言 → trust_level_delta=0\n` +
     `   ※ 生活改善意欲・服薬意欲が上昇した場合は、サーバー側で自動的に信頼度に+1されます。\n\n` +
     `D. 関連性のない発言・挨拶・短い相槌のみの場合は変動なし（全てnullまたは0）。\n\n` +
@@ -71,24 +74,24 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   ★ 同じカテゴリで複数の数値（カロリー・塩分・コレステロール・脂質%・飲酒量）が会話に出てきた場合、必ず「最も厳しい（数値が小さい）制限」を detail に採用すること。\n` +
     `   合意が無い場合は lifestyle_agreements_update を {} とする。\n\n` +
     `G. 【最重要】medication_motivation_delta の特別ルール：\n` +
-    `   服薬意欲★は、医師が「服薬のメリット・デメリット・効果・副作用・リスク」を具体的に説明した時のみ変動する。\n` +
-    `   - 医師「この薬は〜の効果があります」「副作用として〜が起きることがあります」「薬を飲まないと〜のリスクがあります」→ +1\n` +
+    `   服薬意欲★は、' + learnerLabel + 'が「服薬のメリット・デメリット・効果・副作用・リスク」を具体的に説明した時のみ変動する。\n` +
+    `   - ' + learnerLabel + '「この薬は〜の効果があります」「副作用として〜が起きることがあります」「薬を飲まないと〜のリスクがあります」→ +1\n` +
     `   - 食事指導・運動指導・生活習慣指導のみ → medication_motivation_delta=0（変動しない）\n` +
     `   - 患者が「薬を飲みます」等と言うだけ → medication_motivation_delta=0\n` +
-    `   - 服薬に関する医師の具体的な説明がない場合、必ず medication_motivation_delta=0 を返すこと。\n\n` +
+    `   - 服薬に関する' + learnerLabel + 'の具体的な説明がない場合、必ず medication_motivation_delta=0 を返すこと。\n\n` +
     `H. 重要：ストレス★・忙しさ★は患者本人の精神的・環境的パラメーターであり、問診や治療指導場面では変化しません。これらは別の経路（治療法選択での社会的支援）で変動します。本評価では一切扱わない（フィールド出力なし）。\n\n` +
     `【出力形式】JSONのみ。説明文・前後の文章・コードブロック記号は一切不要。\n` +
     `{\n` +
-    `  "eating_habit_label": "新しい定型句、変化なしならnull",\n` +
-    `  "eating_habit_comment": "新しいコメント、変化なしならnull",\n` +
-    `  "exercise_habit_label": "新しい定型句、変化なしならnull",\n` +
-    `  "exercise_habit_comment": "新しいコメント、変化なしならnull",\n` +
+    `  "eating_habit_label": "新しい定型句、変化なしならnull(注:「医師」「先生」等の称号は使わない。中立的な表現を使う。指導を受けていない場合は「未指導」)",\n` +
+    `  "eating_habit_comment": "新しいコメント、変化なしならnull(注:「医師」「先生」等の称号は使わない。「指導待ち」のような表現も使わず、「習慣継続」「未着手」「報告なし」等の中立的な記述)",\n` +
+    `  "exercise_habit_label": "新しい定型句、変化なしならnull(注:「医師」「先生」等の称号は使わない)",\n` +
+    `  "exercise_habit_comment": "新しいコメント、変化なしならnull(注:「医師」「先生」等の称号は使わない。中立的な記述)",\n` +
     `  "lifestyle_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
     `  "lifestyle_agreements_update": {\n` +
     `    "カテゴリ名": { "agreed": true, "level": "moderate", "detail": "内容" }\n` +
     `  },\n` +
     `  "medication_motivation_delta": 整数(0または+1、医師が服薬の効果・副作用・リスクを説明した時のみ変動。それ以外は必ず0),\n` +
-    `  "trust_level_delta": 整数(-2〜+2、医師の態度のみで判定),\n` +
+    `  "trust_level_delta": 整数(-2〜+2、' + learnerLabel + 'の態度のみで判定),\n` +
     `  "reasoning": "1〜2文の評価理由"\n` +
     `}`
 }
@@ -96,7 +99,7 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
 export async function POST(req) {
   try {
     const body = await req.json()
-    const { caseId, visitNumber, recentMessages, currentParams, context, personality } = body
+    const { caseId, visitNumber, recentMessages, currentParams, context, personality, userPosition, userDisplayName } = body
 
     if (!caseId || !visitNumber || !currentParams) {
       return Response.json({ error: 'caseId, visitNumber, currentParams required' }, { status: 400 })
