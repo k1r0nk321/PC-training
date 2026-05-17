@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
-import ExamOrderModal from '../../../components/ExamOrderModal'
-import { NON_PHYSICIAN_POSITIONS, isNonPhysicianRole } from '../../../lib/auto-treatment-rules'
 
 const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
 const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
@@ -100,14 +98,16 @@ const LAB_LABELS = {
   urine_protein: { name: '尿蛋白', unit: '' },
   bnp: { name: 'BNP', unit: 'pg/mL' },
   alb: { name: 'Alb', unit: 'g/dL' },
+  ua_clearance: { name: 'UAクリアランス', unit: 'mL/min' },
 }
-const LAB_ORDER = ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ast', 'alt', 'ck', 'urine_alb', 'urine_protein', 'bnp', 'alb']
+const LAB_ORDER = ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ast', 'alt', 'ck', 'urine_alb', 'urine_protein', 'alb']
 
 // 疾患別 baseline 表示項目（「検査」入力時に一括表示）
 const DISEASE_LAB_MAP = {
-  '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
-  '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt'],
-  '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr'],
+  '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose', 'bnp'],
+  '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt', 'bnp'],
+  '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr', 'bnp'],
+  '高尿酸血症・痛風': ['ua', 'ua_clearance', 'cr', 'bun', 'egfr', 'urine_protein', 'na', 'k', 'hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'ast', 'alt'],
 }
 function diseaseLabKeys(disease) {
   return DISEASE_LAB_MAP[disease] || LAB_ORDER
@@ -561,9 +561,7 @@ export default function Visit3Page({ params }) {
           selected_education: selectedEducation,
           selected_devices: selectedDevices,
           selected_sub_options: selectedSubOptions,
-          consultations: consultations,
-          exam_done_ids: examDoneIds,
-          auto_treatment_used: autoTreatmentUsed,
+          consultation: consultation,
           discontinued_existing_meds: discontinuedExistingMeds,
           reaction_log: reactionLog,
           feedback: feedback,
@@ -587,7 +585,7 @@ export default function Visit3Page({ params }) {
     if (step === 'interview' && messages.length <= 1 && !labsRevealed && additionalLabs.length === 0 && additionalImaging.length === 0) return
     const t = setTimeout(function() { autoSaveStateV3() }, 1500)
     return function() { clearTimeout(t) }
-  }, [step, messages.length, labsRevealed, additionalLabs.length, additionalImaging.length])
+  }, [step, labsRevealed, additionalLabs.length, additionalImaging.length])
 
 
   const [medications, setMedications] = useState([])
@@ -597,41 +595,7 @@ export default function Visit3Page({ params }) {
   const [selectedEducation, setSelectedEducation] = useState([])
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
-  const [consultations, setConsultations] = useState([])
-  // 診察・検査ボタン用 state
-  const [showExamModal, setShowExamModal] = useState(false)
-  const [examLoading, setExamLoading] = useState(false)
-  const [examDoneIds, setExamDoneIds] = useState([])
-  // 担当医に任せる(学習モード)用 state
-  const [userPosition, setUserPosition] = useState(null)
-  const [userDisplayName, setUserDisplayName] = useState('')
-  const [autoTreatmentUsed, setAutoTreatmentUsed] = useState(false)
-  const [autoTreatmentLoading, setAutoTreatmentLoading] = useState(false)
-  // 後方互換: 旧フォーマット({performed, specialty, reason})を配列に変換するヘルパー
-  function consultationsToArray(data) {
-    if (!data) return []
-    if (Array.isArray(data)) return data.filter(function(c) { return c && c.specialty })
-    if (data.performed) return [{ specialty: data.specialty || '', reason: data.reason || '' }]
-    return []
-  }
-  function addConsultation() {
-    setConsultations(function(prev) { return prev.concat([{ specialty: '', reason: '' }]) })
-  }
-  function updateConsultation(idx, key, val) {
-    setConsultations(function(prev) {
-      return prev.map(function(c, i) {
-        if (i !== idx) return c
-        const next = {}
-        Object.keys(c).forEach(function(k) { next[k] = c[k] })
-        next[key] = val
-        return next
-      })
-    })
-  }
-  function removeConsultation(idx) {
-    if (typeof window !== 'undefined' && !window.confirm('このコンサルトを削除しますか？')) return
-    setConsultations(function(prev) { return prev.filter(function(_, i) { return i !== idx }) })
-  }
+  const [consultation, setConsultation] = useState({ performed: false, specialty: '', reason: '' })
   const [discontinuedExistingMeds, setDiscontinuedExistingMeds] = useState([])
 
   const [reactionLog, setReactionLog] = useState([])
@@ -658,37 +622,6 @@ export default function Visit3Page({ params }) {
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
-      // 学習モード判定用に身分を取得
-      // 匿名(デモ)ユーザー: localStorage から身分選択を読み取る
-      if (session.user.is_anonymous) {
-        try {
-          const demoRole = (typeof window !== 'undefined') ? window.localStorage.getItem('pc_demo_role') : null
-          if (demoRole === 'non_physician') {
-            setUserPosition('学習者')
-            setUserDisplayName('学習者')
-          }
-          // 'physician' or null の場合: setUserPosition は null のまま → 従来通り「先生」呼び
-        } catch (e) {}
-      } else {
-        // 登録ユーザー: user_profiles から取得
-        fetch('/api/user-profile?userId=' + session.user.id)
-          .then(function(r) { return r.json() })
-          .then(function(d) {
-            if (d && d.profile) {
-              if (d.profile.position) setUserPosition(d.profile.position)
-              const pref = d.profile.display_preference
-              const handle = d.profile.handle_name
-              const real = d.profile.real_name || ''
-              if (pref === 'handle_name' && handle) {
-                setUserDisplayName(handle)
-              } else if (real) {
-                const surname = real.split(/[\s\u3000]+/)[0] || real
-                setUserDisplayName(surname)
-              }
-            }
-          })
-          .catch(function() {})
-      }
       fetchCase(session.user.id)
     })
   }, [])
@@ -743,7 +676,7 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/visit3', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: params.id, userPosition: userPosition, userDisplayName: userDisplayName }),
+        body: JSON.stringify({ caseId: params.id }),
       })
       const v2 = await res.json()
       if (v2.error) { alert('Visit 3の生成に失敗しました：' + v2.error); return }
@@ -755,8 +688,7 @@ export default function Visit3Page({ params }) {
       if (Array.isArray(v1.selectedEducation)) setSelectedEducation(v1.selectedEducation.map(function(e) { return e.id }))
       if (Array.isArray(v1.selectedDevices)) setSelectedDevices(v1.selectedDevices.map(function(d) { return d.id }))
       if (v1.selectedSubOptions && typeof v1.selectedSubOptions === 'object') setSelectedSubOptions(v1.selectedSubOptions)
-      if (Array.isArray(v1.consultations)) setConsultations(v1.consultations)
-      else if (v1.consultation) setConsultations(consultationsToArray(v1.consultation))
+      if (v1.consultation) setConsultation(v1.consultation)
       if (Array.isArray(v1.discontinuedExistingMeds)) setDiscontinuedExistingMeds(v1.discontinuedExistingMeds)
 
       // 患者の最初のコメントをセット
@@ -785,10 +717,7 @@ export default function Visit3Page({ params }) {
         if (Array.isArray(savedV3.selected_education)) setSelectedEducation(savedV3.selected_education)
         if (Array.isArray(savedV3.selected_devices)) setSelectedDevices(savedV3.selected_devices)
         if (savedV3.selected_sub_options) setSelectedSubOptions(savedV3.selected_sub_options)
-        if (Array.isArray(savedV3.consultations)) setConsultations(savedV3.consultations)
-              else if (savedV3.consultation) setConsultations(consultationsToArray(savedV3.consultation))
-              if (Array.isArray(savedV3.exam_done_ids)) setExamDoneIds(savedV3.exam_done_ids)
-              if (typeof savedV3.auto_treatment_used === 'boolean') setAutoTreatmentUsed(savedV3.auto_treatment_used)
+        if (savedV3.consultation) setConsultation(savedV3.consultation)
         if (Array.isArray(savedV3.discontinued_existing_meds)) setDiscontinuedExistingMeds(savedV3.discontinued_existing_meds)
         if (Array.isArray(savedV3.reaction_log)) setReactionLog(savedV3.reaction_log)
         if (savedV3.feedback) setFeedback(savedV3.feedback)
@@ -809,198 +738,109 @@ export default function Visit3Page({ params }) {
     }
   }
 
-  // ===== 担当医に任せる(学習モード): 推奨治療を自動入力 =====
-  async function handleAutoTreatment(scope) {
-    if (!caseData || !caseData.id || autoTreatmentLoading) return
-    const scopeLabel = scope === 'all' ? '投薬・機器・コンサルト' : (scope === 'medications' ? '投薬' : (scope === 'devices' ? '機器・検査' : (scope === 'consultations' ? 'コンサルト' : '治療項目')))
-    if (typeof window !== 'undefined' && !window.confirm(scopeLabel + 'を担当医の推奨内容で自動入力します。よろしいですか?')) return
-    setAutoTreatmentLoading(true)
-    try {
-      const res = await fetch('/api/auto-treatment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          diseaseId: caseData.disease_id,
-          diseaseName: caseData.disease_name,
-          patientData: caseData.patient_data,
-        }),
-      })
-      const data = await res.json()
-      if (data.error) { alert('エラー: ' + data.error); setAutoTreatmentLoading(false); return }
-
-      // 投薬
-      if ((scope === 'all' || scope === 'medications') && Array.isArray(data.medications)) {
-        const ids = data.medications.map(function(m) { return m.id })
-        setSelectedMeds(ids)
-        // 患者反応は「先生にお任せします」で全承諾
-        const newReactions = data.medications.map(function(m) {
-          return {
-            id: 'med_' + m.id,
-            selectionType: 'medication',
-            item: { id: m.id, drug_name_generic: m.drug_name_generic, typical_dose: m.typical_dose },
-            labelText: '💊 ' + m.drug_name_generic + (m.typical_dose ? '（' + m.typical_dose + '）' : ''),
-            reaction: { reaction: '先生にお任せします。', acceptance_level: 'accepted' },
-            persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
-            timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
-          }
-        })
-        setReactionLog(function(prev) {
-          const filtered = prev.filter(function(r) { return r.id.indexOf('med_') !== 0 })
-          return filtered.concat(newReactions)
-        })
-      }
-
-      // 機器
-      if ((scope === 'all' || scope === 'devices') && Array.isArray(data.devices)) {
-        const ids = data.devices.map(function(d) { return d.id })
-        setSelectedDevices(ids)
-        const newReactions = data.devices.map(function(d) {
-          return {
-            id: 'dev_' + d.id,
-            selectionType: 'device',
-            item: { id: d.id, device_name: d.device_name },
-            labelText: '🔧 ' + d.device_name,
-            reaction: { reaction: '先生にお任せします。', acceptance_level: 'accepted' },
-            persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
-            timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
-          }
-        })
-        setReactionLog(function(prev) {
-          const filtered = prev.filter(function(r) { return r.id.indexOf('dev_') !== 0 })
-          return filtered.concat(newReactions)
-        })
-      }
-
-      // コンサルト
-      if ((scope === 'all' || scope === 'consultations') && Array.isArray(data.consultations)) {
-        setConsultations(data.consultations.map(function(c) { return { specialty: c.specialty, reason: c.reason } }))
-      }
-
-      // 学習モードフラグを ON
-      setAutoTreatmentUsed(true)
-
-      // 担当医の判断をチャットに表示
-      if (data.rationale) {
-        setMessages(function(prev) {
-          return prev.concat([{ role: 'system', content: '🩺 担当医の判断(学習モード)\n\n' + data.rationale }])
-        })
-      }
-    } catch (e) {
-      alert('担当医自動入力でエラーが発生しました: ' + e.message)
-    } finally {
-      setAutoTreatmentLoading(false)
-    }
-  }
-
-    // ===== 診察・検査ボタン: モーダル送信処理 =====
-  async function handleExamSubmit(payload) {
-    if (!caseData || !caseData.id || examLoading) return
-    setExamLoading(true)
-    try {
-      const res = await fetch('/api/exam-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caseId: caseData.id,
-          visitNumber: 3,
-          diseaseName: caseData.disease_name,
-          patientData: caseData.patient_data,
-          items: payload.items || [],
-          freeText: payload.freeText || '',
-          alreadyDone: examDoneIds,
-        }),
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('検査依頼エラー: ' + data.error)
-        setExamLoading(false)
-        return
-      }
-      const results = Array.isArray(data.results) ? data.results : []
-      if (results.length === 0) {
-        alert('結果が生成されませんでした')
-        setExamLoading(false)
-        return
-      }
-      // chat に表示する system メッセージを構築
-      const groups = { physical: [], lab: [], imaging: [], physiology: [], baseline: [] }
-      for (const r of results) {
-        if (!groups[r.type]) groups[r.type] = []
-        groups[r.type].push(r)
-      }
-      const lines = ['🔬 診察・検査の結果\n']
-      if (groups.baseline.length > 0) {
-        for (const b of groups.baseline) {
-          lines.push(b.chatText || ('【' + b.label + '】'))
-        }
-        lines.push('')
-      }
-      if (groups.physical.length > 0) {
-        lines.push('【身体診察】')
-        for (const p of groups.physical) lines.push('▪ ' + p.label + ': ' + (p.finding || ''))
-        lines.push('')
-      }
-      if (groups.lab.length > 0) {
-        lines.push('【追加血液検査】')
-        for (const l of groups.lab) {
-          const v = (l.value != null && l.value !== '') ? l.value : '(値不明)'
-          lines.push('▪ ' + l.label + ': ' + v + (l.unit ? ' ' + l.unit : ''))
-        }
-        lines.push('')
-      }
-      if (groups.imaging.length > 0) {
-        lines.push('【画像検査】')
-        for (const i of groups.imaging) lines.push('▪ ' + i.label + ': ' + (i.finding || ''))
-        lines.push('')
-      }
-      if (groups.physiology.length > 0) {
-        lines.push('【生理検査】')
-        for (const p of groups.physiology) lines.push('▪ ' + p.label + ': ' + (p.finding || ''))
-        lines.push('')
-      }
-      const sysMsg = lines.join('\n').trim()
-      setMessages(function(prev) { return prev.concat([{ role: 'system', content: sysMsg }]) })
-
-      // ベースライン採血が含まれていたら labsRevealed を立てる
-      if (groups.baseline.length > 0 && !labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
-        setLabsRevealed(true)
-      }
-
-      // 追加血液検査を additionalLabs に追加
-      if (groups.lab.length > 0) {
-        const newLabs = groups.lab.map(function(l) { return { name: l.label, value: l.value, unit: l.unit || '' } })
-        setAdditionalLabs(function(prev) { return prev.concat(newLabs) })
-      }
-      // 画像・生理検査・身体所見は additionalImaging に統合
-      const newFindings = []
-      for (const i of groups.imaging) newFindings.push({ name: i.label, finding: i.finding || '' })
-      for (const p of groups.physiology) newFindings.push({ name: p.label, finding: p.finding || '' })
-      for (const p of groups.physical) newFindings.push({ name: p.label, finding: p.finding || '' })
-      if (newFindings.length > 0) {
-        setAdditionalImaging(function(prev) { return prev.concat(newFindings) })
-      }
-
-      // 実施済み id を更新
-      const newDoneIds = results.map(function(r) { return r.id || r.type }).filter(Boolean)
-      setExamDoneIds(function(prev) {
-        const set = new Set(prev)
-        for (const id of newDoneIds) set.add(id)
-        if (groups.baseline.length > 0) set.add('baseline')
-        return Array.from(set)
-      })
-
-      setShowExamModal(false)
-    } catch (e) {
-      alert('検査依頼処理でエラーが発生しました: ' + e.message)
-    } finally {
-      setExamLoading(false)
-    }
-  }
-
   async function handleSend() {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
+
+    // 検査結果確認の特別処理
+    if ((function() {
+      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般']
+      return triggers.some(function(t) { return userMessage.includes(t) }) && visit3Data?.visit3Labs && !labsRevealed
+    })()) {
+      setLabsRevealed(true)
+      const labs = visit3Data.visit3Labs
+      const lines = []
+      if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
+      if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
+      if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
+      if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
+      if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
+      if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
+      if (labs.non_hdl_c != null) lines.push('Non-HDL ' + labs.non_hdl_c + ' mg/dL')
+      if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
+      if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
+      if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
+      if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
+      if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
+      if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
+      if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
+      if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
+      if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
+      if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
+      if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
+      if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
+      const labText = '【血液・尿検査結果（8週後）】\n\n' + lines.join('、')
+      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
+      return
+    }
+
+    // ===== 追加検査検知（疾患外項目・画像）→ AI 生成 =====
+    const detectedTest = detectTestKeyword(userMessage)
+    if (detectedTest) {
+      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+      setAiLoading(true)
+      try {
+        const patient = caseData.patient_data
+        const vitals = patient.vitals || {}
+        const baseLabs = patient.labs || {}
+        const v3Labs = (visit3Data && visit3Data.visit3Labs) || {}
+        const v1Add = (caseData.visit1_data && caseData.visit1_data.additionalLabs) || []
+        const v2Add = (caseData.visit2_data && caseData.visit2_data.additionalLabs) || []
+        const v1Img = (caseData.visit1_data && caseData.visit1_data.additionalImaging) || []
+        const v2Img = (caseData.visit2_data && caseData.visit2_data.additionalImaging) || []
+        const priorLab = v2Add.find(function(x) { return x.name === detectedTest.keyword }) || v1Add.find(function(x) { return x.name === detectedTest.keyword })
+        const priorImg = v2Img.find(function(x) { return x.name === detectedTest.keyword }) || v1Img.find(function(x) { return x.name === detectedTest.keyword })
+        const pastHist = patient.past_history || ''
+        const histShort = (patient.history || '').slice(0, 200)
+        const labLines = []
+        if (v3Labs.bnp != null) labLines.push('BNP ' + v3Labs.bnp + ' pg/mL')
+        if (v3Labs.cr != null) labLines.push('Cr ' + v3Labs.cr)
+        if (v3Labs.egfr != null) labLines.push('eGFR ' + v3Labs.egfr)
+        if (v3Labs.urine_alb != null) labLines.push('尿Alb ' + v3Labs.urine_alb)
+        const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
+        const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
+          (pastHist ? '、既往: ' + pastHist : '') +
+          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (v3Labs.hba1c != null ? v3Labs.hba1c + '%（Visit 1: ' + (baseLabs.hba1c || '?') + '%）' : '?') +
+          labCtx +
+          (histShort ? '、現病歴: ' + histShort : '')
+        const treatCtx = '8週間後（Visit 3）'
+        const isLab = detectedTest.type === 'lab'
+        const priorText = isLab && priorLab ? '\n前回値: ' + priorLab.value + ' ' + (priorLab.unit || '') : (!isLab && priorImg ? '\n前回所見: ' + priorImg.finding : '')
+        const sysPrompt = isLab
+          ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
+          : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
+        const prompt = isLab
+          ? '以下の患者の' + treatCtx + '【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + priorText + '\n出力形式: 「<数値> <単位>」のみ'
+          : '以下の患者の' + treatCtx + '【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + priorText + '\n出力形式: 所見テキストのみ'
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system: sysPrompt, prompt: prompt, history: [] })
+        })
+        const data = await res.json()
+        const aiResult = (data.text || '').trim()
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
+        if (isLab) {
+          const m2 = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
+          if (m2) {
+            const valNum = parseFloat(m2[1].replace(/,/g, ''))
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: m2[2].trim() }]) })
+          } else {
+            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
+          }
+        } else {
+          setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
+        }
+        if (!labsRevealed && visit3Data && visit3Data.visit3Labs) setLabsRevealed(true)
+      } catch (e) {
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
+      } finally {
+        setAiLoading(false)
+      }
+      return
+    }
+
 
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
@@ -1019,8 +859,7 @@ export default function Visit3Page({ params }) {
         '体重：' + (v2?.visit3Vitals?.weight || patient.vitals.weight) + 'kg。' +
         '【前回(Visit 2)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
         '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
-        '患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。' +
-        (isNonPhysicianRole(userPosition) && userDisplayName ? '【重要】相手は医師ではなく' + userPosition + 'です。「先生」と呼ばずに「' + userDisplayName + 'さん」と呼びかけてください。医療行為を依頼される文脈であっても、「先生」「医師」という呼称は使わないこと。' : '')
+        '患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1099,9 +938,7 @@ export default function Visit3Page({ params }) {
               recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
               currentParams: visitParams,
               context: 'interview',
-              personality: visitParams.personality,
-              userPosition: userPosition,
-              userDisplayName: userDisplayName
+              personality: visitParams.personality
             })
           })
           if (evalRes.ok) {
@@ -1129,9 +966,7 @@ export default function Visit3Page({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
-            consultations: consultations,
-            exam_done_ids: examDoneIds,
-            auto_treatment_used: autoTreatmentUsed,
+            consultation: consultation,
             discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             feedback: feedback,
@@ -1195,8 +1030,6 @@ export default function Visit3Page({ params }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userPosition: userPosition,
-          userDisplayName: userDisplayName,
           patientData: caseData.patient_data, selectionType, selectedItem: item,
           previousReactions: [], persuasionMessage: null, extraContext: extraContext || null, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null.slice(-20),
         }),
@@ -1226,7 +1059,7 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/patient-reaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userPosition: userPosition, userDisplayName: userDisplayName, patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
+        body: JSON.stringify({ patientData: caseData.patient_data, selectionType: entry.selectionType, selectedItem: entry.item, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null.slice(-20), previousReactions: newHistory, persuasionMessage: persuasionInput }),
       })
       const data = await res.json()
       const updatedHistory = [...newHistory, { role: 'patient', content: data.reaction }]
@@ -1434,8 +1267,7 @@ export default function Visit3Page({ params }) {
           selectedDevices: selectedDeviceData,
           reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
           visit3Vitals: visit3Data?.visit3Vitals,
-          consultations: consultations,
-          autoTreatmentUsed: autoTreatmentUsed,
+          consultation: consultation,
           discontinuedExistingMeds: discontinuedExistingMeds,
           labsRevealed: labsRevealed,
           additionalLabs: additionalLabs,
@@ -1538,26 +1370,14 @@ export default function Visit3Page({ params }) {
   }
 
   // ===== カルテ用：専門医コンサルト表示 =====
-  function renderConsultation(data) {
-    let list = []
-    if (Array.isArray(data)) {
-      list = data.filter(function(c) { return c && c.specialty })
-    } else if (data && data.performed) {
-      list = [{ specialty: data.specialty, reason: data.reason }]
-    }
-    if (list.length === 0) {
+  function renderConsultation(consultation) {
+    if (!consultation || !consultation.performed) {
       return <p style={{ margin: '0 0 12px', color: '#64748b' }}>紹介なし</p>
     }
     return (
-      <div style={{ margin: '0 0 12px' }}>
-        {list.map(function(c, idx) {
-          return (
-            <div key={idx} style={{ padding: '8px 10px', backgroundColor: '#fef3c7', borderRadius: '6px', marginBottom: idx < list.length - 1 ? '6px' : 0 }}>
-              <p style={{ margin: '0 0 4px', fontSize: '12px' }}><b>紹介{list.length > 1 ? ' #' + (idx + 1) : ''}先：</b>{c.specialty || '未選択'}</p>
-              <p style={{ margin: 0, fontSize: '12px' }}><b>紹介理由：</b>{c.reason || '記入なし'}</p>
-            </div>
-          )
-        })}
+      <div style={{ margin: '0 0 12px', padding: '8px 10px', backgroundColor: '#fef3c7', borderRadius: '6px' }}>
+        <p style={{ margin: '0 0 4px', fontSize: '12px' }}><b>紹介先：</b>{consultation.specialty || '未選択'}</p>
+        <p style={{ margin: 0, fontSize: '12px' }}><b>紹介理由：</b>{consultation.reason || '記入なし'}</p>
       </div>
     )
   }
@@ -1618,7 +1438,7 @@ export default function Visit3Page({ params }) {
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 専門医コンサルト</h3>
-              {renderConsultation((caseData && caseData.visit1_consultation) || (caseData && caseData.visit1_data && (caseData.visit1_data.consultations || caseData.visit1_data.consultation)))}
+              {renderConsultation((caseData && caseData.visit1_consultation) || (caseData && caseData.visit1_data && caseData.visit1_data.consultation))}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 既存薬の継続/中止</h3>
               {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit1_data && caseData.visit1_data.discontinuedExistingMeds) || [])}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 患者特性（初診時の見立て）</h3>
@@ -1641,7 +1461,7 @@ export default function Visit3Page({ params }) {
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit2_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit2_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 専門医コンサルト</h3>
-              {renderConsultation((caseData && caseData.visit2_consultation) || (caseData && caseData.visit2_data && (caseData.visit2_data.consultations || caseData.visit2_data.consultation)))}
+              {renderConsultation((caseData && caseData.visit2_consultation) || (caseData && caseData.visit2_data && caseData.visit2_data.consultation))}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 既存薬の継続/中止</h3>
               {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit2_data && caseData.visit2_data.discontinuedExistingMeds) || [])}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
@@ -1664,7 +1484,7 @@ export default function Visit3Page({ params }) {
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 専門医コンサルト</h3>
-              {renderConsultation(consultations)}
+              {renderConsultation(consultation)}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 既存薬の継続/中止</h3>
               {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], discontinuedExistingMeds)}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
@@ -1802,20 +1622,6 @@ export default function Visit3Page({ params }) {
             </div>
           </div>
 
-          {/* 学習モード: 担当医に任せるマスターボタン */}
-          {isNonPhysicianRole(userPosition) && (
-            <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#fef3c7', border: '2px solid #f59e0b', borderRadius: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e' }}>🎓 学習モード({userPosition}){autoTreatmentUsed ? ' - 適用済' : ''}</span>
-                <span style={{ fontSize: '10px', color: '#78350f' }}>治療選択は評価対象外。生活指導・患者対応で採点</span>
-              </div>
-              <button onClick={function() { handleAutoTreatment('all') }} disabled={autoTreatmentLoading}
-                style={{ width: '100%', padding: '10px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                {autoTreatmentLoading ? '⏳ 担当医が判断中...' : '🩺 担当医に任せる(投薬・機器・コンサルト一括自動入力)'}
-              </button>
-            </div>
-          )}
-
           {karteNode}
 
           <PatientInfoCard
@@ -1908,14 +1714,6 @@ export default function Visit3Page({ params }) {
           </AccordionSection>
 
           <AccordionSection title="💊 投薬選択" badge={selectedMeds.length > 0 ? selectedMeds.length + '剤' : null} defaultOpen={true}>
-            {isNonPhysicianRole(userPosition) && (
-              <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '6px' }}>
-                <button onClick={function() { handleAutoTreatment('medications') }} disabled={autoTreatmentLoading}
-                  style={{ width: '100%', padding: '6px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
-                  🩺 担当医の推奨投薬を入力
-                </button>
-              </div>
-            )}
             {/* 既存薬プリチェック */}
             {caseData && caseData.patient_data && Array.isArray(caseData.patient_data.current_medications) && caseData.patient_data.current_medications.length > 0 && (
               <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa' }}>
@@ -1986,65 +1784,52 @@ export default function Visit3Page({ params }) {
             })}
           </AccordionSection>
 
-          {/* 専門医コンサルト（複数科対応） */}
+          {/* 専門医コンサルト */}
           <AccordionSection
             title="🏥 専門医コンサルト"
-            badge={consultations.length > 0 ? '紹介あり（' + consultations.length + '件）' : null}
+            badge={consultation.performed ? '紹介あり' : null}
             defaultOpen={false}>
-            {isNonPhysicianRole(userPosition) && (
-              <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '6px' }}>
-                <button onClick={function() { handleAutoTreatment('consultations') }} disabled={autoTreatmentLoading}
-                  style={{ width: '100%', padding: '6px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
-                  🩺 担当医の推奨コンサルトを入力
-                </button>
-              </div>
-            )}
             <div style={{ padding: '4px 0' }}>
-              {consultations.length === 0 && (
-                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>専門医コンサルトはありません。複数科への並行コンサルトが可能です。</p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                <input type="checkbox" checked={consultation.performed} onChange={function(e) {
+                  setConsultation(function(prev) { return { ...prev, performed: e.target.checked } })
+                }} />
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b' }}>専門医にコンサルトする</span>
+              </label>
+
+              {consultation.performed && (
+                <div style={{ paddingLeft: '20px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
+                  <select value={consultation.specialty} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, specialty: e.target.value } })
+                    }}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '10px' }}>
+                    <option value="">選択してください</option>
+                    <option value="循環器">循環器</option>
+                    <option value="内分泌・代謝">内分泌・代謝</option>
+                    <option value="腎臓">腎臓</option>
+                    <option value="眼科">眼科</option>
+                    <option value="神経内科">神経内科</option>
+                    <option value="産婦人科">産婦人科</option>
+                    <option value="精神科">精神科</option>
+                    <option value="消化器">消化器</option>
+                    <option value="呼吸器">呼吸器</option>
+                    <option value="脂質代謝専門医">脂質代謝専門医</option>
+                    <option value="禁煙外来">禁煙外来</option>
+                    <option value="減酒外来">減酒外来</option>
+                    <option value="地域包括支援センター">地域包括支援センター</option>
+                    <option value="その他">その他</option>
+                  </select>
+
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
+                  <textarea value={consultation.reason} onChange={function(e) {
+                      setConsultation(function(prev) { return { ...prev, reason: e.target.value } })
+                    }}
+                    placeholder="例: コントロール不良のため、合併症精査のため、等"
+                    rows={3}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                </div>
               )}
-              {consultations.map(function(c, idx) {
-                return (
-                  <div key={idx} style={{ border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginBottom: '10px', backgroundColor: '#fef3c7' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>コンサルト #{idx + 1}</span>
-                      <button type="button" onClick={function() { removeConsultation(idx) }}
-                        style={{ background: 'white', border: '1px solid #dc2626', color: '#dc2626', borderRadius: '4px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>削除</button>
-                    </div>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
-                    <select value={c.specialty} onChange={function(e) { updateConsultation(idx, 'specialty', e.target.value) }}
-                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '8px', backgroundColor: 'white' }}>
-                      <option value="">選択してください</option>
-                      <option value="循環器">循環器</option>
-                      <option value="内分泌・代謝">内分泌・代謝</option>
-                      <option value="腎臓">腎臓</option>
-                      <option value="眼科">眼科</option>
-                      <option value="皮膚科">皮膚科</option>
-                      <option value="形成外科">形成外科</option>
-                      <option value="耳鼻科">耳鼻科</option>
-                      <option value="神経内科">神経内科</option>
-                      <option value="産婦人科">産婦人科</option>
-                      <option value="精神科">精神科</option>
-                      <option value="消化器">消化器</option>
-                      <option value="呼吸器">呼吸器</option>
-                      <option value="脂質代謝専門医">脂質代謝専門医</option>
-                      <option value="禁煙外来">禁煙外来</option>
-                      <option value="減酒外来">減酒外来</option>
-                      <option value="地域包括支援センター">地域包括支援センター</option>
-                      <option value="その他">その他</option>
-                    </select>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
-                    <textarea value={c.reason} onChange={function(e) { updateConsultation(idx, 'reason', e.target.value) }}
-                      placeholder="例: コントロール不良のため、合併症精査のため、糖尿病網膜症の評価、等"
-                      rows={2}
-                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: 'white' }} />
-                  </div>
-                )
-              })}
-              <button type="button" onClick={addConsultation}
-                style={{ width: '100%', padding: '10px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                + 専門医コンサルトを追加
-              </button>
             </div>
           </AccordionSection>
 
@@ -2241,7 +2026,7 @@ export default function Visit3Page({ params }) {
         <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '140px' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話（Visit 3）</p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>患者への質問を入力(Enterで発言、検査は[診察・検査]ボタンから)</p>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>経過確認・診察・検査指示を入力してください</p>
           </div>
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 'bold', color: '#475569' }}>📚 指導医モード:</span>
@@ -2290,19 +2075,15 @@ export default function Visit3Page({ params }) {
         {/* 入力エリア（画面下部固定） */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <input type="text" value={input}
-              onChange={function(e) { setInput(e.target.value) }}
-              onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              placeholder="💬 患者への質問を入力してください..."
-              style={{ width: '100%', padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxSizing: 'border-box', marginBottom: '8px', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <input type="text" value={input}
+                onChange={function(e) { setInput(e.target.value) }}
+                onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                placeholder="💬 経過確認・診察・検査指示を入力してください..."
+                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '12px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                💬 発言
-              </button>
-              <button onClick={function() { setShowExamModal(true) }} disabled={aiLoading || examLoading}
-                style={{ padding: '12px', backgroundColor: aiLoading || examLoading ? '#86efac' : '#16a34a', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || examLoading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                🔬 診察・検査{examLoading ? '...' : ''}
+                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
+                送信
               </button>
             </div>
             <button onClick={function() { setStep('treatment') }}
@@ -2312,16 +2093,6 @@ export default function Visit3Page({ params }) {
           </div>
         </div>
       </div>
-
-      {/* 診察・検査依頼モーダル */}
-      <ExamOrderModal
-        open={showExamModal}
-        diseaseName={caseData ? caseData.disease_name : ''}
-        alreadyDoneIds={examDoneIds}
-        loading={examLoading}
-        onClose={function() { setShowExamModal(false) }}
-        onSubmit={handleExamSubmit}
-      />
     </div>
   )
 }
