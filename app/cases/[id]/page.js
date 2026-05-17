@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import ExamOrderModal from '../../components/ExamOrderModal'
 
 const EMOTION_ICON = {
   relieved: '😌', anxious: '😟', resistant: '😤',
@@ -492,6 +493,10 @@ export default function CaseDetailPage({ params }) {
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
   const [consultations, setConsultations] = useState([])
+  // 診察・検査ボタン用 state
+  const [showExamModal, setShowExamModal] = useState(false)
+  const [examLoading, setExamLoading] = useState(false)
+  const [examDoneIds, setExamDoneIds] = useState([])
   // 後方互換: 旧フォーマット({performed, specialty, reason})を配列に変換するヘルパー
   function consultationsToArray(data) {
     if (!data) return []
@@ -545,6 +550,7 @@ export default function CaseDetailPage({ params }) {
           selected_devices: selectedDevices,
           selected_sub_options: selectedSubOptions,
           consultations: consultations,
+          exam_done_ids: examDoneIds,
           discontinued_existing_meds: discontinuedExistingMeds,
           reaction_log: reactionLog,
           scoring: scoring,
@@ -644,6 +650,7 @@ export default function CaseDetailPage({ params }) {
               if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
               if (Array.isArray(v1s.consultations)) setConsultations(v1s.consultations)
               else if (v1s.consultation) setConsultations(consultationsToArray(v1s.consultation))
+              if (Array.isArray(v1s.exam_done_ids)) setExamDoneIds(v1s.exam_done_ids)
               if (Array.isArray(v1s.discontinued_existing_meds)) setDiscontinuedExistingMeds(v1s.discontinued_existing_meds)
               if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
               if (v1s.scoring) setScoring(v1s.scoring)
@@ -677,104 +684,115 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
+  // ===== 診察・検査ボタン: モーダル送信処理 =====
+  async function handleExamSubmit(payload) {
+    if (!caseData || !caseData.id || examLoading) return
+    setExamLoading(true)
+    try {
+      const res = await fetch('/api/exam-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caseId: caseData.id,
+          visitNumber: 1,
+          diseaseName: caseData.disease_name,
+          patientData: caseData.patient_data,
+          items: payload.items || [],
+          freeText: payload.freeText || '',
+          alreadyDone: examDoneIds,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('検査依頼エラー: ' + data.error)
+        setExamLoading(false)
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      if (results.length === 0) {
+        alert('結果が生成されませんでした')
+        setExamLoading(false)
+        return
+      }
+      // chat に表示する system メッセージを構築
+      const groups = { physical: [], lab: [], imaging: [], physiology: [], baseline: [] }
+      for (const r of results) {
+        if (!groups[r.type]) groups[r.type] = []
+        groups[r.type].push(r)
+      }
+      const lines = ['🔬 診察・検査の結果\n']
+      if (groups.baseline.length > 0) {
+        for (const b of groups.baseline) {
+          lines.push(b.chatText || ('【' + b.label + '】'))
+        }
+        lines.push('')
+      }
+      if (groups.physical.length > 0) {
+        lines.push('【身体診察】')
+        for (const p of groups.physical) lines.push('▪ ' + p.label + ': ' + (p.finding || ''))
+        lines.push('')
+      }
+      if (groups.lab.length > 0) {
+        lines.push('【追加血液検査】')
+        for (const l of groups.lab) {
+          const v = (l.value != null && l.value !== '') ? l.value : '(値不明)'
+          lines.push('▪ ' + l.label + ': ' + v + (l.unit ? ' ' + l.unit : ''))
+        }
+        lines.push('')
+      }
+      if (groups.imaging.length > 0) {
+        lines.push('【画像検査】')
+        for (const i of groups.imaging) lines.push('▪ ' + i.label + ': ' + (i.finding || ''))
+        lines.push('')
+      }
+      if (groups.physiology.length > 0) {
+        lines.push('【生理検査】')
+        for (const p of groups.physiology) lines.push('▪ ' + p.label + ': ' + (p.finding || ''))
+        lines.push('')
+      }
+      const sysMsg = lines.join('\n').trim()
+      setMessages(function(prev) { return prev.concat([{ role: 'system', content: sysMsg }]) })
+
+      // ベースライン採血が含まれていたら labsRevealed を立てる
+      if (groups.baseline.length > 0 && !labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
+        setLabsRevealed(true)
+      }
+
+      // 追加血液検査を additionalLabs に追加
+      if (groups.lab.length > 0) {
+        const newLabs = groups.lab.map(function(l) { return { name: l.label, value: l.value, unit: l.unit || '' } })
+        setAdditionalLabs(function(prev) { return prev.concat(newLabs) })
+      }
+      // 画像・生理検査・身体所見は additionalImaging に統合
+      const newFindings = []
+      for (const i of groups.imaging) newFindings.push({ name: i.label, finding: i.finding || '' })
+      for (const p of groups.physiology) newFindings.push({ name: p.label, finding: p.finding || '' })
+      for (const p of groups.physical) newFindings.push({ name: p.label, finding: p.finding || '' })
+      if (newFindings.length > 0) {
+        setAdditionalImaging(function(prev) { return prev.concat(newFindings) })
+      }
+
+      // 実施済み id を更新
+      const newDoneIds = results.map(function(r) { return r.id || r.type }).filter(Boolean)
+      setExamDoneIds(function(prev) {
+        const set = new Set(prev)
+        for (const id of newDoneIds) set.add(id)
+        if (groups.baseline.length > 0) set.add('baseline')
+        return Array.from(set)
+      })
+
+      setShowExamModal(false)
+    } catch (e) {
+      alert('検査依頼処理でエラーが発生しました: ' + e.message)
+    } finally {
+      setExamLoading(false)
+    }
+  }
+
   async function handleSend() {
     if (!input.trim() || aiLoading) return
     const userMessage = input.trim()
     setInput('')
-
-    // 検査オーダー検知: patient.labs から検査結果を chat に提示し、検査結果セクションを表示
-    if ((function() {
-      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般']
-      return triggers.some(function(t) { return userMessage.includes(t) }) && caseData?.patient_data?.labs && !labsRevealed
-    })()) {
-      setLabsRevealed(true)
-      const labs = caseData.patient_data.labs
-      const lines = []
-      if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
-      if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
-      if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
-      if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
-      if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
-      if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
-      if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
-      if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
-      if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
-      if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
-      if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
-      if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
-      if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
-      if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
-      if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
-      if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
-      if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
-      if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
-      const labText = '【血液・尿検査結果】\n\n' + lines.join('、')
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
-      return
-    }
-
-    // ===== 追加検査検知（疾患外項目・画像）→ AI 生成 =====
-    const detectedTest = detectTestKeyword(userMessage)
-    if (detectedTest) {
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
-      setAiLoading(true)
-      try {
-        const patient = caseData.patient_data
-        const vitals = patient.vitals || {}
-        const labs = patient.labs || {}
-        const pastHist = patient.past_history || ''
-        const histShort = (patient.history || '').slice(0, 200)
-        const labLines = []
-        if (labs.bnp != null) labLines.push('BNP ' + labs.bnp + ' pg/mL')
-        if (labs.cr != null) labLines.push('Cr ' + labs.cr)
-        if (labs.egfr != null) labLines.push('eGFR ' + labs.egfr)
-        if (labs.urine_alb != null) labLines.push('尿Alb ' + labs.urine_alb)
-        const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
-        const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
-          (pastHist ? '、既往: ' + pastHist : '') +
-          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?') +
-          labCtx +
-          (histShort ? '、現病歴: ' + histShort : '')
-        const isLab = detectedTest.type === 'lab'
-        const sysPrompt = isLab
-          ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
-          : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
-        const prompt = isLab
-          ? '以下の患者の【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + '\n出力形式: 「<数値> <単位>」のみ（例: 「1.8 ng/mL」）'
-          : '以下の患者の【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + '\n出力形式: 所見テキストのみ（例: 「心胸郭比48%、両肺野浸潤影なし」）'
-        const res = await fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ system: sysPrompt, prompt: prompt, history: [] })
-        })
-        const data = await res.json()
-        const aiResult = (data.text || '').trim()
-        // chat に表示
-        setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
-        // state に保存
-        if (isLab) {
-          const m = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
-          if (m) {
-            const valNum = parseFloat(m[1].replace(/,/g, ''))
-            const unit = m[2].trim()
-            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: unit }]) })
-          } else {
-            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
-          }
-        } else {
-          setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
-        }
-        // 検査結果セクションも自動的に開示状態に
-        if (!labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
-          setLabsRevealed(true)
-        }
-      } catch (e) {
-        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
-      } finally {
-        setAiLoading(false)
-      }
-      return
-    }
 
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
@@ -784,7 +802,7 @@ export default function CaseDetailPage({ params }) {
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
+        '。患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1926,6 +1944,7 @@ export default function CaseDetailPage({ params }) {
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
             consultations: consultations,
+            exam_done_ids: examDoneIds,
             discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             scoring: scoring,
@@ -2012,7 +2031,7 @@ export default function CaseDetailPage({ params }) {
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
             <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
-              問診・診察・検査指示を入力してください（Enterで送信）
+              患者への質問を入力(Enterで発言、検査は[診察・検査]ボタンから)
               {(function() {
                 const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
                 const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
@@ -2057,15 +2076,19 @@ export default function CaseDetailPage({ params }) {
         {/* 入力エリア（画面下部固定） */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <input type="text" value={input}
-                onChange={function(e) { setInput(e.target.value) }}
-                onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="💬 患者への質問・診察・検査指示を入力してください..."
-                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
+            <input type="text" value={input}
+              onChange={function(e) { setInput(e.target.value) }}
+              onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              placeholder="💬 患者への質問を入力してください..."
+              style={{ width: '100%', padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxSizing: 'border-box', marginBottom: '8px', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
               <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
-                送信
+                style={{ padding: '12px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+                💬 発言
+              </button>
+              <button onClick={function() { setShowExamModal(true) }} disabled={aiLoading || examLoading}
+                style={{ padding: '12px', backgroundColor: aiLoading || examLoading ? '#86efac' : '#16a34a', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || examLoading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+                🔬 診察・検査{examLoading ? '...' : ''}
               </button>
             </div>
             <button onClick={function() { setStep('treatment') }}
@@ -2075,6 +2098,16 @@ export default function CaseDetailPage({ params }) {
           </div>
         </div>
       </div>
+
+      {/* 診察・検査依頼モーダル */}
+      <ExamOrderModal
+        open={showExamModal}
+        diseaseName={caseData ? caseData.disease_name : ''}
+        alreadyDoneIds={examDoneIds}
+        loading={examLoading}
+        onClose={function() { setShowExamModal(false) }}
+        onSubmit={handleExamSubmit}
+      />
     </div>
   )
 }
