@@ -15,7 +15,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req) {
   try {
-    const { caseId } = await req.json()
+    const { caseId, userPosition: bodyUserPosition, userDisplayName: bodyUserDisplayName } = await req.json()
     const supabase = getAdminClient()
 
     const { data: caseData, error } = await supabase
@@ -25,6 +25,7 @@ export async function POST(req) {
     }
 
     // 学習モード呼称: ユーザー身分と表示名を取得
+    // 優先: DB の user_profiles → 取得失敗または匿名なら body の値にフォールバック
     let userPosition = null
     let userDisplayName = ''
     if (caseData.user_id) {
@@ -47,6 +48,9 @@ export async function POST(req) {
         // ignore
       }
     }
+    // フォールバック: profile が無い(=匿名/デモ利用者)場合は body の値を使う
+    if (!userPosition && bodyUserPosition) userPosition = bodyUserPosition
+    if (!userDisplayName && bodyUserDisplayName) userDisplayName = bodyUserDisplayName
 
     // ===== キャッシュチェック: 既に生成済みなら同じ値を返す（冪等化）=====
     const existingV2 = caseData.visit2_data || {}
