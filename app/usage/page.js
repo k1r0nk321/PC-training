@@ -216,7 +216,7 @@ export default function UsagePage() {
         <div id="sec7" style={sectionStyle}>
           <h2 style={h2Style}>7. デモ利用(身分選択)について</h2>
           <p style={pStyle}>
-            ログイン画面の<b>「デモ」</b>ボタンから、会員登録なしで 3 症例まで体験できます(完遂数ベース)。
+            ログイン画面の<b>「デモ」</b>ボタンから、会員登録なしで 10 症例まで体験できます(完遂数ベース)。
           </p>
           <h3 style={h3Style}>身分選択</h3>
           <p style={pStyle}>
@@ -333,7 +333,7 @@ export default function UsagePage() {
 
           <h3 style={h3Style}>Q. デモ利用の制限を解除したい</h3>
           <p style={pStyle}>
-            メールアドレスでの会員登録(無料)で 3 症例制限が解除され、ランダム生成症例も利用可能になります。
+            メールアドレスでの会員登録(無料)で 10 症例制限が解除され、ランダム生成症例も利用可能になります。
           </p>
 
           <h3 style={h3Style}>Q. 指導医として研修医に使わせたい</h3>
