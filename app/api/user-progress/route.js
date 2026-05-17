@@ -177,7 +177,7 @@ export async function GET(req) {
       if (u && u.is_anonymous) isAnonymous = true
     } catch (e) {}
 
-    const DEMO_LIMIT = 3
+    const DEMO_LIMIT = 10
     const demoInfo = isAnonymous ? {
       is_demo: true,
       demo_limit: DEMO_LIMIT,
