@@ -239,7 +239,7 @@ export default function CasesPage() {
         </div>
 
         {/* プレビュー環境バナー(開発環境のみ表示) */}
-        {process.env.NEXT_PUBLIC_SHOW_PREVIEW === 'true' && (
+        {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
           <div style={{
             backgroundColor: '#fef2f2',
             border: '2px solid #f87171',
