@@ -579,7 +579,7 @@ export default function CaseDetailPage({ params }) {
     if (step === 'interview' && messages.length <= 1 && !labsRevealed && additionalLabs.length === 0 && additionalImaging.length === 0) return
     const t = setTimeout(function() { autoSaveStateV1() }, 1500)
     return function() { clearTimeout(t) }
-  }, [step, labsRevealed, additionalLabs.length, additionalImaging.length])
+  }, [step, messages.length, labsRevealed, additionalLabs.length, additionalImaging.length])
 
   const [scoringLoading, setScoringLoading] = useState(false)
 
