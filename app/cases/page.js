@@ -260,7 +260,7 @@ export default function CasesPage() {
                 )}
               </p>
               <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
-                モデル症例のみ体験できます（最大 3 例）。ログアウトすると進行状況はリセットされます。
+                モデル症例のみ体験できます（最大 10 例）。ログアウトすると進行状況はリセットされます。
               </p>
             </div>
           </div>
@@ -580,7 +580,7 @@ export default function CasesPage() {
             style={{ backgroundColor: 'white', borderRadius: '14px', maxWidth: '460px', width: '100%', padding: '28px', textAlign: 'center' }}>
             <p style={{ fontSize: '48px', margin: '0 0 12px' }}>🎉</p>
             <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 8px' }}>
-              デモ体験は 3 例まで完了しました！
+              デモ体験は 10 例まで完了しました！
             </h2>
             <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.8, margin: '0 0 20px' }}>
               本登録すると、以下がご利用いただけます:
