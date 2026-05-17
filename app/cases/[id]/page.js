@@ -491,7 +491,32 @@ export default function CaseDetailPage({ params }) {
   const [selectedEducation, setSelectedEducation] = useState([])
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
-  const [consultation, setConsultation] = useState({ performed: false, specialty: '', reason: '' })
+  const [consultations, setConsultations] = useState([])
+  // 後方互換: 旧フォーマット({performed, specialty, reason})を配列に変換するヘルパー
+  function consultationsToArray(data) {
+    if (!data) return []
+    if (Array.isArray(data)) return data.filter(function(c) { return c && c.specialty })
+    if (data.performed) return [{ specialty: data.specialty || '', reason: data.reason || '' }]
+    return []
+  }
+  function addConsultation() {
+    setConsultations(function(prev) { return prev.concat([{ specialty: '', reason: '' }]) })
+  }
+  function updateConsultation(idx, key, val) {
+    setConsultations(function(prev) {
+      return prev.map(function(c, i) {
+        if (i !== idx) return c
+        const next = {}
+        Object.keys(c).forEach(function(k) { next[k] = c[k] })
+        next[key] = val
+        return next
+      })
+    })
+  }
+  function removeConsultation(idx) {
+    if (typeof window !== 'undefined' && !window.confirm('このコンサルトを削除しますか？')) return
+    setConsultations(function(prev) { return prev.filter(function(_, i) { return i !== idx }) })
+  }
   const [discontinuedExistingMeds, setDiscontinuedExistingMeds] = useState([])
 
   const [reactionLog, setReactionLog] = useState([])
@@ -519,7 +544,7 @@ export default function CaseDetailPage({ params }) {
           selected_education: selectedEducation,
           selected_devices: selectedDevices,
           selected_sub_options: selectedSubOptions,
-          consultation: consultation,
+          consultations: consultations,
           discontinued_existing_meds: discontinuedExistingMeds,
           reaction_log: reactionLog,
           scoring: scoring,
@@ -617,7 +642,8 @@ export default function CaseDetailPage({ params }) {
               if (Array.isArray(v1s.selected_education)) setSelectedEducation(v1s.selected_education)
               if (Array.isArray(v1s.selected_devices)) setSelectedDevices(v1s.selected_devices)
               if (v1s.selected_sub_options) setSelectedSubOptions(v1s.selected_sub_options)
-              if (v1s.consultation) setConsultation(v1s.consultation)
+              if (Array.isArray(v1s.consultations)) setConsultations(v1s.consultations)
+              else if (v1s.consultation) setConsultations(consultationsToArray(v1s.consultation))
               if (Array.isArray(v1s.discontinued_existing_meds)) setDiscontinuedExistingMeds(v1s.discontinued_existing_meds)
               if (Array.isArray(v1s.reaction_log)) setReactionLog(v1s.reaction_log)
               if (v1s.scoring) setScoring(v1s.scoring)
@@ -1096,7 +1122,7 @@ export default function CaseDetailPage({ params }) {
           selectedMedications: selectedMedData,
           selectedEducation: selectedEduData, selectedDevices: selectedDeviceData,
           selectedSubOptions: selectedSubOptions, reactionLog, interviewMessages: messages, lifestyleAgreements: visitParams ? visitParams.lifestyle_agreements : null,
-          consultation: consultation,
+          consultations: consultations,
           discontinuedExistingMeds: discontinuedExistingMeds,
           labsRevealed: labsRevealed,
           additionalLabs: additionalLabs,
@@ -1188,15 +1214,27 @@ export default function CaseDetailPage({ params }) {
     )
   }
 
-  // ===== カルテ用：専門医コンサルト表示 =====
-  function renderConsultation(consultation) {
-    if (!consultation || !consultation.performed) {
+  // ===== カルテ用：専門医コンサルト表示（複数科対応） =====
+  function renderConsultation(data) {
+    let list = []
+    if (Array.isArray(data)) {
+      list = data.filter(function(c) { return c && c.specialty })
+    } else if (data && data.performed) {
+      list = [{ specialty: data.specialty, reason: data.reason }]
+    }
+    if (list.length === 0) {
       return <p style={{ margin: '0 0 12px', color: '#64748b' }}>紹介なし</p>
     }
     return (
-      <div style={{ margin: '0 0 12px', padding: '8px 10px', backgroundColor: '#fef3c7', borderRadius: '6px' }}>
-        <p style={{ margin: '0 0 4px', fontSize: '12px' }}><b>紹介先：</b>{consultation.specialty || '未選択'}</p>
-        <p style={{ margin: 0, fontSize: '12px' }}><b>紹介理由：</b>{consultation.reason || '記入なし'}</p>
+      <div style={{ margin: '0 0 12px' }}>
+        {list.map(function(c, idx) {
+          return (
+            <div key={idx} style={{ padding: '8px 10px', backgroundColor: '#fef3c7', borderRadius: '6px', marginBottom: idx < list.length - 1 ? '6px' : 0 }}>
+              <p style={{ margin: '0 0 4px', fontSize: '12px' }}><b>紹介{list.length > 1 ? ' #' + (idx + 1) : ''}先：</b>{c.specialty || '未選択'}</p>
+              <p style={{ margin: 0, fontSize: '12px' }}><b>紹介理由：</b>{c.reason || '記入なし'}</p>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -1257,7 +1295,7 @@ export default function CaseDetailPage({ params }) {
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(selectedMeds || []).map(function(mid) { const m = medications.find(function(x) { return x.id === mid }); return m ? m.drug_name_generic : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(selectedEducation || []).map(function(eid) { const e = educationItems.find(function(x) { return x.id === eid }); return e ? e.instruction_key : '' }).filter(Boolean).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 専門医コンサルト</h3>
-              {renderConsultation(consultation)}
+              {renderConsultation(consultations)}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 既存薬の継続/中止</h3>
               {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], discontinuedExistingMeds)}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 患者特性（初診時の見立て）</h3>
@@ -1281,7 +1319,7 @@ export default function CaseDetailPage({ params }) {
                 <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit2_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
                 <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit2_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 専門医コンサルト</h3>
-                {renderConsultation((caseData && caseData.visit2_consultation) || (caseData && caseData.visit2_data && caseData.visit2_data.consultation))}
+                {renderConsultation((caseData && caseData.visit2_consultation) || (caseData && caseData.visit2_data && (caseData.visit2_data.consultations || caseData.visit2_data.consultation)))}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 既存薬の継続/中止</h3>
                 {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit2_data && caseData.visit2_data.discontinuedExistingMeds) || [])}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 2 患者特性（Visit 1 比）</h3>
@@ -1311,7 +1349,7 @@ export default function CaseDetailPage({ params }) {
                 <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit3_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
                 <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 専門医コンサルト</h3>
-                {renderConsultation((caseData && caseData.visit3_consultation) || (caseData && caseData.visit3_data && caseData.visit3_data.consultation))}
+                {renderConsultation((caseData && caseData.visit3_consultation) || (caseData && caseData.visit3_data && (caseData.visit3_data.consultations || caseData.visit3_data.consultation)))}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 既存薬の継続/中止</h3>
                 {renderDiscontinuedMeds((caseData && caseData.patient_data && caseData.patient_data.current_medications) || [], (caseData && caseData.visit3_data && caseData.visit3_data.discontinuedExistingMeds) || [])}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 患者特性（Visit 2 比）</h3>
@@ -1604,55 +1642,57 @@ export default function CaseDetailPage({ params }) {
             </AccordionSection>
           )}
 
-          {/* ⑤ 専門医コンサルト */}
+          {/* ⑤ 専門医コンサルト（複数科対応） */}
           <AccordionSection
             title="🏥 専門医コンサルト"
-            badge={consultation.performed ? '紹介あり' : null}
+            badge={consultations.length > 0 ? '紹介あり（' + consultations.length + '件）' : null}
             defaultOpen={false}>
             <div style={{ padding: '4px 0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
-                <input type="checkbox" checked={consultation.performed} onChange={function(e) {
-                  setConsultation(function(prev) { return { ...prev, performed: e.target.checked } })
-                }} />
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b' }}>専門医にコンサルトする</span>
-              </label>
-
-              {consultation.performed && (
-                <div style={{ paddingLeft: '20px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
-                  <select value={consultation.specialty} onChange={function(e) {
-                      setConsultation(function(prev) { return { ...prev, specialty: e.target.value } })
-                    }}
-                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '10px' }}>
-                    <option value="">選択してください</option>
-                    <option value="循環器">循環器</option>
-                    <option value="内分泌・代謝">内分泌・代謝</option>
-                    <option value="腎臓">腎臓</option>
-                    <option value="眼科">眼科</option>
-                    <option value="皮膚科">皮膚科</option>
-                    <option value="形成外科">形成外科</option>
-                    <option value="耳鼻科">耳鼻科</option>
-                    <option value="神経内科">神経内科</option>
-                    <option value="産婦人科">産婦人科</option>
-                    <option value="精神科">精神科</option>
-                    <option value="消化器">消化器</option>
-                    <option value="呼吸器">呼吸器</option>
-                    <option value="脂質代謝専門医">脂質代謝専門医</option>
-                    <option value="禁煙外来">禁煙外来</option>
-                    <option value="減酒外来">減酒外来</option>
-                    <option value="地域包括支援センター">地域包括支援センター</option>
-                    <option value="その他">その他</option>
-                  </select>
-
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
-                  <textarea value={consultation.reason} onChange={function(e) {
-                      setConsultation(function(prev) { return { ...prev, reason: e.target.value } })
-                    }}
-                    placeholder="例: 増殖性網膜症の精査のため、家族性高コレステロール血症の遺伝学的検査と専門的管理のため、等"
-                    rows={3}
-                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                </div>
+              {consultations.length === 0 && (
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>専門医コンサルトはありません。複数科への並行コンサルトが可能です。</p>
               )}
+              {consultations.map(function(c, idx) {
+                return (
+                  <div key={idx} style={{ border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginBottom: '10px', backgroundColor: '#fef3c7' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>コンサルト #{idx + 1}</span>
+                      <button type="button" onClick={function() { removeConsultation(idx) }}
+                        style={{ background: 'white', border: '1px solid #dc2626', color: '#dc2626', borderRadius: '4px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>削除</button>
+                    </div>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
+                    <select value={c.specialty} onChange={function(e) { updateConsultation(idx, 'specialty', e.target.value) }}
+                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '8px', backgroundColor: 'white' }}>
+                      <option value="">選択してください</option>
+                      <option value="循環器">循環器</option>
+                      <option value="内分泌・代謝">内分泌・代謝</option>
+                      <option value="腎臓">腎臓</option>
+                      <option value="眼科">眼科</option>
+                      <option value="皮膚科">皮膚科</option>
+                      <option value="形成外科">形成外科</option>
+                      <option value="耳鼻科">耳鼻科</option>
+                      <option value="神経内科">神経内科</option>
+                      <option value="産婦人科">産婦人科</option>
+                      <option value="精神科">精神科</option>
+                      <option value="消化器">消化器</option>
+                      <option value="呼吸器">呼吸器</option>
+                      <option value="脂質代謝専門医">脂質代謝専門医</option>
+                      <option value="禁煙外来">禁煙外来</option>
+                      <option value="減酒外来">減酒外来</option>
+                      <option value="地域包括支援センター">地域包括支援センター</option>
+                      <option value="その他">その他</option>
+                    </select>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
+                    <textarea value={c.reason} onChange={function(e) { updateConsultation(idx, 'reason', e.target.value) }}
+                      placeholder="例: 糖尿病網膜症のスクリーニング、糖尿病性足病変の評価、家族性高コレステロール血症の精査、等"
+                      rows={2}
+                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: 'white' }} />
+                  </div>
+                )
+              })}
+              <button type="button" onClick={addConsultation}
+                style={{ width: '100%', padding: '10px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                + 専門医コンサルトを追加
+              </button>
             </div>
           </AccordionSection>
 
@@ -1885,7 +1925,7 @@ export default function CaseDetailPage({ params }) {
             selected_education: selectedEducation,
             selected_devices: selectedDevices,
             selected_sub_options: selectedSubOptions,
-            consultation: consultation,
+            consultations: consultations,
             discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             scoring: scoring,
