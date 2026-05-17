@@ -276,7 +276,27 @@ function findMissedAppropriate(diseaseName, patient, consultationsByVisit) {
 }
 
 // ──────────────────────────────────────────────────────────
-// 5. プロンプト用テキストブロック生成（メイン API）
+// 5. データフォーマット正規化（旧/新フォーマット対応）
+// ──────────────────────────────────────────────────────────
+// 旧フォーマット: { performed: true, specialty: '眼科', reason: '...' }
+// 新フォーマット: [{ specialty: '眼科', reason: '...' }, ...]
+// どちらが来ても [{specialty, reason}, ...] の配列で返す
+
+export function normalizeConsultations(data) {
+  if (!data) return []
+  // 新フォーマット: 配列
+  if (Array.isArray(data)) {
+    return data.filter(function (c) { return c && c.specialty })
+  }
+  // 旧フォーマット: 単一オブジェクト
+  if (data.performed) {
+    return [{ specialty: data.specialty || '', reason: data.reason || '' }]
+  }
+  return []
+}
+
+// ──────────────────────────────────────────────────────────
+// 6. プロンプト用テキストブロック生成（メイン API）
 // ──────────────────────────────────────────────────────────
 
 export function buildConsultationEvaluationBlock(diseaseName, patient, consultationsByVisit) {
