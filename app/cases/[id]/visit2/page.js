@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 import ExamOrderModal from '../../../components/ExamOrderModal'
+import { NON_PHYSICIAN_POSITIONS, isNonPhysicianRole } from '../../../lib/auto-treatment-rules'
 
 const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
 const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
@@ -553,6 +554,7 @@ export default function Visit2Page({ params }) {
           selected_sub_options: selectedSubOptions,
           consultations: consultations,
           exam_done_ids: examDoneIds,
+          auto_treatment_used: autoTreatmentUsed,
           discontinued_existing_meds: discontinuedExistingMeds,
           reaction_log: reactionLog,
           feedback: feedback,
@@ -589,6 +591,10 @@ export default function Visit2Page({ params }) {
   const [showExamModal, setShowExamModal] = useState(false)
   const [examLoading, setExamLoading] = useState(false)
   const [examDoneIds, setExamDoneIds] = useState([])
+  // 担当医に任せる(学習モード)用 state
+  const [userPosition, setUserPosition] = useState(null)
+  const [autoTreatmentUsed, setAutoTreatmentUsed] = useState(false)
+  const [autoTreatmentLoading, setAutoTreatmentLoading] = useState(false)
   // 後方互換: 旧フォーマット({performed, specialty, reason})を配列に変換するヘルパー
   function consultationsToArray(data) {
     if (!data) return []
@@ -638,6 +644,11 @@ export default function Visit2Page({ params }) {
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
+      // 学習モード判定用に身分を取得
+      fetch('/api/user-profile?userId=' + session.user.id)
+        .then(function(r) { return r.json() })
+        .then(function(d) { if (d && d.profile && d.profile.position) setUserPosition(d.profile.position) })
+        .catch(function() {})
       fetchCase(session.user.id)
     })
   }, [])
@@ -737,6 +748,7 @@ export default function Visit2Page({ params }) {
         if (Array.isArray(savedV2.consultations)) setConsultations(savedV2.consultations)
               else if (savedV2.consultation) setConsultations(consultationsToArray(savedV2.consultation))
               if (Array.isArray(savedV2.exam_done_ids)) setExamDoneIds(savedV2.exam_done_ids)
+              if (typeof savedV2.auto_treatment_used === 'boolean') setAutoTreatmentUsed(savedV2.auto_treatment_used)
         if (Array.isArray(savedV2.discontinued_existing_meds)) setDiscontinuedExistingMeds(savedV2.discontinued_existing_meds)
         if (Array.isArray(savedV2.reaction_log)) setReactionLog(savedV2.reaction_log)
         if (savedV2.feedback) setFeedback(savedV2.feedback)
@@ -755,7 +767,90 @@ export default function Visit2Page({ params }) {
     }
   }
 
-  // ===== 診察・検査ボタン: モーダル送信処理 =====
+  // ===== 担当医に任せる(学習モード): 推奨治療を自動入力 =====
+  async function handleAutoTreatment(scope) {
+    if (!caseData || !caseData.id || autoTreatmentLoading) return
+    const scopeLabel = scope === 'all' ? '投薬・機器・コンサルト' : (scope === 'medications' ? '投薬' : (scope === 'devices' ? '機器・検査' : (scope === 'consultations' ? 'コンサルト' : '治療項目')))
+    if (typeof window !== 'undefined' && !window.confirm(scopeLabel + 'を担当医の推奨内容で自動入力します。よろしいですか?')) return
+    setAutoTreatmentLoading(true)
+    try {
+      const res = await fetch('/api/auto-treatment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diseaseId: caseData.disease_id,
+          diseaseName: caseData.disease_name,
+          patientData: caseData.patient_data,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) { alert('エラー: ' + data.error); setAutoTreatmentLoading(false); return }
+
+      // 投薬
+      if ((scope === 'all' || scope === 'medications') && Array.isArray(data.medications)) {
+        const ids = data.medications.map(function(m) { return m.id })
+        setSelectedMeds(ids)
+        // 患者反応は「先生にお任せします」で全承諾
+        const newReactions = data.medications.map(function(m) {
+          return {
+            id: 'med_' + m.id,
+            selectionType: 'medication',
+            item: { id: m.id, drug_name_generic: m.drug_name_generic, typical_dose: m.typical_dose },
+            labelText: '💊 ' + m.drug_name_generic + (m.typical_dose ? '（' + m.typical_dose + '）' : ''),
+            reaction: { reaction: '先生にお任せします。' },
+            persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
+            timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+          }
+        })
+        setReactionLog(function(prev) {
+          const filtered = prev.filter(function(r) { return r.id.indexOf('med_') !== 0 })
+          return filtered.concat(newReactions)
+        })
+      }
+
+      // 機器
+      if ((scope === 'all' || scope === 'devices') && Array.isArray(data.devices)) {
+        const ids = data.devices.map(function(d) { return d.id })
+        setSelectedDevices(ids)
+        const newReactions = data.devices.map(function(d) {
+          return {
+            id: 'dev_' + d.id,
+            selectionType: 'device',
+            item: { id: d.id, device_name: d.device_name },
+            labelText: '🔧 ' + d.device_name,
+            reaction: { reaction: '先生にお任せします。' },
+            persuasionHistory: [{ role: 'patient', content: '先生にお任せします。' }],
+            timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+          }
+        })
+        setReactionLog(function(prev) {
+          const filtered = prev.filter(function(r) { return r.id.indexOf('dev_') !== 0 })
+          return filtered.concat(newReactions)
+        })
+      }
+
+      // コンサルト
+      if ((scope === 'all' || scope === 'consultations') && Array.isArray(data.consultations)) {
+        setConsultations(data.consultations.map(function(c) { return { specialty: c.specialty, reason: c.reason } }))
+      }
+
+      // 学習モードフラグを ON
+      setAutoTreatmentUsed(true)
+
+      // 担当医の判断をチャットに表示
+      if (data.rationale) {
+        setMessages(function(prev) {
+          return prev.concat([{ role: 'system', content: '🩺 担当医の判断(学習モード)\n\n' + data.rationale }])
+        })
+      }
+    } catch (e) {
+      alert('担当医自動入力でエラーが発生しました: ' + e.message)
+    } finally {
+      setAutoTreatmentLoading(false)
+    }
+  }
+
+    // ===== 診察・検査ボタン: モーダル送信処理 =====
   async function handleExamSubmit(payload) {
     if (!caseData || !caseData.id || examLoading) return
     setExamLoading(true)
@@ -991,6 +1086,7 @@ export default function Visit2Page({ params }) {
             selected_sub_options: selectedSubOptions,
             consultations: consultations,
             exam_done_ids: examDoneIds,
+            auto_treatment_used: autoTreatmentUsed,
             discontinued_existing_meds: discontinuedExistingMeds,
             reaction_log: reactionLog,
             feedback: feedback,
@@ -1291,6 +1387,7 @@ export default function Visit2Page({ params }) {
           visit2Vitals: visit2Data?.visit2Vitals,
           visit2Labs: visit2Data?.visit2Labs,
           consultations: consultations,
+          autoTreatmentUsed: autoTreatmentUsed,
           discontinuedExistingMeds: discontinuedExistingMeds,
           labsRevealed: labsRevealed,
           additionalLabs: additionalLabs,
@@ -1655,6 +1752,20 @@ export default function Visit2Page({ params }) {
             </div>
           </div>
 
+          {/* 学習モード: 担当医に任せるマスターボタン */}
+          {isNonPhysicianRole(userPosition) && (
+            <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#fef3c7', border: '2px solid #f59e0b', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e' }}>🎓 学習モード({userPosition}){autoTreatmentUsed ? ' - 適用済' : ''}</span>
+                <span style={{ fontSize: '10px', color: '#78350f' }}>治療選択は評価対象外。生活指導・患者対応で採点</span>
+              </div>
+              <button onClick={function() { handleAutoTreatment('all') }} disabled={autoTreatmentLoading}
+                style={{ width: '100%', padding: '10px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                {autoTreatmentLoading ? '⏳ 担当医が判断中...' : '🩺 担当医に任せる(投薬・機器・コンサルト一括自動入力)'}
+              </button>
+            </div>
+          )}
+
           {karteNode}
 
           <PatientInfoCard
@@ -1742,6 +1853,14 @@ export default function Visit2Page({ params }) {
           </AccordionSection>
 
           <AccordionSection title="💊 投薬選択" badge={selectedMeds.length > 0 ? selectedMeds.length + '剤' : null} defaultOpen={true}>
+            {isNonPhysicianRole(userPosition) && (
+              <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '6px' }}>
+                <button onClick={function() { handleAutoTreatment('medications') }} disabled={autoTreatmentLoading}
+                  style={{ width: '100%', padding: '6px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
+                  🩺 担当医の推奨投薬を入力
+                </button>
+              </div>
+            )}
             {/* 既存薬プリチェック */}
             {caseData && caseData.patient_data && Array.isArray(caseData.patient_data.current_medications) && caseData.patient_data.current_medications.length > 0 && (
               <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa' }}>
@@ -1817,6 +1936,14 @@ export default function Visit2Page({ params }) {
             title="🏥 専門医コンサルト"
             badge={consultations.length > 0 ? '紹介あり（' + consultations.length + '件）' : null}
             defaultOpen={false}>
+            {isNonPhysicianRole(userPosition) && (
+              <div style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '6px' }}>
+                <button onClick={function() { handleAutoTreatment('consultations') }} disabled={autoTreatmentLoading}
+                  style={{ width: '100%', padding: '6px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
+                  🩺 担当医の推奨コンサルトを入力
+                </button>
+              </div>
+            )}
             <div style={{ padding: '4px 0' }}>
               {consultations.length === 0 && (
                 <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>専門医コンサルトはありません。複数科への並行コンサルトが可能です。</p>
