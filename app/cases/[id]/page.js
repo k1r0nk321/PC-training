@@ -596,25 +596,36 @@ export default function CaseDetailPage({ params }) {
       if (!session) { window.location.href = '/'; return }
       setUser(session.user)
       // 学習モード判定用に身分を取得
-      fetch('/api/user-profile?userId=' + session.user.id)
-        .then(function(r) { return r.json() })
-        .then(function(d) {
-          if (d && d.profile) {
-            if (d.profile.position) setUserPosition(d.profile.position)
-            // 表示名: display_preference=handle_name かつ handle_name 有 → handle_name、それ以外は real_name の苗字
-            const pref = d.profile.display_preference
-            const handle = d.profile.handle_name
-            const real = d.profile.real_name || ''
-            if (pref === 'handle_name' && handle) {
-              setUserDisplayName(handle)
-            } else if (real) {
-              // 半角・全角スペースで分割して最初のトークン(=苗字)を取得
-              const surname = real.split(/[\s\u3000]+/)[0] || real
-              setUserDisplayName(surname)
-            }
+      // 匿名(デモ)ユーザー: localStorage から身分選択を読み取る
+      if (session.user.is_anonymous) {
+        try {
+          const demoRole = (typeof window !== 'undefined') ? window.localStorage.getItem('pc_demo_role') : null
+          if (demoRole === 'non_physician') {
+            setUserPosition('学習者')
+            setUserDisplayName('学習者')
           }
-        })
-        .catch(function() {})
+          // 'physician' or null の場合: setUserPosition は null のまま → 従来通り「先生」呼び
+        } catch (e) {}
+      } else {
+        // 登録ユーザー: user_profiles から取得
+        fetch('/api/user-profile?userId=' + session.user.id)
+          .then(function(r) { return r.json() })
+          .then(function(d) {
+            if (d && d.profile) {
+              if (d.profile.position) setUserPosition(d.profile.position)
+              const pref = d.profile.display_preference
+              const handle = d.profile.handle_name
+              const real = d.profile.real_name || ''
+              if (pref === 'handle_name' && handle) {
+                setUserDisplayName(handle)
+              } else if (real) {
+                const surname = real.split(/[\s\u3000]+/)[0] || real
+                setUserDisplayName(surname)
+              }
+            }
+          })
+          .catch(function() {})
+      }
       fetchCase(session.user.id)
     })
   }, [])
@@ -982,7 +993,9 @@ export default function CaseDetailPage({ params }) {
               recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
               currentParams: visitParams,
               context: 'interview',
-              personality: visitParams.personality
+              personality: visitParams.personality,
+              userPosition: userPosition,
+              userDisplayName: userDisplayName
             })
           })
           if (evalRes.ok) {
