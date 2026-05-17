@@ -462,6 +462,11 @@ export default function Home() {
                 }}>
                 {authLoading ? '読み込み中...' : '🎯 デモを試す'}
               </button>
+              <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <a href="/usage" style={{ fontSize: '12px', color: '#0369a1', textDecoration: 'underline' }}>
+                  📖 使い方を読む
+                </a>
+              </div>
               {message && (
                 <p style={{ fontSize: '12px', color: message.indexOf('エラー') >= 0 ? '#dc2626' : '#059669', marginTop: '10px', textAlign: 'center' }}>
                   {message}
