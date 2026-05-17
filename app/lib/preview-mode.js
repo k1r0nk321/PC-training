@@ -1,31 +1,14 @@
 /**
  * プレビューモード判定ヘルパー
  *
- * 環境変数 NEXT_PUBLIC_SHOW_PREVIEW で制御:
- * - production (main): false または未設定 → is_active=true のみ表示
- * - preview (develop): true → is_active=false も表示
+ * Vercel が自動的に設定する VERCEL_ENV に基づいて判定:
+ * - 'production': main ブランチの本番デプロイ → false(is_active=true のみ表示)
+ * - 'preview':    develop など他ブランチのプレビュー → true(is_active=false も表示)
+ * - undefined:    ローカル開発(npm run dev)→ false (本番扱い)
  *
- * Vercel の Environment Variables で各環境ごとに設定:
- * - Production: NEXT_PUBLIC_SHOW_PREVIEW = false (or unset)
- * - Preview:    NEXT_PUBLIC_SHOW_PREVIEW = true
+ * Vercel UI での環境変数手動設定は不要(VERCEL_ENV は自動)
+ * next.config.js で NEXT_PUBLIC_VERCEL_ENV としてブラウザにも公開
  */
 export function shouldShowPreview() {
-  return process.env.NEXT_PUBLIC_SHOW_PREVIEW === 'true'
-}
-
-/**
- * Supabase クエリビルダに is_active フィルタを条件付きで適用するヘルパー
- *
- * 使用例:
- *   const { data } = await applyActiveFilter(
- *     supabase.from('diseases').select('*')
- *   )
- */
-export function applyActiveFilter(query) {
-  if (shouldShowPreview()) {
-    // プレビュー環境: is_active=false も含めて全件表示
-    return query
-  }
-  // 本番環境: is_active=true のみ
-  return query.eq('is_active', true)
+  return process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview'
 }
