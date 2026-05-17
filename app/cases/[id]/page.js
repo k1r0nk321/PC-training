@@ -1629,6 +1629,9 @@ export default function CaseDetailPage({ params }) {
                     <option value="内分泌・代謝">内分泌・代謝</option>
                     <option value="腎臓">腎臓</option>
                     <option value="眼科">眼科</option>
+                    <option value="皮膚科">皮膚科</option>
+                    <option value="形成外科">形成外科</option>
+                    <option value="耳鼻科">耳鼻科</option>
                     <option value="神経内科">神経内科</option>
                     <option value="産婦人科">産婦人科</option>
                     <option value="精神科">精神科</option>
