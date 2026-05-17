@@ -3,6 +3,7 @@ export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
+import { buildConsultationEvaluationBlock } from '../../lib/consultation-evaluator'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -213,7 +214,7 @@ ${interventionFitAnalysis}
 【専門医コンサルトの推奨】
 ${(() => {
   const rec = scenarioData?.consultation_recommendation
-  if (!rec) return '- 本症例ではコンサルト推奨情報なし'
+  if (!rec) return '- 本症例ではコンサルト推奨情報なし（一般症例）'
   const necJa = rec.necessity === 'required' ? '必須' : rec.necessity === 'recommended' ? '推奨' : '不要'
   return '- 推奨レベル：' + necJa + '\n- 推奨科：' + (rec.recommended_specialty || 'なし') + '\n- 推奨理由：' + (rec.reason || 'なし')
 })()}
@@ -222,6 +223,10 @@ ${(() => {
 ${consultation && consultation.performed
   ? '- 紹介あり\n- 紹介先：' + (consultation.specialty || '未選択') + '\n- 紹介理由：' + (consultation.reason || '未記入')
   : '- 紹介なし'}
+
+${buildConsultationEvaluationBlock(diseaseName, patientData, [
+  { visit: visitNumber, consultation: consultation }
+])}
 
 【既存薬の継続/中止判断】
 ${(() => {
@@ -247,12 +252,12 @@ ${guidelineText}
 3. 患者が受け入れた治療の質（少ない介入でも高い同意率を得られた場合は高評価）
 4. 問診・診察の質（**問診回数の多さは丁寧で十分な情報収集として必ずプラス評価とする。回数自体を批判材料にしてはならない。重要項目の問診漏れがある場合のみマイナス評価とする**）
 5. **専門医コンサルトの判断**：
-   - 推奨レベル「必須」でコンサルトなし → 重大な問題（必ずマイナス評価）
-   - 推奨レベル「推奨」でコンサルトなし → 中程度の問題
-   - 推奨レベル「不要」でコンサルトあり → 不要なコンサルト（軽度マイナス）
-   - 必要時のコンサルト、不要時の見送り → 適切（プラス評価）
-   - 適切な紹介科の選択（推奨科とのマッチ）も評価
-   - **注意**：適切な治療が選択されている場合、コンサルトの有無は治療の質評価とは独立。「コンサルトなしでも良い治療」は減点しない
+   - **上記の【コンサルト適切性判定（ルールベース）】を最優先で尊重してください**
+   - 【適切：定型連携】【適切：条件該当】【適切：生活指導専門資源】判定のコンサルトは絶対に減点しない（プラス評価）
+   - 【過剰：条件非該当】判定のコンサルトは軽度マイナス、教育コメントでPC医で完結すべき旨を指摘
+   - 未実施の推奨連携（特に DM での眼科・皮膚科）は、減点はしないが教育コメントで必ず言及
+   - シナリオ独自の consultation_recommendation（必須/推奨）でコンサルトなし → ルールと矛盾しない範囲で減点
+   - **重要**：適切な治療が選択されている場合、コンサルトの有無は治療の質評価とは独立。「コンサルトなしでも良い治療」は減点しない
 6. **既存薬の継続/中止判断**：
    - 中止した既存薬がある場合、その理由が医学的に妥当か（例：痛風頓服薬コルヒチンは中止不要、骨粗鬆症のアレンドロン酸は中止判断に骨密度評価が必要）
    - 不適切な中止は安全性の問題としてマイナス評価
