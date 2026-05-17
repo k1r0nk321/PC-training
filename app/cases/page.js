@@ -38,11 +38,23 @@ export default function CasesPage() {
   const [inProgressCases, setInProgressCases] = useState([])
   const [demoInfo, setDemoInfo] = useState(null)
   const [showDemoLimitModal, setShowDemoLimitModal] = useState(false)
+  const [demoRole, setDemoRole] = useState('physician')  // 'physician' | 'non_physician' (デモ利用者の身分)
 
   useEffect(function() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
       setUser(session.user)
+      // 匿名(デモ)利用者: localStorage から身分選択を読み取る(デフォルトは医師)
+      if (session.user.is_anonymous) {
+        try {
+          const saved = window.localStorage.getItem('pc_demo_role')
+          if (saved === 'non_physician' || saved === 'physician') {
+            setDemoRole(saved)
+          } else {
+            window.localStorage.setItem('pc_demo_role', 'physician')
+          }
+        } catch (e) {}
+      }
       fetchDiseases()
       fetchInProgressCases(session.user.id)
       // デモ情報取得（匿名ユーザーのみ実質的に意味がある）
@@ -246,6 +258,47 @@ export default function CasesPage() {
               <p style={{ fontSize: '11px', color: '#047857', margin: 0 }}>
                 モデル症例のみ体験できます（最大 3 例）。ログアウトすると進行状況はリセットされます。
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* デモ利用者向け身分選択器 */}
+        {user && user.is_anonymous && (
+          <div style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fcd34d',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+          }}>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#78350f', margin: '0 0 6px' }}>
+              👤 利用する身分を選択(患者からの呼びかけ方が変わります)
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <label style={{ flex: 1, minWidth: '140px', display: 'flex', alignItems: 'flex-start', gap: '6px', padding: '8px 10px', backgroundColor: demoRole === 'physician' ? '#fef3c7' : 'white', border: demoRole === 'physician' ? '2px solid #f59e0b' : '1px solid #fcd34d', borderRadius: '8px', cursor: 'pointer' }}>
+                <input type="radio" name="demoRole" value="physician" checked={demoRole === 'physician'}
+                  onChange={function() {
+                    setDemoRole('physician')
+                    try { window.localStorage.setItem('pc_demo_role', 'physician') } catch (e) {}
+                  }}
+                  style={{ marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>👨‍⚕️ 医師として</p>
+                  <p style={{ fontSize: '10px', color: '#92400e', margin: '2px 0 0' }}>患者から「先生」と呼ばれる。治療選択を行う通常モード。</p>
+                </div>
+              </label>
+              <label style={{ flex: 1, minWidth: '140px', display: 'flex', alignItems: 'flex-start', gap: '6px', padding: '8px 10px', backgroundColor: demoRole === 'non_physician' ? '#fef3c7' : 'white', border: demoRole === 'non_physician' ? '2px solid #f59e0b' : '1px solid #fcd34d', borderRadius: '8px', cursor: 'pointer' }}>
+                <input type="radio" name="demoRole" value="non_physician" checked={demoRole === 'non_physician'}
+                  onChange={function() {
+                    setDemoRole('non_physician')
+                    try { window.localStorage.setItem('pc_demo_role', 'non_physician') } catch (e) {}
+                  }}
+                  style={{ marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>🎓 学習者として</p>
+                  <p style={{ fontSize: '10px', color: '#92400e', margin: '2px 0 0' }}>患者から「学習者さん」と呼ばれる。「担当医に任せる」で生活指導中心の学習が可能。</p>
+                </div>
+              </label>
             </div>
           </div>
         )}
