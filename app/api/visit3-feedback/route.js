@@ -3,7 +3,7 @@ export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
-import { buildConsultationEvaluationBlock } from '../../lib/consultation-evaluator'
+import { buildConsultationEvaluationBlock, normalizeConsultations } from '../../lib/consultation-evaluator'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -59,6 +59,7 @@ export async function POST(req) {
       interviewMessages,
       visit3Vitals,
       consultation,
+      consultations,
       discontinuedExistingMeds,
       additionalLabs,
       additionalImaging,
@@ -209,15 +210,30 @@ ${(() => {
 })()}
 
 【研修医のコンサルト判断（各 Visit）】
-- Visit 1：${v1.consultation && v1.consultation.performed ? '紹介あり（' + (v1.consultation.specialty || '未選択') + '・理由：' + (v1.consultation.reason || '未記入') + '）' : '紹介なし'}
-- Visit 2：${v2.consultation && v2.consultation.performed ? '紹介あり（' + (v2.consultation.specialty || '未選択') + '・理由：' + (v2.consultation.reason || '未記入') + '）' : '紹介なし'}
-- Visit 3：${consultation && consultation.performed ? '紹介あり（' + (consultation.specialty || '未選択') + '・理由：' + (consultation.reason || '未記入') + '）' : '紹介なし'}
+${(() => {
+  const v1List = normalizeConsultations(v1.consultations || v1.consultation)
+  const v2List = normalizeConsultations(v2.consultations || v2.consultation)
+  const v3List = normalizeConsultations(consultations || consultation)
+  const fmt = function(vn, list) {
+    if (!list || list.length === 0) return '- Visit ' + vn + '：紹介なし'
+    return list.map(function(c, i) { return '- Visit ' + vn + '-' + (i+1) + '：' + (c.specialty || '未選択') + '（理由：' + (c.reason || '未記入') + '）' }).join('\n')
+  }
+  return [fmt(1, v1List), fmt(2, v2List), fmt(3, v3List)].join('\n')
+})()}
 
-${buildConsultationEvaluationBlock(caseData.disease_name, patient, [
-  { visit: 1, consultation: v1.consultation },
-  { visit: 2, consultation: v2.consultation },
-  { visit: 3, consultation: consultation },
-])}
+${(() => {
+  const items = []
+  normalizeConsultations(v1.consultations || v1.consultation).forEach(function(c) {
+    items.push({ visit: 1, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+  })
+  normalizeConsultations(v2.consultations || v2.consultation).forEach(function(c) {
+    items.push({ visit: 2, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+  })
+  normalizeConsultations(consultations || consultation).forEach(function(c) {
+    items.push({ visit: 3, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+  })
+  return buildConsultationEvaluationBlock(caseData.disease_name, patient, items)
+})()}
 
 【既存薬の継続/中止判断（Visit 3 確定）】
 ${(() => {
@@ -329,7 +345,10 @@ COMMENT:
     // 成績評価で必要な情報だけ残し、重量データはクリア
     const updateData = {
       visit3_feedback: commentText,
-      visit3_consultation: consultation || null,
+      visit3_consultation: (function() {
+        const arr = normalizeConsultations(consultations || consultation)
+        return arr.length > 0 ? arr : null
+      })(),
       final_score: totalScore,
       final_score_breakdown: breakdown,
       completed_at: new Date().toISOString(),
