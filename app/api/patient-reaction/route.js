@@ -16,6 +16,8 @@ export async function POST(req) {
       extraContext,
       interviewMessages,
       lifestyleAgreements,
+      userPosition,
+      userDisplayName,
     } = await req.json()
 
     const patient = patientData
@@ -183,8 +185,14 @@ accepted になった場合は納得・受け入れの言葉を使うこと。
 - strictness=mild かつ adherence=medium → partial または accepted
 `
 
+    const NON_PHYSICIAN_LIST = ['医学生', '医療従事者', 'その他']
+    const isNonPhysician = userPosition && NON_PHYSICIAN_LIST.indexOf(userPosition) >= 0
+    const addressInstruction = (isNonPhysician && userDisplayName)
+      ? '\n\n【重要 - 呼称】対面しているのは医師ではなく' + userPosition + 'です。「先生」と呼ばずに「' + userDisplayName + 'さん」と呼びかけてください。reaction テキスト内でも同様に。'
+      : ''
+
     const prompt = `あなたは外来診療シミュレーションの患者AIです。
-研修医が治療方針を提示・説明した際の患者の反応をJSONのみで返してください。
+研修医が治療方針を提示・説明した際の患者の反応をJSONのみで返してください。${addressInstruction}
 
 【患者プロフィール】
 名前：${patient.name}（${patient.age}歳・${patient.gender}）
