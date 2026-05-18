@@ -239,6 +239,10 @@ function renderImagingFindings(imaging) {
 
 function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit1Data, labsRevealed, v1Revealed, additionalLabs, additionalImaging, v1AdditionalLabs, v1AdditionalImaging, collapsed, onToggle }) {
   const [labsStep, setLabsStep] = useState(v1Revealed ? 1 : (labsRevealed ? 2 : 1))
+  useEffect(function() {
+    if (labsRevealed && !v1Revealed) setLabsStep(2)
+    else if (v1Revealed && !labsRevealed) setLabsStep(1)
+  }, [labsRevealed, v1Revealed])
   const bpChange = visit2Vitals?.bp_change
   const weightChange = visit2Vitals?.weight_change
   const v1Meds = visit1Data?.selectedMedications || []
