@@ -483,6 +483,7 @@ export default function CaseDetailPage({ params }) {
     }
   }
   const [step, setStep] = useState('interview')
+  const [inputMode, setInputMode] = useState('interview')
   const [patientCardCollapsed, setPatientCardCollapsed] = useState(false)
 
   const [medications, setMedications] = useState([])
@@ -653,71 +654,30 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
-  async function handleSend() {
-    if (!input.trim() || aiLoading) return
-    const userMessage = input.trim()
-    setInput('')
+  async function handleSend(overrideMessage) {
+    if (aiLoading) return
+    const userMessage = (overrideMessage && typeof overrideMessage === 'string') ? overrideMessage : input.trim()
+    if (!userMessage) return
+    if (!overrideMessage) setInput('')
 
-    // 検査オーダー検知: patient.labs から検査結果を chat に提示し、検査結果セクションを表示
-    if ((function() {
-      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般']
-      return triggers.some(function(t) { return userMessage.includes(t) }) && caseData?.patient_data?.labs && !labsRevealed
-    })()) {
-      setLabsRevealed(true)
-      const labs = caseData.patient_data.labs
-      const lines = []
-      if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
-      if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
-      if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
-      if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
-      if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
-      if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
-      if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
-      if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
-      if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
-      if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
-      if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
-      if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
-      if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
-      if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
-      if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
-      if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
-      if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
-      if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
-      const labText = '【血液・尿検査結果】\n\n' + lines.join('、')
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }, { role: 'system', content: labText }] })
-      return
-    }
+    // クイック検査ボタン(overrideMessage)は常に検査モード扱い
+    const effectiveMode = overrideMessage ? 'test' : inputMode
 
-    // ===== 追加検査検知（疾患外項目・画像）→ AI 生成 =====
-    const detectedTest = detectTestKeyword(userMessage)
-    if (detectedTest) {
-      setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+    // ===== 診察モード =====
+    if (effectiveMode === 'exam') {
+      setMessages(function(prev) { return [...prev, { role: 'user', content: '🔬 診察: ' + userMessage }] })
       setAiLoading(true)
       try {
         const patient = caseData.patient_data
         const vitals = patient.vitals || {}
-        const labs = patient.labs || {}
         const pastHist = patient.past_history || ''
-        const histShort = (patient.history || '').slice(0, 200)
-        const labLines = []
-        if (labs.bnp != null) labLines.push('BNP ' + labs.bnp + ' pg/mL')
-        if (labs.cr != null) labLines.push('Cr ' + labs.cr)
-        if (labs.egfr != null) labLines.push('eGFR ' + labs.egfr)
-        if (labs.urine_alb != null) labLines.push('尿Alb ' + labs.urine_alb)
-        const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
+        const histShort = (patient.history || '').slice(0, 150)
         const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
           (pastHist ? '、既往: ' + pastHist : '') +
-          '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?') +
-          labCtx +
+          '、BMI ' + (vitals.bmi || '?') + '、BP ' + (vitals.bp || '?') +
           (histShort ? '、現病歴: ' + histShort : '')
-        const isLab = detectedTest.type === 'lab'
-        const sysPrompt = isLab
-          ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
-          : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
-        const prompt = isLab
-          ? '以下の患者の【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + '\n出力形式: 「<数値> <単位>」のみ（例: 「1.8 ng/mL」）'
-          : '以下の患者の【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + '\n出力形式: 所見テキストのみ（例: 「心胸郭比48%、両肺野浸潤影なし」）'
+        const sysPrompt = '医師が依頼した身体診察項目に対する所見のみを1-3行で出力。診断・解釈・前置きは不要。患者の病態(疾患・既往・BMI・BP)を踏まえた現実的な所見を生成。陰性所見も含めること。'
+        const prompt = '以下の患者の【' + userMessage + '】の身体診察所見を生成してください。\n患者: ' + patientCtx + '\n出力例: 「両肺野で乾性ラ音聴取せず、心音整、第3音・第4音聴取せず、心雑音なし」'
         const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -725,33 +685,117 @@ export default function CaseDetailPage({ params }) {
         })
         const data = await res.json()
         const aiResult = (data.text || '').trim()
-        // chat に表示
-        setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
-        // state に保存
-        if (isLab) {
-          const m = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
-          if (m) {
-            const valNum = parseFloat(m[1].replace(/,/g, ''))
-            const unit = m[2].trim()
-            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: unit }]) })
-          } else {
-            setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
-          }
-        } else {
-          setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
-        }
-        // 検査結果セクションも自動的に開示状態に
-        if (!labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
-          setLabsRevealed(true)
-        }
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '【診察所見: ' + userMessage + '】\n' + aiResult }] })
       } catch (e) {
-        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 診察所見生成に失敗しました' }] })
       } finally {
         setAiLoading(false)
       }
       return
     }
 
+    // ===== 検査モード =====
+    if (effectiveMode === 'test') {
+      // baseline labs trigger
+      const triggers = ['検査', '採血', '血算', '生化学', '血液', '尿検査', '尿一般', '基本検査']
+      const isBaselineTrigger = triggers.some(function(t) { return userMessage.includes(t) })
+      if (isBaselineTrigger && caseData?.patient_data?.labs && !labsRevealed) {
+        setLabsRevealed(true)
+        const labs = caseData.patient_data.labs
+        const lines = []
+        if (labs.hba1c != null) lines.push('HbA1c ' + labs.hba1c + '%')
+        if (labs.glucose != null) lines.push('空腹時血糖 ' + labs.glucose + ' mg/dL')
+        if (labs.ldl != null) lines.push('LDL ' + labs.ldl + ' mg/dL')
+        if (labs.hdl != null) lines.push('HDL ' + labs.hdl + ' mg/dL')
+        if (labs.tg != null) lines.push('TG ' + labs.tg + ' mg/dL')
+        if (labs.total_cholesterol != null) lines.push('TC ' + labs.total_cholesterol + ' mg/dL')
+        if (labs.na != null) lines.push('Na ' + labs.na + ' mEq/L')
+        if (labs.k != null) lines.push('K ' + labs.k + ' mEq/L')
+        if (labs.cr != null) lines.push('Cr ' + labs.cr + ' mg/dL')
+        if (labs.bun != null) lines.push('BUN ' + labs.bun + ' mg/dL')
+        if (labs.egfr != null) lines.push('eGFR ' + labs.egfr + ' mL/min')
+        if (labs.ua != null) lines.push('UA ' + labs.ua + ' mg/dL')
+        if (labs.ua_clearance != null) lines.push('UAクリアランス ' + labs.ua_clearance + ' mL/min')
+        if (labs.ast != null) lines.push('AST ' + labs.ast + ' U/L')
+        if (labs.alt != null) lines.push('ALT ' + labs.alt + ' U/L')
+        if (labs.ck != null) lines.push('CK ' + labs.ck + ' U/L')
+        if (labs.urine_alb != null) lines.push('尿Alb ' + labs.urine_alb + ' mg/g·Cr')
+        if (labs.urine_protein != null) lines.push('尿蛋白 ' + labs.urine_protein)
+        if (labs.bnp != null) lines.push('BNP ' + labs.bnp + ' pg/mL')
+        const labText = '【血液・尿検査結果】\n\n' + lines.join('、')
+        setMessages(function(prev) { return [...prev, { role: 'user', content: '🧪 ' + userMessage }, { role: 'system', content: labText }] })
+        return
+      }
+
+      // 追加検査検知 (BNP・TSH・心電図・CXR等)
+      const detectedTest = detectTestKeyword(userMessage)
+      if (detectedTest) {
+        setMessages(function(prev) { return [...prev, { role: 'user', content: '🧪 ' + userMessage }] })
+        setAiLoading(true)
+        try {
+          const patient = caseData.patient_data
+          const vitals = patient.vitals || {}
+          const labs = patient.labs || {}
+          const pastHist = patient.past_history || ''
+          const histShort = (patient.history || '').slice(0, 200)
+          const labLines = []
+          if (labs.bnp != null) labLines.push('BNP ' + labs.bnp + ' pg/mL')
+          if (labs.cr != null) labLines.push('Cr ' + labs.cr)
+          if (labs.egfr != null) labLines.push('eGFR ' + labs.egfr)
+          if (labs.urine_alb != null) labLines.push('尿Alb ' + labs.urine_alb)
+          const labCtx = labLines.length > 0 ? '、' + labLines.join('、') : ''
+          const patientCtx = patient.age + '歳' + patient.gender + '、' + caseData.disease_name +
+            (pastHist ? '、既往: ' + pastHist : '') +
+            '、BMI ' + (vitals.bmi || '?') + '、HbA1c ' + (labs.hba1c != null ? labs.hba1c + '%' : '?') +
+            labCtx +
+            (histShort ? '、現病歴: ' + histShort : '')
+          const isLab = detectedTest.type === 'lab'
+          const sysPrompt = isLab
+            ? '臨床検査の結果のみを「<数値> <単位>」形式で1行出力。説明は不要。'
+            : '画像・生理検査の所見のみを1-2行のテキストで出力。説明は不要。'
+          const prompt = isLab
+            ? '以下の患者の【' + detectedTest.keyword + '】の検査結果を生成してください。\n患者: ' + patientCtx + '\n出力形式: 「<数値> <単位>」のみ(例: 「1.8 ng/mL」)'
+            : '以下の患者の【' + detectedTest.keyword + '】の所見を生成してください。\n患者: ' + patientCtx + '\n出力形式: 所見テキストのみ(例: 「心胸郭比48%、両肺野浸潤影なし」)'
+          const res = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: sysPrompt, prompt: prompt, history: [] })
+          })
+          const data = await res.json()
+          const aiResult = (data.text || '').trim()
+          setMessages(function(prev) { return [...prev, { role: 'system', content: '【' + detectedTest.keyword + '】 ' + aiResult }] })
+          if (isLab) {
+            const m = aiResult.match(/^([\-\d.,]+)\s*(.*)$/)
+            if (m) {
+              const valNum = parseFloat(m[1].replace(/,/g, ''))
+              const unit = m[2].trim()
+              setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: isNaN(valNum) ? aiResult : valNum, unit: unit }]) })
+            } else {
+              setAdditionalLabs(function(prev) { return prev.concat([{ name: detectedTest.keyword, value: aiResult, unit: '' }]) })
+            }
+          } else {
+            setAdditionalImaging(function(prev) { return prev.concat([{ name: detectedTest.keyword, finding: aiResult }]) })
+          }
+          if (!labsRevealed && caseData.patient_data && caseData.patient_data.labs) {
+            setLabsRevealed(true)
+          }
+        } catch (e) {
+          setMessages(function(prev) { return [...prev, { role: 'system', content: '[エラー] 検査生成に失敗しました' }] })
+        } finally {
+          setAiLoading(false)
+        }
+        return
+      }
+
+      // 該当する検査が認識されない場合
+      setMessages(function(prev) { return [...prev,
+        { role: 'user', content: '🧪 ' + userMessage },
+        { role: 'system', content: '【' + userMessage + '】 該当する検査キーワードが認識されませんでした。「採血」「心電図」「BNP」「TSH」「CXR」「腹部エコー」など具体的な検査名を入力してください。' }
+      ] })
+      return
+    }
+
+    // ===== 問診モード (患者AIとの対話) =====
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
     setAiLoading(true)
     try {
@@ -760,7 +804,7 @@ export default function CaseDetailPage({ params }) {
         '、年齢：' + patient.age + '歳。主訴：' + patient.chief_complaint +
         '。服薬意欲：' + patient.hidden_params.adherence_level +
         '。性格：' + (patient.hidden_params.personality_type || 'cooperative') +
-        '。患者として自然な日本語で150文字以内で応答する。診察・検査を指示された場合は結果を提示する。'
+        '。患者として自然な日本語で150文字以内で応答する。診察や検査の指示があった場合は「先生にお任せします」と簡潔に答え、診察・検査の具体的所見は提示しない(別途診察・検査モードで実施される)。'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -768,11 +812,10 @@ export default function CaseDetailPage({ params }) {
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
-      // ===== 指導医コーチング（モードによって分岐） =====
+      // ===== 指導医コーチング =====
       if (coachingMode !== 'none') {
         try {
           if (coachingMode === 'detailed' && caseData && caseData.disease_id) {
-            // 細かく：毎ターン丁寧コーチング
             const pcRes = await fetch('/api/preceptor-coaching', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -792,7 +835,6 @@ export default function CaseDetailPage({ params }) {
               }
             }
           } else if (coachingMode === 'recommended_only' && caseData && caseData.disease_id) {
-            // 推奨治療のみ：患者がアドバイスを求めたときのみ
             const patternList = ['どうしたらいい', 'どうすれば', 'アドバイス', '気をつけ', 'おすすめ', '注意点', '何かいい', '教えて', 'すべきこと', 'どのよう', '何ができ', 'コツ']
             const isAdvice = patternList.some(function(p) { return data.text.indexOf(p) >= 0 })
             if (isAdvice) {
@@ -809,7 +851,7 @@ export default function CaseDetailPage({ params }) {
               if (tpRes.ok) {
                 const tp = await tpRes.json()
                 if (tp && Array.isArray(tp.points) && tp.points.length > 0) {
-                  const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n（参照: ' + tp.rationale + '）' : '')
+                  const tipText = '💡 指導ポイント:\n• ' + tp.points.join('\n• ') + (tp.rationale ? '\n(参照: ' + tp.rationale + ')' : '')
                   setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
                 }
               }
@@ -844,7 +886,7 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
-  async function addOrReplaceReaction(reactionKey, selectionType, item, labelText, extraContext) {
+    async function addOrReplaceReaction(reactionKey, selectionType, item, labelText, extraContext) {
     setReactionLoading(true)
     try {
       const res = await fetch('/api/patient-reaction', {
@@ -1971,7 +2013,7 @@ export default function CaseDetailPage({ params }) {
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderRadius: '10px 10px 0 0' }}>
             <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>患者との対話</p>
             <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
-              問診・診察・検査指示を入力してください（Enterで送信）
+              下部の「💬 問診 / 🔬 診察 / 🧪 検査」タブを切り替えて入力してください（Enterで送信）
               {(function() {
                 const c = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
                 const hasReferral = c.includes('紹介') || c.includes('かかりつけ') || c.includes('前医') || c.includes('閉院') || c.includes('転医') || c.includes('引き継ぎ')
@@ -2013,20 +2055,103 @@ export default function CaseDetailPage({ params }) {
           </div>
         </div>
 
-        {/* 入力エリア（画面下部固定） */}
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
+        {/* 入力エリア（画面下部固定）3モード切替 */}
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '10px 16px 12px', borderTop: '2px solid #0369a1', backgroundColor: '#e0f2fe', zIndex: 100, boxShadow: '0 -4px 12px rgba(3,105,161,0.15)' }}>
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            {/* モード切替タブ */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+              <button onClick={function() { setInputMode('interview') }}
+                style={{
+                  flex: 1, padding: '8px',
+                  backgroundColor: inputMode === 'interview' ? '#0369a1' : 'white',
+                  color: inputMode === 'interview' ? 'white' : '#0369a1',
+                  border: '2px solid #0369a1',
+                  borderRadius: '8px',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 'bold',
+                  transition: 'all 0.15s'
+                }}>
+                💬 問診
+              </button>
+              <button onClick={function() { setInputMode('exam') }}
+                style={{
+                  flex: 1, padding: '8px',
+                  backgroundColor: inputMode === 'exam' ? '#7c3aed' : 'white',
+                  color: inputMode === 'exam' ? 'white' : '#7c3aed',
+                  border: '2px solid #7c3aed',
+                  borderRadius: '8px',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 'bold',
+                  transition: 'all 0.15s'
+                }}>
+                🔬 診察
+              </button>
+              <button onClick={function() { setInputMode('test') }}
+                style={{
+                  flex: 1, padding: '8px',
+                  backgroundColor: inputMode === 'test' ? '#16a34a' : 'white',
+                  color: inputMode === 'test' ? 'white' : '#16a34a',
+                  border: '2px solid #16a34a',
+                  borderRadius: '8px',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 'bold',
+                  transition: 'all 0.15s'
+                }}>
+                🧪 検査
+              </button>
+            </div>
+
+            {/* 入力欄 + 送信ボタン */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input type="text" value={input}
                 onChange={function(e) { setInput(e.target.value) }}
                 onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="💬 患者への質問・診察・検査指示を入力してください..."
-                style={{ flex: 1, padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
-              <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '12px 24px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)' }}>
-                送信
+                placeholder={
+                  inputMode === 'interview' ? '💬 患者への問診を入力（例: お困りの症状はいつから...）' :
+                  inputMode === 'exam' ? '🔬 診察項目を入力（例: 胸部聴診、腹部触診、足の浮腫）' :
+                  '🧪 検査名を入力（例: 採血、心電図、BNP、TSH、CXR）'
+                }
+                style={{
+                  flex: 1, padding: '12px 16px',
+                  border: '2px solid ' + (inputMode === 'interview' ? '#0369a1' : inputMode === 'exam' ? '#7c3aed' : '#16a34a'),
+                  borderRadius: '10px', fontSize: '14px', outline: 'none',
+                  backgroundColor: '#f0f9ff', boxShadow: '0 2px 8px rgba(3,105,161,0.15)'
+                }} />
+              <button onClick={function() { handleSend() }} disabled={aiLoading || !input.trim()}
+                style={{
+                  padding: '12px 22px',
+                  backgroundColor: aiLoading || !input.trim() ? '#93c5fd' :
+                    (inputMode === 'interview' ? '#0369a1' :
+                     inputMode === 'exam' ? '#7c3aed' : '#16a34a'),
+                  color: 'white', border: 'none', borderRadius: '10px',
+                  cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer',
+                  fontSize: '14px', fontWeight: 'bold',
+                  boxShadow: aiLoading || !input.trim() ? 'none' : '0 2px 8px rgba(3,105,161,0.3)',
+                  whiteSpace: 'nowrap'
+                }}>
+                {inputMode === 'interview' ? '発言' : inputMode === 'exam' ? '診察' : '検査'}
               </button>
             </div>
+
+            {/* 検査モード時のクイック検査ボタン */}
+            {inputMode === 'test' && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                {['基本検査', '心電図', 'CXR', '腹部エコー', '心エコー', '頸動脈エコー', '眼底検査', 'TSH', 'BNP'].map(function(label) {
+                  return (
+                    <button key={label}
+                      onClick={function() { handleSend(label) }}
+                      disabled={aiLoading}
+                      style={{
+                        padding: '4px 10px', fontSize: '11px',
+                        backgroundColor: 'white', color: '#16a34a',
+                        border: '1px solid #86efac', borderRadius: '14px',
+                        cursor: aiLoading ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold'
+                      }}>
+                      ＋ {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             <button onClick={function() { setStep('treatment') }}
               style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
               治療方針を決定する →
