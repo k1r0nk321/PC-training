@@ -141,7 +141,13 @@ export default function CasesPage() {
     try {
       const res = await fetch('/api/model-cases?diseaseId=' + disease.id)
       const data = await res.json()
-      setModelCases(data.modelCases || [])
+      // 難易度が低い順(易しい順)にソートして表示
+      const sortedCases = (data.modelCases || []).slice().sort(function(a, b) {
+        const da = (a.scenario_data && a.scenario_data.difficulty) || 1
+        const db = (b.scenario_data && b.scenario_data.difficulty) || 1
+        return da - db
+      })
+      setModelCases(sortedCases)
     } catch (e) {
       console.error(e)
       setModelCases([])
@@ -554,12 +560,14 @@ export default function CasesPage() {
                     </div>
                   )}
 
-                  <button
-                    onClick={handleStartModel}
-                    disabled={!selectedModelCase || generating}
-                    style={{ width: '100%', padding: '13px', backgroundColor: !selectedModelCase || generating ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: !selectedModelCase || generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
-                    {generating ? '症例を準備中...' : selectedModelCase ? selectedModelCase.title + ' でトレーニング開始 →' : 'モデル症例を選択してください'}
-                  </button>
+                  <div style={{ position: 'sticky', bottom: 0, backgroundColor: 'white', marginLeft: '-20px', marginRight: '-20px', paddingLeft: '20px', paddingRight: '20px', paddingTop: '12px', paddingBottom: '12px', borderTop: '1px solid #e2e8f0', boxShadow: '0 -4px 8px rgba(0,0,0,0.04)' }}>
+                    <button
+                      onClick={handleStartModel}
+                      disabled={!selectedModelCase || generating}
+                      style={{ width: '100%', padding: '13px', backgroundColor: !selectedModelCase || generating ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: !selectedModelCase || generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                      {generating ? '症例を準備中...' : selectedModelCase ? selectedModelCase.title + ' でトレーニング開始 →' : 'モデル症例を選択してください'}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -576,12 +584,14 @@ export default function CasesPage() {
                       <p style={{ margin: 0 }}>• 生成に15〜30秒かかります</p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleStartRandom}
-                    disabled={generating}
-                    style={{ width: '100%', padding: '13px', backgroundColor: generating ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '10px', cursor: generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
-                    {generating ? '症例を生成中...（15〜30秒）' : 'ランダム症例でトレーニング開始 →'}
-                  </button>
+                  <div style={{ position: 'sticky', bottom: 0, backgroundColor: 'white', marginLeft: '-20px', marginRight: '-20px', paddingLeft: '20px', paddingRight: '20px', paddingTop: '12px', paddingBottom: '12px', borderTop: '1px solid #e2e8f0', boxShadow: '0 -4px 8px rgba(0,0,0,0.04)' }}>
+                    <button
+                      onClick={handleStartRandom}
+                      disabled={generating}
+                      style={{ width: '100%', padding: '13px', backgroundColor: generating ? '#93c5fd' : '#059669', color: 'white', border: 'none', borderRadius: '10px', cursor: generating ? 'not-allowed' : 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                      {generating ? '症例を生成中...（15〜30秒）' : 'ランダム症例でトレーニング開始 →'}
+                    </button>
+                  </div>
                 </div>
               )}
 
