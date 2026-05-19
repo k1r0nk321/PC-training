@@ -44,7 +44,11 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `   - 患者「週2回、30分歩いています」→ exercise_habit_label="1回30分歩行", exercise_habit_comment="週2回"\n` +
     `   - 患者「週末だけ1時間運動してます」→ exercise_habit_label="1回1時間運動", exercise_habit_comment="週末のみ"\n` +
     `   - 患者「自炊するようにしました」→ eating_habit_label="自炊中心", eating_habit_comment="新しい習慣"\n` +
-    `   - 患者「外食が多くて」→ eating_habit_label="外食中心", eating_habit_comment=""\n\n` +
+    `   - 患者「外食が多くて」→ eating_habit_label="外食中心", eating_habit_comment=""\n` +
+    `   - 患者「タバコ、減らしてみます」→ smoking_label="減量挑戦中", smoking_comment="禁煙準備"\n` +
+    `   - 患者「禁煙してみます」→ smoking_label="禁煙挑戦中", smoking_comment="禁煙開始"\n` +
+    `   - 患者「お酒、休肝日作ります」→ drinking_label="節酒挑戦中", drinking_comment="休肝日設定"\n` +
+    `   - 患者「お酒、減らします」→ drinking_label="節酒挑戦中", drinking_comment="減酒挑戦"\n\n` +
     `C. 信頼度★の評価（医師の発言・態度に基づく）：\n` +
     `   - 医師の共感的な傾聴・患者の気持ちに寄り添う発言・納得のいく説明 → trust_level_delta=+1\n` +
     `   - 医師の批判的・否定的・押付け・無関心・専門用語の押付け → trust_level_delta=-1\n` +
@@ -83,6 +87,10 @@ function buildPrompt(recentMessages, currentParams, contextType, personality) {
     `  "eating_habit_comment": "新しいコメント、変化なしならnull",\n` +
     `  "exercise_habit_label": "新しい定型句、変化なしならnull",\n` +
     `  "exercise_habit_comment": "新しいコメント、変化なしならnull",\n` +
+    `  "smoking_label": "新しい喫煙ラベル、変化なしならnull",\n` +
+    `  "smoking_comment": "新しい喫煙コメント、変化なしならnull",\n` +
+    `  "drinking_label": "新しい飲酒ラベル、変化なしならnull",\n` +
+    `  "drinking_comment": "新しい飲酒コメント、変化なしならnull",\n` +
     `  "lifestyle_motivation_delta": 整数(0または+1または+2、減少なし),\n` +
     `  "lifestyle_agreements_update": {\n` +
     `    "カテゴリ名": { "agreed": true, "level": "moderate", "detail": "内容" }\n` +
@@ -241,6 +249,10 @@ export async function POST(req) {
       eating_habit_comment: evaluation.eating_habit_comment != null ? evaluation.eating_habit_comment : currentParams.eating_habit_comment,
       exercise_habit_label: evaluation.exercise_habit_label != null ? evaluation.exercise_habit_label : currentParams.exercise_habit_label,
       exercise_habit_comment: evaluation.exercise_habit_comment != null ? evaluation.exercise_habit_comment : currentParams.exercise_habit_comment,
+      smoking_label: evaluation.smoking_label != null ? evaluation.smoking_label : currentParams.smoking_label,
+      smoking_comment: evaluation.smoking_comment != null ? evaluation.smoking_comment : currentParams.smoking_comment,
+      drinking_label: evaluation.drinking_label != null ? evaluation.drinking_label : currentParams.drinking_label,
+      drinking_comment: evaluation.drinking_comment != null ? evaluation.drinking_comment : currentParams.drinking_comment,
       lifestyle_motivation: newLifestyle,
       lifestyle_agreements: mergedAgreements,
       medication_motivation: newMedication,
