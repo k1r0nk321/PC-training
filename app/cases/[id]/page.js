@@ -449,7 +449,7 @@ export default function CaseDetailPage({ params }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [coachingMode, setCoachingMode] = useState('recommended_only')
+  const [coachingMode, setCoachingMode] = useState('detailed')
   const [labsRevealed, setLabsRevealed] = useState(false)
   const [additionalLabs, setAdditionalLabs] = useState([])
   const [additionalImaging, setAdditionalImaging] = useState([])
