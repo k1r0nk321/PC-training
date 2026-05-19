@@ -509,7 +509,7 @@ export default function Visit2Page({ params }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [coachingMode, setCoachingMode] = useState('recommended_only')
+  const [coachingMode, setCoachingMode] = useState('detailed')
   const [currentUserId, setCurrentUserId] = useState(null)
   const [endRecShown, setEndRecShown] = useState({ paramReady: false, turn10: false, turn15: false })
 
