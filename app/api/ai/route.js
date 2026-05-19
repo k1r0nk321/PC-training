@@ -45,14 +45,26 @@ function friendlyErrorMessage(e) {
   return '[エラー] ' + (e.message || '不明なエラーが発生しました。')
 }
 
+// 長時間問診時、患者役 AI に問診継続を断る指示を注入
+function appendLongInterviewGuidance(systemPrompt, turnCount) {
+  const tc = typeof turnCount === 'number' ? turnCount : 0
+  if (tc < 16) return systemPrompt
+  const guidance = '\n\n【重要：診察時間が長くなっています】\n' +
+    '医療者との問診が既に長時間（' + tc + '回以上のやり取り）になっています。あなたは少し疲れを感じており、これ以上長く話を続けるよりも、早く治療方針を決めて帰宅したい気持ちになっています。\n' +
+    '医療者から新しい質問があっても、「もう十分お話ししました」「そろそろ治療の話に進みましょうか」のように、丁寧に問診の継続を断ってください。短く穏やかな返答に留めてください。'
+  return (systemPrompt || '') + guidance
+}
+
 export async function POST(req) {
   try {
-    const { prompt, history = [], system } = await req.json()
+    const { prompt, history = [], system, turnCount } = await req.json()
+
+    const adjustedSystem = appendLongInterviewGuidance(system, turnCount)
 
     const message = await callWithRetry({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system,
+      system: adjustedSystem,
       messages: [...history, { role: 'user', content: prompt }],
     })
 

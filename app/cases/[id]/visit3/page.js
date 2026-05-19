@@ -514,8 +514,9 @@ export default function Visit3Page({ params }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [coachingMode, setCoachingMode] = useState('recommended_only')
+  const [coachingMode, setCoachingMode] = useState('detailed')
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [endRecShown, setEndRecShown] = useState({ paramReady: false, turn10: false, turn15: false })
 
   // 指導医モード設定をユーザー設定から取得
   useEffect(function() {
@@ -1024,7 +1025,7 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }), turnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1 }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
@@ -1041,7 +1042,11 @@ export default function Visit3Page({ params }) {
                 recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
                 doctorMessage: userMessage,
                 patientResponse: data.text,
-                visitNumber: 3
+                visitNumber: 3,
+                patientParams: visitParams,
+                doctorTurnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1,
+                endRecommendationShown: endRecShown,
+                userPosition: userPosition
               })
             })
             if (pcRes.ok) {
@@ -1049,6 +1054,11 @@ export default function Visit3Page({ params }) {
               if (pc && pc.commentary) {
                 const tipText = '📚 指導医のコメント:\n' + pc.commentary
                 setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+              }
+              if (pc && pc.endRecommendation && pc.endRecommendation.message) {
+                const endTipText = '🩺 指導医からのアドバイス:\n' + pc.endRecommendation.message
+                setMessages(function(prev) { return [...prev, { role: 'system', content: endTipText }] })
+                setEndRecShown(function(prev) { const next = Object.assign({}, prev); next[pc.endRecommendation.kind] = true; return next })
               }
             }
           } else if (coachingMode === 'recommended_only' && caseData && caseData.disease_id) {
@@ -2201,11 +2211,11 @@ export default function Visit3Page({ params }) {
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
             <button onClick={function() { window.location.href = '/cases' }}
               style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
               症例選択へ
             </button>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
 import { createClient } from '@supabase/supabase-js'
+import { shouldShowPreview } from '../../lib/preview-mode'
 
 export const maxDuration = 30
 
@@ -23,12 +24,14 @@ export async function POST(req) {
 
     const supabase = getAdminClient()
 
-    const { data: guidelines } = await supabase
+    let guidelineQuery = supabase
       .from('guideline_items')
       .select('item_type, content, guideline_name, page_ref')
       .eq('disease_id', diseaseId)
-      .eq('is_active', true)
-      .limit(12)
+    if (!shouldShowPreview()) {
+      guidelineQuery = guidelineQuery.eq('is_active', true)
+    }
+    const { data: guidelines } = await guidelineQuery.limit(12)
 
     const guidelineText = (guidelines || []).map(function(g) {
       return '【' + g.item_type + '】' + g.content + (g.guideline_name ? '（' + g.guideline_name + (g.page_ref ? ' p.' + g.page_ref : '') + '）' : '')

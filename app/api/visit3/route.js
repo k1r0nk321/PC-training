@@ -312,6 +312,13 @@ export async function POST(req) {
       const hasDPP4 = /シタグリプチン|リナグリプチン|テネリグリプチン|ビルダグリプチン|アログリプチン|アナグリプチン|オマリグリプチン/.test(v3MedNames)
       const hasSU = /グリメピリド|グリクラジド|グリベンクラミド/.test(v3MedNames)
       const hasInsulin = /インスリン|グラルギン|デグルデク|トレシーバ|アスパルト|リスプロ/.test(v3MedNames)
+      const hasXOI = /フェブキソスタット|フェブリク|フェブリック|アロプリノール|ザイロリック|サロベール|トピロキソスタット|トピロリック/.test(v3MedNames)
+      const hasUricosuric = /プロベネシド|ベネシッド|ベンズブロマロン|ユリノーム|ドチヌラド|ユリス/.test(v3MedNames)
+      const hasTZD = /ピオグリタゾン|アクトス/.test(v3MedNames)
+      const hasAGI = /アカルボース|グルコバイ|ボグリボース|ベイスン|ミグリトール|セイブル/.test(v3MedNames)
+      const hasGlinide = /ナテグリニド|スターシス|ファスティック|レパグリニド|シュアポスト|ミチグリニド|グルファスト/.test(v3MedNames)
+      const hasPCSK9 = /エボロクマブ|レパーサ|アリロクマブ|プラルエント|PCSK9/.test(v3MedNames)
+      const hasEPA = /イコサペント酸|エパデール|ロトリガ|エイコサペンタエン|オメガ3|オメガ-3/.test(v3MedNames)
       const dmDrugCount = [hasMetformin, hasSGLT2, hasGLP1, hasDPP4, hasSU, hasInsulin].filter(function(b) { return b }).length
       const lifestyleFactor = totalLE * 0.01
 
@@ -341,7 +348,7 @@ export async function POST(req) {
       const hasGLP1Dulaglutide = /デュラグルチド|トルリシティ/.test(v3MedNames)
       const weightEffH = -(wKg * 0.20)
       const lifestyleEffH = -Math.min(lifestyleFactor * 1.0, 0.5)
-      const oralCount = [hasMetformin, hasDPP4, hasSU].filter(function(b) { return b }).length
+      const oralCount = [hasMetformin, hasDPP4, hasSU, hasTZD, hasAGI, hasGlinide].filter(function(b) { return b }).length
       let oralEff = 0
       if (oralCount >= 1) oralEff -= 0.7
       if (oralCount >= 2) oralEff -= 0.6
@@ -358,10 +365,11 @@ export async function POST(req) {
         let tgDelta = -(wKg * 4 + lifestyleFactor * 15)
         if (hasFibrate) tgDelta -= baseTG * 0.30
         if (hasStatin) tgDelta -= baseTG * 0.10
+        if (hasEPA) tgDelta -= baseTG * 0.20
         tgDelta *= adherenceFactor
         newTG = baseTG + tgDelta
       } else if (baseTG >= 150) {
-        let tgPct = (wKg * 0.04 + lifestyleFactor * 0.10 + (hasFibrate ? 0.30 : 0) + (hasStatin ? 0.10 : 0)) * adherenceFactor
+        let tgPct = (wKg * 0.04 + lifestyleFactor * 0.10 + (hasFibrate ? 0.30 : 0) + (hasStatin ? 0.10 : 0) + (hasEPA ? 0.20 : 0)) * adherenceFactor
         newTG = baseTG * (1 - tgPct)
       } else {
         newTG = baseTG
@@ -369,11 +377,13 @@ export async function POST(req) {
 
       let ldlDelta = -(wKg * 1.5 + lifestyleFactor * 5)
       if (hasStatin) ldlDelta -= baseLDL * 0.35
+      if (hasEzetimibe) ldlDelta -= baseLDL * 0.18
+      if (hasPCSK9) ldlDelta -= baseLDL * 0.50
       if (hasEzetimibe && !hasStatin) ldlDelta -= baseLDL * 0.20
       if (hasEzetimibe && hasStatin) ldlDelta -= baseLDL * 0.15
       ldlDelta *= adherenceFactor
 
-      let uaDelta = -(wKg * 0.05 + lifestyleFactor * 0.2 + (hasSGLT2 ? 0.3 : 0)) + (hasDiuretic ? 0.5 : 0)
+      let uaDelta = -(wKg * 0.05 + lifestyleFactor * 0.2 + (hasSGLT2 ? 0.3 : 0) + (hasXOI ? 2.5 : 0) + (hasUricosuric ? 1.7 : 0)) + (hasDiuretic ? 0.5 : 0)
       uaDelta *= adherenceFactor
 
       // AST/ALT (条件付き、cumulative cap V1-20)
