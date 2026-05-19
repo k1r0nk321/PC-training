@@ -2183,11 +2183,11 @@ export default function Visit2Page({ params }) {
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
             <button onClick={function() { window.location.href = '/cases' }}
               style={{ padding: '6px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
               症例選択へ
             </button>
+            <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
         </div>
 
