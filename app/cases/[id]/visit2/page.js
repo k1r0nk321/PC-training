@@ -1030,7 +1030,8 @@ export default function Visit2Page({ params }) {
                 recentMessages: [...messages.slice(-4), { role: 'user', content: userMessage }, { role: 'assistant', content: data.text }],
                 doctorMessage: userMessage,
                 patientResponse: data.text,
-                visitNumber: 2
+                visitNumber: 2,
+                patientParams: visitParams
               })
             })
             if (pcRes.ok) {
