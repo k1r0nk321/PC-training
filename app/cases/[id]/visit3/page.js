@@ -516,6 +516,7 @@ export default function Visit3Page({ params }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [coachingMode, setCoachingMode] = useState('recommended_only')
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [endRecShown, setEndRecShown] = useState({ paramReady: false, turn10: false, turn15: false })
 
   // 指導医モード設定をユーザー設定から取得
   useEffect(function() {
@@ -1024,7 +1025,7 @@ export default function Visit3Page({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }) }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }), turnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1 }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
@@ -1042,7 +1043,10 @@ export default function Visit3Page({ params }) {
                 doctorMessage: userMessage,
                 patientResponse: data.text,
                 visitNumber: 3,
-                patientParams: visitParams
+                patientParams: visitParams,
+                doctorTurnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1,
+                endRecommendationShown: endRecShown,
+                userPosition: userPosition
               })
             })
             if (pcRes.ok) {
@@ -1050,6 +1054,11 @@ export default function Visit3Page({ params }) {
               if (pc && pc.commentary) {
                 const tipText = '📚 指導医のコメント:\n' + pc.commentary
                 setMessages(function(prev) { return [...prev, { role: 'system', content: tipText }] })
+              }
+              if (pc && pc.endRecommendation && pc.endRecommendation.message) {
+                const endTipText = '🩺 指導医からのアドバイス:\n' + pc.endRecommendation.message
+                setMessages(function(prev) { return [...prev, { role: 'system', content: endTipText }] })
+                setEndRecShown(function(prev) { const next = Object.assign({}, prev); next[pc.endRecommendation.kind] = true; return next })
               }
             }
           } else if (coachingMode === 'recommended_only' && caseData && caseData.disease_id) {
