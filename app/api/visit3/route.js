@@ -158,10 +158,14 @@ export async function POST(req) {
     const motivationBoost = persuasionSuccessRate >= 0.7 ? 0.25
       : persuasionSuccessRate >= 0.5 ? 0.15 : 0.05
 
+    // 服薬指導 sub_options 選択による adherence bonus(最大 +0.20)
+    const medicationSubs = consentedSubs.filter(function(s) { return s.category === 'medication' })
+    const medicationGuidanceBonus = Math.min(0.20, medicationSubs.length * 0.05)
+
     // ===== 実効アドヒアランス =====
     const baseAdherence = { high: 0.85, medium: 0.6, low: 0.35 }[hidden.adherence_level] || 0.6
     const effectiveAdherence = Math.min(1.0, Math.max(0.1,
-      baseAdherence + motivationBoost - overloadPenalty
+      baseAdherence + motivationBoost + medicationGuidanceBonus - overloadPenalty
     ))
 
     // ===== Visit 3 の出発点：Visit 2 のバイタル =====

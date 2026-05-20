@@ -599,6 +599,8 @@ export default function Visit3Page({ params }) {
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
   const [consultations, setConsultations] = useState([])
+  const [formSpecialty, setFormSpecialty] = useState('')
+  const [formReason, setFormReason] = useState('')
   // 診察・検査ボタン用 state
   const [showExamModal, setShowExamModal] = useState(false)
   const [examLoading, setExamLoading] = useState(false)
@@ -615,19 +617,11 @@ export default function Visit3Page({ params }) {
     if (data.performed) return [{ specialty: data.specialty || '', reason: data.reason || '' }]
     return []
   }
-  function addConsultation() {
-    setConsultations(function(prev) { return prev.concat([{ specialty: '', reason: '' }]) })
-  }
-  function updateConsultation(idx, key, val) {
-    setConsultations(function(prev) {
-      return prev.map(function(c, i) {
-        if (i !== idx) return c
-        const next = {}
-        Object.keys(c).forEach(function(k) { next[k] = c[k] })
-        next[key] = val
-        return next
-      })
-    })
+  function requestConsultation() {
+    if (!formSpecialty || !formReason) return
+    setConsultations(function(prev) { return prev.concat([{ specialty: formSpecialty, reason: formReason }]) })
+    setFormSpecialty('')
+    setFormReason('')
   }
   function removeConsultation(idx) {
     if (typeof window !== 'undefined' && !window.confirm('このコンサルトを削除しますか？')) return
@@ -2013,18 +2007,29 @@ export default function Visit3Page({ params }) {
               {consultations.length === 0 && (
                 <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>専門医コンサルトはありません。複数科への並行コンサルトが可能です。</p>
               )}
-              {consultations.map(function(c, idx) {
-                return (
-                  <div key={idx} style={{ border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginBottom: '10px', backgroundColor: '#fef3c7' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>コンサルト #{idx + 1}</span>
-                      <button type="button" onClick={function() { removeConsultation(idx) }}
-                        style={{ background: 'white', border: '1px solid #dc2626', color: '#dc2626', borderRadius: '4px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>削除</button>
-                    </div>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介科</p>
-                    <select value={c.specialty} onChange={function(e) { updateConsultation(idx, 'specialty', e.target.value) }}
-                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '8px', backgroundColor: 'white' }}>
-                      <option value="">選択してください</option>
+              {consultations.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  {consultations.map(function(c, idx) {
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px', marginBottom: '8px', backgroundColor: '#ecfdf5', border: '1px solid #10b981', borderRadius: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#065f46', marginBottom: '4px' }}>✅ {c.specialty || '(未選択)'} に依頼済み</div>
+                          <div style={{ fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap' }}>{c.reason || '(理由未記入)'}</div>
+                        </div>
+                        <button type="button" onClick={function() { removeConsultation(idx) }}
+                          style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          ✕ 取消
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div style={{ padding: '10px', border: '1px solid #f59e0b', borderRadius: '8px', backgroundColor: '#fef3c7' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e', marginBottom: '6px' }}>新規コンサルト依頼</div>
+                <select value={formSpecialty} onChange={function(e) { setFormSpecialty(e.target.value) }}
+                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '8px', backgroundColor: 'white' }}>
+                  <option value="">選択してください</option>
                       <option value="循環器">循環器</option>
                       <option value="内分泌・代謝">内分泌・代謝</option>
                       <option value="腎臓">腎臓</option>
@@ -2042,19 +2047,16 @@ export default function Visit3Page({ params }) {
                       <option value="減酒外来">減酒外来</option>
                       <option value="地域包括支援センター">地域包括支援センター</option>
                       <option value="その他">その他</option>
-                    </select>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>紹介理由</p>
-                    <textarea value={c.reason} onChange={function(e) { updateConsultation(idx, 'reason', e.target.value) }}
-                      placeholder="例: コントロール不良のため、合併症精査のため、糖尿病網膜症の評価、等"
-                      rows={2}
-                      style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: 'white' }} />
-                  </div>
-                )
-              })}
-              <button type="button" onClick={addConsultation}
-                style={{ width: '100%', padding: '10px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                + 専門医コンサルトを追加
-              </button>
+                </select>
+                <textarea value={formReason} onChange={function(e) { setFormReason(e.target.value) }}
+                  placeholder="紹介理由を入力してください"
+                  rows={2}
+                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '8px', backgroundColor: 'white' }} />
+                <button type="button" onClick={requestConsultation} disabled={!formSpecialty || !formReason}
+                  style={{ width: '100%', padding: '10px', fontSize: '12px', fontWeight: 'bold', backgroundColor: (!formSpecialty || !formReason) ? '#cbd5e1' : '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: (!formSpecialty || !formReason) ? 'not-allowed' : 'pointer' }}>
+                  📨 依頼する
+                </button>
+              </div>
             </div>
           </AccordionSection>
 
