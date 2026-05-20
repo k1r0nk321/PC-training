@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
 import { shouldShowPreview } from '../../lib/preview-mode'
+import { buildConsultationEvaluationBlock, normalizeConsultations } from '../../lib/consultation-evaluator'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -51,7 +52,10 @@ export async function POST(req) {
       patientData, scenarioData, selectedMedications, selectedEducation,
       selectedSubOptions, selectedDevices, reactionLog,
       interviewMessages, visit2Vitals, visit2Labs,
-      consultation, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
+      consultation, consultations, autoTreatmentUsed, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
+
+    // コンサルト情報を正規化(旧フォーマット consultation 単数 / 新フォーマット consultations 配列の両対応)
+    const consultationsArray = normalizeConsultations(consultations || consultation)
 
     const supabase = getAdminClient()
     const hidden = patientData.hidden_params
@@ -221,10 +225,14 @@ ${(() => {
   return '- 推奨レベル：' + necJa + '\n- 推奨科：' + (rec.recommended_specialty || 'なし') + '\n- 推奨理由：' + (rec.reason || 'なし')
 })()}
 
-【研修医のコンサルト判断】
-${consultation && consultation.performed
-  ? '- 紹介あり\n- 紹介先：' + (consultation.specialty || '未選択') + '\n- 紹介理由：' + (consultation.reason || '未記入')
-  : '- 紹介なし'}
+${(() => {
+  const items = []
+  normalizeConsultations(consultations || consultation).forEach(function(c) {
+    items.push({ visit: visitNumber, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+  })
+  if (autoTreatmentUsed) return ''
+  return buildConsultationEvaluationBlock(diseaseName, patientData, items)
+})()}
 
 【既存薬の継続/中止判断】
 ${(() => {
@@ -295,13 +303,14 @@ ${guidelineText}
         selectedDevices: selectedDevices || [],
         reactionLog: reactionLog || [],
         interviewMessages: interviewMessages || [],
+        consultations: consultationsArray,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
         labsRevealed: !!labsRevealed,
         additionalLabs: Array.isArray(additionalLabs) ? additionalLabs : [],
         additionalImaging: Array.isArray(additionalImaging) ? additionalImaging : [],
       }
-      updateData.visit1_consultation = consultation || null
+      updateData.visit1_consultation = consultationsArray.length > 0 ? consultationsArray : null
     } else if (visitNumber === 2) {
       updateData.visit2_feedback = feedbackText
       // 既存の visit2_data から生成データ（visit2Vitals/visit2Labs/patientOpeningComment 等）を保護
@@ -315,13 +324,14 @@ ${guidelineText}
         reactionLog: reactionLog || [],
         interviewMessages: interviewMessages || [],
         vitals: visit2Vitals,
+        consultations: consultationsArray,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
         labsRevealed: !!labsRevealed,
         additionalLabs: Array.isArray(additionalLabs) ? additionalLabs : [],
         additionalImaging: Array.isArray(additionalImaging) ? additionalImaging : [],
       })
-      updateData.visit2_consultation = consultation || null
+      updateData.visit2_consultation = consultationsArray.length > 0 ? consultationsArray : null
     }
 
     // 喫煙・飲酒介入を計算して visit_parameters に保存
