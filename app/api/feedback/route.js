@@ -58,6 +58,18 @@ export async function POST(req) {
     const consultationsArray = normalizeConsultations(consultations || consultation)
 
     const supabase = getAdminClient()
+    // Visit 2 のとき Visit 1 のコンサルトを取得して継続評価する
+    let prevConsultationsArray = []
+    if (visitNumber === 2) {
+      try {
+        const { data: existingCase } = await supabase.from('cases').select('visit1_consultation').eq('id', caseId).single()
+        if (existingCase && existingCase.visit1_consultation) {
+          prevConsultationsArray = normalizeConsultations(existingCase.visit1_consultation)
+        }
+      } catch (e) {
+        // 取得失敗時は空配列のまま継続
+      }
+    }
     const hidden = patientData.hidden_params
 
     // ガイドライン取得
@@ -227,6 +239,12 @@ ${(() => {
 
 ${(() => {
   const items = []
+  // Visit 2 のとき Visit 1 のコンサルトも履歴として含める(継続評価のため)
+  if (visitNumber === 2) {
+    prevConsultationsArray.forEach(function(c) {
+      items.push({ visit: 1, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+    })
+  }
   normalizeConsultations(consultations || consultation).forEach(function(c) {
     items.push({ visit: visitNumber, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
   })
@@ -264,6 +282,7 @@ ${guidelineText}
    - 未実施の推奨連携（特に DM での眼科・皮膚科） → 減点はしないが、教育コメントで必ず言及（「年1回の網膜症スクリーニング依頼が望ましかった」等）
    - シナリオ独自の consultation_recommendation（必須/推奨）でコンサルトなし → ルールと矛盾しない範囲で減点
    - **重要**：適切な治療が選択されていれば、コンサルトの有無で治療の質評価は左右されない。「コンサルトなしでも良い治療」は減点しない
+   - **継続コンサルト**：Visit 1 と Visit 2 に同一 specialty が両方登場している場合、Visit 2 の分は「前回からの併診継続」として扱い、新規依頼として重ねて減点しない。「継続中」と評価する。ルールベース判定が【過剰】でも、Visit 1 で既に指摘済みなら Visit 2 では重複指摘しない
 6. **既存薬の継続/中止判断**：
    - 中止した既存薬がある場合、その理由が医学的に妥当か（例：痛風頓服薬コルヒチンは中止不要、骨粗鬆症のアレンドロン酸は中止判断に骨密度評価が必要）
    - 不適切な中止は安全性の問題としてマイナス評価
