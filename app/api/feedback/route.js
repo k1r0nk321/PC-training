@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
 import { shouldShowPreview } from '../../lib/preview-mode'
+import { buildConsultationEvaluationBlock, normalizeConsultations } from '../../lib/consultation-evaluator'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -51,9 +52,24 @@ export async function POST(req) {
       patientData, scenarioData, selectedMedications, selectedEducation,
       selectedSubOptions, selectedDevices, reactionLog,
       interviewMessages, visit2Vitals, visit2Labs,
-      consultation, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
+      consultation, consultations, autoTreatmentUsed, discontinuedExistingMeds, labsRevealed, additionalLabs, additionalImaging} = await req.json()
+
+    // コンサルト情報を正規化(旧フォーマット consultation 単数 / 新フォーマット consultations 配列の両対応)
+    const consultationsArray = normalizeConsultations(consultations || consultation)
 
     const supabase = getAdminClient()
+    // Visit 2 のとき Visit 1 のコンサルトを取得して継続評価する
+    let prevConsultationsArray = []
+    if (visitNumber === 2) {
+      try {
+        const { data: existingCase } = await supabase.from('cases').select('visit1_consultation').eq('id', caseId).single()
+        if (existingCase && existingCase.visit1_consultation) {
+          prevConsultationsArray = normalizeConsultations(existingCase.visit1_consultation)
+        }
+      } catch (e) {
+        // 取得失敗時は空配列のまま継続
+      }
+    }
     const hidden = patientData.hidden_params
 
     // ガイドライン取得
@@ -221,10 +237,20 @@ ${(() => {
   return '- 推奨レベル：' + necJa + '\n- 推奨科：' + (rec.recommended_specialty || 'なし') + '\n- 推奨理由：' + (rec.reason || 'なし')
 })()}
 
-【研修医のコンサルト判断】
-${consultation && consultation.performed
-  ? '- 紹介あり\n- 紹介先：' + (consultation.specialty || '未選択') + '\n- 紹介理由：' + (consultation.reason || '未記入')
-  : '- 紹介なし'}
+${(() => {
+  const items = []
+  // Visit 2 のとき Visit 1 のコンサルトも履歴として含める(継続評価のため)
+  if (visitNumber === 2) {
+    prevConsultationsArray.forEach(function(c) {
+      items.push({ visit: 1, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+    })
+  }
+  normalizeConsultations(consultations || consultation).forEach(function(c) {
+    items.push({ visit: visitNumber, consultation: { performed: true, specialty: c.specialty, reason: c.reason } })
+  })
+  if (autoTreatmentUsed) return ''
+  return buildConsultationEvaluationBlock(diseaseName, patientData, items)
+})()}
 
 【既存薬の継続/中止判断】
 ${(() => {
@@ -250,12 +276,13 @@ ${guidelineText}
 3. 患者が受け入れた治療の質（少ない介入でも高い同意率を得られた場合は高評価）
 4. 問診・診察の質（**問診回数の多さは丁寧で十分な情報収集として必ずプラス評価とする。回数自体を批判材料にしてはならない。重要項目の問診漏れがある場合のみマイナス評価とする**）
 5. **専門医コンサルトの判断**：
-   - 推奨レベル「必須」でコンサルトなし → 重大な問題（必ずマイナス評価）
-   - 推奨レベル「推奨」でコンサルトなし → 中程度の問題
-   - 推奨レベル「不要」でコンサルトあり → 不要なコンサルト（軽度マイナス）
-   - 必要時のコンサルト、不要時の見送り → 適切（プラス評価）
-   - 適切な紹介科の選択（推奨科とのマッチ）も評価
-   - **注意**：適切な治療が選択されている場合、コンサルトの有無は治療の質評価とは独立。「コンサルトなしでも良い治療」は減点しない
+   - **上記の【コンサルト適切性判定（ルールベース）】を最優先で尊重してください**
+   - 【適切：定型連携】【適切：条件該当】【適切：生活指導専門資源】 → 絶対に減点しない（プラス評価）
+   - 【過剰：条件非該当】 → 軽度減点（不要な専門医依頼）、教育コメントでPC医で完結すべき旨を指摘
+   - 未実施の推奨連携（特に DM での眼科・皮膚科） → 減点はしないが、教育コメントで必ず言及（「年1回の網膜症スクリーニング依頼が望ましかった」等）
+   - シナリオ独自の consultation_recommendation（必須/推奨）でコンサルトなし → ルールと矛盾しない範囲で減点
+   - **重要**：適切な治療が選択されていれば、コンサルトの有無で治療の質評価は左右されない。「コンサルトなしでも良い治療」は減点しない
+   - **継続コンサルト**：Visit 1 と Visit 2 に同一 specialty が両方登場している場合、Visit 2 の分は「前回からの併診継続」として扱い、新規依頼として重ねて減点しない。「継続中」と評価する。ルールベース判定が【過剰】でも、Visit 1 で既に指摘済みなら Visit 2 では重複指摘しない
 6. **既存薬の継続/中止判断**：
    - 中止した既存薬がある場合、その理由が医学的に妥当か（例：痛風頓服薬コルヒチンは中止不要、骨粗鬆症のアレンドロン酸は中止判断に骨密度評価が必要）
    - 不適切な中止は安全性の問題としてマイナス評価
@@ -295,13 +322,14 @@ ${guidelineText}
         selectedDevices: selectedDevices || [],
         reactionLog: reactionLog || [],
         interviewMessages: interviewMessages || [],
+        consultations: consultationsArray,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
         labsRevealed: !!labsRevealed,
         additionalLabs: Array.isArray(additionalLabs) ? additionalLabs : [],
         additionalImaging: Array.isArray(additionalImaging) ? additionalImaging : [],
       }
-      updateData.visit1_consultation = consultation || null
+      updateData.visit1_consultation = consultationsArray.length > 0 ? consultationsArray : null
     } else if (visitNumber === 2) {
       updateData.visit2_feedback = feedbackText
       // 既存の visit2_data から生成データ（visit2Vitals/visit2Labs/patientOpeningComment 等）を保護
@@ -315,13 +343,14 @@ ${guidelineText}
         reactionLog: reactionLog || [],
         interviewMessages: interviewMessages || [],
         vitals: visit2Vitals,
+        consultations: consultationsArray,
         consultation: consultation || null,
         discontinuedExistingMeds: discontinuedExistingMeds || [],
         labsRevealed: !!labsRevealed,
         additionalLabs: Array.isArray(additionalLabs) ? additionalLabs : [],
         additionalImaging: Array.isArray(additionalImaging) ? additionalImaging : [],
       })
-      updateData.visit2_consultation = consultation || null
+      updateData.visit2_consultation = consultationsArray.length > 0 ? consultationsArray : null
     }
 
     // 喫煙・飲酒介入を計算して visit_parameters に保存
