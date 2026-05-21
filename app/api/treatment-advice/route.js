@@ -118,7 +118,7 @@ export async function POST(request) {
       '上記の選択状態を評価し、4ブロック構造でアドバイスをください。'
 
     const response = await claudeCreate({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 800,
       messages: [
         { role: 'user', content: userMessage }
