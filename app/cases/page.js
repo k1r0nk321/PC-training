@@ -419,9 +419,16 @@ export default function CasesPage() {
         {/* 疾患選択 */}
         <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>疾患を選択してトレーニングを開始</h2>
-          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-            {user && user.is_anonymous ? '疾患を選ぶとモデル症例を体験できます' : '疾患を選ぶと、モデル症例またはランダム生成を選択できます'}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+              {user && user.is_anonymous ? '疾患を選ぶとモデル症例を体験できます' : '疾患を選ぶと、モデル症例またはランダム生成を選択できます'}
+            </p>
+            {!user?.is_anonymous && (
+              <span style={{ fontSize: '11px', color: '#0369a1', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '10px', whiteSpace: 'nowrap', lineHeight: '18px' }}>
+                ⓘ️ マークをタップすると本アプリが参照する治療ガイドラインを確認できます
+              </span>
+            )}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
             {diseases.map(function(disease) {
               const hasCases = (disease.case_count || 0) > 0
