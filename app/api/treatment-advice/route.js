@@ -1,5 +1,12 @@
-import { getAdminClient } from '@/app/lib/supabase-admin'
+import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+}
 
 export const dynamic = 'force-dynamic'
 
