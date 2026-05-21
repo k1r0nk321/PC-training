@@ -599,6 +599,8 @@ export default function Visit3Page({ params }) {
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
   const [consultations, setConsultations] = useState([])
+  const [advicePanel, setAdvicePanel] = useState(null)
+  const [adviceLoading, setAdviceLoading] = useState(false)
   const [formSpecialty, setFormSpecialty] = useState('')
   const [formReason, setFormReason] = useState('')
   // 診察・検査ボタン用 state
@@ -805,6 +807,35 @@ export default function Visit3Page({ params }) {
   }
 
   // ===== 担当医に任せる(学習モード): 推奨治療を自動入力 =====
+  async function handleTreatmentAdvice() {
+    setAdviceLoading(true)
+    setAdvicePanel(null)
+    try {
+      const res = await fetch('/api/treatment-advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diseaseName: caseData?.disease_name,
+          diseaseId: caseData?.disease_id,
+          visitNumber: 3,
+          patientData: patient,
+          selectedMeds: selectedMeds,
+          allMeds: medications,
+          selectedEducation: selectedEducation,
+          rejectedEducation: [],
+          consultations: consultations,
+          userPosition: userPosition
+        })
+      })
+      const data = await res.json()
+      if (data.advice) setAdvicePanel(data.advice)
+      else setAdvicePanel('アドバイスを取得できませんでした。')
+    } catch(e) {
+      setAdvicePanel('エラーが発生しました。')
+    }
+    setAdviceLoading(false)
+  }
+
   async function handleAutoTreatment(scope) {
     if (!caseData || !caseData.id || autoTreatmentLoading) return
     const scopeLabel = scope === 'all' ? '投薬・機器・コンサルト' : (scope === 'medications' ? '投薬' : (scope === 'devices' ? '機器・検査' : (scope === 'consultations' ? 'コンサルト' : '治療項目')))
@@ -1803,8 +1834,26 @@ export default function Visit3Page({ params }) {
                 ← 問診に戻る
               </button>
               <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
+              <button onClick={handleTreatmentAdvice} disabled={adviceLoading}
+                style={{ padding: '7px 14px', backgroundColor: adviceLoading ? '#e0f2fe' : '#0284c7', color: adviceLoading ? '#0369a1' : 'white', border: 'none', borderRadius: '8px', cursor: adviceLoading ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                {adviceLoading ? '⏳ 考え中...' : '🩺 指導医に相談'}
+              </button>
             </div>
           </div>
+
+          {/* 指導医アドバイスパネル */}
+          {advicePanel && (
+            <div style={{ marginBottom: '12px', padding: '14px', backgroundColor: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '10px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#15803d' }}>🩺 指導医からのアドバイス（Visit 3）</span>
+                <button onClick={function() { setAdvicePanel(null) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#64748b' }}>✕</button>
+              </div>
+              <div style={{ fontSize: '13px', color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                {advicePanel}
+              </div>
+            </div>
+          )}
 
           {/* 学習モード: 担当医に任せるマスターボタン */}
           {isNonPhysicianRole(userPosition) && (
