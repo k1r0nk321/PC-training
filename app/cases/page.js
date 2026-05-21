@@ -30,6 +30,8 @@ export default function CasesPage() {
   const [loading, setLoading] = useState(true)
   const [selectedDisease, setSelectedDisease] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [guidelinePanel, setGuidelinePanel] = useState(null) // { disease, rules }
+  const [guidelineLoading, setGuidelineLoading] = useState(false)
   const [modelCases, setModelCases] = useState([])
   const [modelLoading, setModelLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -128,6 +130,23 @@ export default function CasesPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleOpenGuideline(disease) {
+    setGuidelineLoading(true)
+    setGuidelinePanel({ disease, rules: [] })
+    try {
+      const { data, error } = await supabase
+        .from('guideline_rules')
+        .select('*')
+        .eq('disease_id', disease.id)
+        .eq('is_active', true)
+        .order('sort_order')
+      if (!error && data) {
+        setGuidelinePanel({ disease, rules: data })
+      }
+    } catch(e) {}
+    setGuidelineLoading(false)
   }
 
   async function handleDiseaseSelect(disease) {
@@ -429,6 +448,14 @@ export default function CasesPage() {
                       📋 準備中
                     </span>
                   )}
+                  <button
+                    onClick={function(e) {
+                      e.stopPropagation()
+                      handleOpenGuideline(disease)
+                    }}
+                    style={{ position: 'absolute', top: '32px', right: '8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: '2px', lineHeight: 1, color: '#64748b', opacity: 0.7 }}
+                    title="治療ガイドラインを見る"
+                  >ⓘ️</button>
                 </div>
               )
             })}
@@ -443,6 +470,84 @@ export default function CasesPage() {
           }
         </div>
       </div>
+
+      {/* ガイドラインパネル */}
+      {guidelinePanel && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1100 }}
+          onClick={function() { setGuidelinePanel(null) }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', width: '100%', maxWidth: '800px', maxHeight: '85vh', overflowY: 'auto', padding: '20px' }}
+            onClick={function(e) { e.stopPropagation() }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
+                  📋 {guidelinePanel.disease.name_ja} 治療ガイドライン
+                </h2>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0' }}>
+                  研修医・学習者向け参照資料
+                </p>
+              </div>
+              <button onClick={function() { setGuidelinePanel(null) }}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
+            </div>
+            {guidelineLoading ? (
+              <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>読み込み中...</p>
+            ) : guidelinePanel.rules.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>ガイドラインデータがまだ登録されていません</p>
+            ) : (
+              <div>
+                {['first_line', 'stepup', 'contraindication', 'caution', 'referral', 'lifestyle', 'monitoring'].map(function(ruleType) {
+                  const typeRules = guidelinePanel.rules.filter(function(r) { return r.rule_type === ruleType })
+                  if (typeRules.length === 0) return null
+                  const typeLabel = {
+                    first_line: '📊 第一選択薬・基本治療',
+                    stepup: '📈 ステップアップ',
+                    contraindication: '🚨 禁忘・注意薬剤',
+                    caution: '⚠️ 使用上の注意',
+                    referral: '🏥 専門医紹介基準',
+                    lifestyle: '🌿 生活指導',
+                    monitoring: '📊 モニタリング'
+                  }[ruleType]
+                  return (
+                    <div key={ruleType} style={{ marginBottom: '16px' }}>
+                      <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px', margin: '0 0 8px' }}>
+                        {typeLabel}
+                      </h3>
+                      {typeRules.map(function(rule) {
+                        const evColor = rule.evidence_level === 'A' ? '#16a34a' : rule.evidence_level === 'B' ? '#d97706' : '#64748b'
+                        const borderColor = ruleType === 'contraindication' ? '#ef4444' : ruleType === 'caution' ? '#f59e0b' : ruleType === 'referral' ? '#3b82f6' : '#10b981'
+                        return (
+                          <div key={rule.id} style={{ padding: '10px 12px', borderLeft: '3px solid ' + borderColor, backgroundColor: '#fafafa', borderRadius: '0 6px 6px 0', marginBottom: '8px' }}>
+                            {rule.condition && (
+                              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 4px', fontWeight: 'bold' }}>
+                                《{rule.condition}》
+                              </p>
+                            )}
+                            <p style={{ fontSize: '13px', color: '#1e293b', margin: '0 0 6px', lineHeight: 1.5 }}>
+                              {rule.content}
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {rule.evidence_level && (
+                                <span style={{ fontSize: '10px', fontWeight: 'bold', color: evColor, border: '1px solid ' + evColor, padding: '1px 5px', borderRadius: '4px' }}>
+                                  エビデンスレベル {rule.evidence_level}
+                                </span>
+                              )}
+                              {rule.source && (
+                                <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                  出典: {rule.source}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 症例選択モーダル */}
       {showModal && selectedDisease && (
