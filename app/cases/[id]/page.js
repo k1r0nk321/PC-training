@@ -495,6 +495,8 @@ export default function CaseDetailPage({ params }) {
   const [selectedDevices, setSelectedDevices] = useState([])
   const [selectedSubOptions, setSelectedSubOptions] = useState({})
   const [consultations, setConsultations] = useState([])
+  const [advicePanel, setAdvicePanel] = useState(null) // アドバイステキスト
+  const [adviceLoading, setAdviceLoading] = useState(false)
   const [formSpecialty, setFormSpecialty] = useState('')
   const [formReason, setFormReason] = useState('')
   // 診察・検査ボタン用 state
@@ -719,6 +721,35 @@ export default function CaseDetailPage({ params }) {
   }
 
   // ===== 担当医に任せる(学習モード): 推奨治療を自動入力 =====
+  async function handleTreatmentAdvice() {
+    setAdviceLoading(true)
+    setAdvicePanel(null)
+    try {
+      const res = await fetch('/api/treatment-advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diseaseName: caseData?.disease_name,
+          diseaseId: caseData?.disease_id,
+          visitNumber: 1,
+          patientData: patient,
+          selectedMeds: selectedMeds,
+          allMeds: medications,
+          selectedEducation: selectedEducation,
+          rejectedEducation: [],
+          consultations: consultations,
+          userPosition: userPosition
+        })
+      })
+      const data = await res.json()
+      if (data.advice) setAdvicePanel(data.advice)
+      else setAdvicePanel('アドバイスを取得できませんでした。')
+    } catch(e) {
+      setAdvicePanel('エラーが発生しました。')
+    }
+    setAdviceLoading(false)
+  }
+
   async function handleAutoTreatment(scope) {
     if (!caseData || !caseData.id || autoTreatmentLoading) return
     const scopeLabel = scope === 'all' ? '投薬・機器・コンサルト' : (scope === 'medications' ? '投薬' : (scope === 'devices' ? '機器・検査' : (scope === 'consultations' ? 'コンサルト' : '治療項目')))
@@ -1616,16 +1647,43 @@ export default function CaseDetailPage({ params }) {
             </div>
           </div>
 
-          {/* 学習モード: 担当医に任せるマスターボタン */}
-          {isNonPhysicianRole(userPosition) && (
+          {/* 指導医アドバイスパネル */}
+          {advicePanel && (
+            <div style={{ marginBottom: '12px', padding: '14px', backgroundColor: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '10px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#15803d' }}>🩺 指導医からのアドバイス（Visit 1）</span>
+                <button onClick={function() { setAdvicePanel(null) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#64748b' }}>✕</button>
+              </div>
+              <div style={{ fontSize: '13px', color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                {advicePanel}
+              </div>
+            </div>
+          )}
+
+          {/* 学習モード: 担当医に任せる + 指導医に相談 / 医師モード: 指導医に相談のみ */}
+          {isNonPhysicianRole(userPosition) ? (
             <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#fef3c7', border: '2px solid #f59e0b', borderRadius: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e' }}>🎓 学習モード({userPosition}){autoTreatmentUsed ? ' - 適用済' : ''}</span>
                 <span style={{ fontSize: '10px', color: '#78350f' }}>治療選択は評価対象外。生活指導・患者対応で採点</span>
               </div>
-              <button onClick={function() { handleAutoTreatment('all') }} disabled={autoTreatmentLoading}
-                style={{ width: '100%', padding: '10px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                {autoTreatmentLoading ? '⏳ 担当医が判断中...' : '🩺 担当医に任せる(投薬・機器・コンサルト一括自動入力)'}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={function() { handleAutoTreatment('all') }} disabled={autoTreatmentLoading}
+                  style={{ flex: 1, padding: '10px', backgroundColor: autoTreatmentLoading ? '#fcd34d' : '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: autoTreatmentLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  {autoTreatmentLoading ? '⏳ 担当医が判断中...' : '🩺 担当医に任せる'}
+                </button>
+                <button onClick={handleTreatmentAdvice} disabled={adviceLoading}
+                  style={{ flex: 1, padding: '10px', backgroundColor: adviceLoading ? '#e0f2fe' : '#0284c7', color: adviceLoading ? '#0369a1' : 'white', border: 'none', borderRadius: '8px', cursor: adviceLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  {adviceLoading ? '⏳ 考え中...' : '🩺 指導医に相談'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginBottom: '12px', textAlign: 'right' }}>
+              <button onClick={handleTreatmentAdvice} disabled={adviceLoading}
+                style={{ padding: '8px 16px', backgroundColor: adviceLoading ? '#e0f2fe' : '#0284c7', color: adviceLoading ? '#0369a1' : 'white', border: 'none', borderRadius: '8px', cursor: adviceLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                {adviceLoading ? '⏳ 考え中...' : '🩺 指導医に相談'}
               </button>
             </div>
           )}
