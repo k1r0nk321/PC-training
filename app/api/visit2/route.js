@@ -430,14 +430,27 @@ export async function POST(req) {
       // === 臨床的妥当性 floor / cap ===
       if (visit2Labs.hba1c != null && visit2Labs.hba1c < 5.0) visit2Labs.hba1c = 5.0
       if (visit2Labs.ldl != null && visit2Labs.ldl < 50) visit2Labs.ldl = 50
-      // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
+      // ===== CKD: egfr/cr/urine_alb を専用計算で上書き =====
       if (diseaseName === '慢性腎臓病') {
-        visit2Labs.egfr = Math.max(5, Math.round((baseEgfr + egfrDelta) * 10) / 10)
-        // cr は eGFR から逆算（簡易式）
-        const egfrRatio = baseEgfr / Math.max(5, visit2Labs.egfr)
-        visit2Labs.cr = Math.round(baseCr * egfrRatio * 100) / 100
-        visit2Labs.urine_alb = Math.max(0, Math.round((baseUrineAlb + urineAlbDelta) * 10) / 10)
-        visit2Labs.k = Math.round((baseK + kDelta) * 10) / 10
+        const ckdEgfrBase = baseLabs.egfr || 60
+        const ckdCrBase = baseLabs.cr || 1.0
+        const ckdUalbBase = baseLabs.urine_alb || 30
+        // eGFR: 自然経過 + 治療効果（SGLT2 initial dip含む）
+        let ckdEgfrDelta = -(0.8 + Math.random() * 0.5)
+        if (hasRAS_CKD) ckdEgfrDelta += 0.5
+        if (hasSGLT2_CKD) ckdEgfrDelta -= (2.0 + Math.random() * 2.0)
+        ckdEgfrDelta *= adherenceFactor
+        if (ckdEgfrBase < 15) ckdEgfrDelta *= 0.5
+        visit2Labs.egfr = Math.max(5, Math.round((ckdEgfrBase + ckdEgfrDelta) * 10) / 10)
+        // cr はeGFRから逆算
+        const ckdEgfrRatio = ckdEgfrBase / Math.max(5, visit2Labs.egfr)
+        visit2Labs.cr = Math.round(ckdCrBase * ckdEgfrRatio * 100) / 100
+        // urine_alb
+        let ckdUalbDelta = 0
+        if (hasRAS_CKD) ckdUalbDelta -= ckdUalbBase * 0.25
+        if (hasSGLT2_CKD) ckdUalbDelta -= ckdUalbBase * 0.20
+        ckdUalbDelta *= adherenceFactor
+        visit2Labs.urine_alb = Math.max(0, Math.round((ckdUalbBase + ckdUalbDelta) * 10) / 10)
       }
 
       if (visit2Labs.hdl != null) {
