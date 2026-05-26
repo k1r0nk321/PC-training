@@ -64,6 +64,8 @@ const DISEASE_LAB_MAP = {
   '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
   '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt'],
   '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr'],
+  '高尿酸血症・痛風': ['ua', 'cr', 'egfr', 'urine_alb', 'k', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
+  '慢性腎臓病': ['cr', 'egfr', 'urine_alb', 'k', 'na', 'ua', 'bnp', 'hb', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
 }
 function diseaseLabKeys(disease) {
   return DISEASE_LAB_MAP[disease] || LAB_ORDER
