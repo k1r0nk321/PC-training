@@ -178,6 +178,44 @@ const DISEASE_RULES = {
       },
     ],
   },
+
+  '慢性腎臓病': {
+    appropriate: [
+      {
+        specialty: '腎臓内科',
+        purpose: 'eGFR<30（G4以上）の専門医紹介',
+        condition: function (p) {
+          const egfr = getLab(p, 'egfr')
+          return egfr !== null && egfr < 30
+        },
+        commentTrue: 'eGFR<30（G4以上）は腎臓内科への紹介が強く推奨されます。透析準備・腎代替療法の説明開始が必要です。',
+        commentFalse: 'eGFR≥30のため腎臓内科紹介は必須ではありませんが、急速進行時は早期紹介を検討してください。',
+      },
+    ],
+    conditional: [
+      {
+        specialty: '腎臓内科',
+        purpose: 'eGFR<45かつ急速進行・難治性蛋白尿',
+        condition: function (p) {
+          const egfr = getLab(p, 'egfr')
+          const urineAlb = getLab(p, 'urine_alb')
+          return (egfr !== null && egfr < 45) || (urineAlb !== null && urineAlb >= 300)
+        },
+        commentTrue: 'eGFR<45または難治性蛋白尿（urine_alb≥300）は腎臓内科への早期紹介を検討してください。',
+        commentFalse: 'eGFR≥45かつ蛋白尿は300未満です。プライマリケア医による管理が可能です。',
+      },
+      {
+        specialty: '管理栄養士',
+        purpose: '蛋白制限・減塩食指導（eGFR<60）',
+        condition: function (p) {
+          const egfr = getLab(p, 'egfr')
+          return egfr !== null && egfr < 60
+        },
+        commentTrue: 'eGFR<60では蛋白制限（0.6〜0.8g/kg/日）が推奨されます。管理栄養士への食事指導依頼は適切です。',
+        commentFalse: 'eGFR≥60のため厳格な蛋白制限は不要ですが、減塩指導は有効です。',
+      },
+    ],
+  },
 }
 
 // ──────────────────────────────────────────────────────────
