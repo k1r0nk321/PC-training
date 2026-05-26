@@ -324,12 +324,54 @@ function decideHL(patient) {
 
 // ──────────────────────────────────────────────
 // メイン エントリポイント
+// 慢性腎臓病
+function decideCKD(patient) {
+  const meds = []
+  const devices = []
+  const consultations = []
+  const lifestyle = []
+
+  const egfr = patient?.labs?.egfr || 60
+  const urineAlb = patient?.labs?.urine_alb || 0
+  const sbp = parseInt((patient?.vitals?.bp || '140/80').split('/')[0]) || 140
+
+  // 蛋白尿合併：RAS阻害薬＋SGLT2阻害薬を第一選択
+  if (urineAlb >= 30) {
+    meds.push({ category: 'ARB', match: 'カンデサルタン', rationale: '蛋白尿合併CKDの第一選択。腎保護効果が最も強い。' })
+    if (egfr >= 25) {
+      meds.push({ category: 'SGLT2', match: 'ダパグリフロジン', rationale: '蛋白尿合併CKDの第一選択（糖尿病の有無を問わない）。KDIGO 2024推奨。' })
+    }
+  } else if (sbp >= 140) {
+    meds.push({ category: 'ARB', match: 'カンデサルタン', rationale: '高血圧合併CKDへのRAS阻害薬。' })
+  }
+
+  // eGFR<30で腎臓内科紹介
+  if (egfr < 30) {
+    consultations.push({ specialty: '腎臓内科', reason: 'eGFR<30（G4）：透析準備・腎代替療法の説明' })
+  } else if (egfr < 45 || urineAlb >= 300) {
+    consultations.push({ specialty: '腎臓内科', reason: 'eGFR<45または難治性蛋白尿：早期紹介' })
+  }
+
+  // eGFR<60で管理栄養士紹介
+  if (egfr < 60) {
+    consultations.push({ specialty: '管理栄養士', reason: '蛋白制限・減塩食指導' })
+  }
+
+  // 生活指導
+  lifestyle.push('diet')
+  lifestyle.push('smoking')
+  lifestyle.push('medication')
+
+  return { medications: meds, devices: devices, consultations: consultations, lifestyle_options: lifestyle }
+}
+
 // ──────────────────────────────────────────────
 export function decideAutoTreatment(diseaseName, patient) {
   if (!patient) return null
   if (diseaseName === '2型糖尿病') return decideDM(patient)
   if (diseaseName === '高血圧症') return decideHT(patient)
   if (diseaseName === '脂質異常症') return decideHL(patient)
+  if (diseaseName === '慢性腎臓病') return decideCKD(patient)
   return null
 }
 
