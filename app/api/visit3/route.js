@@ -395,12 +395,12 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
       uaDelta *= adherenceFactor
 
     // ===== CKD: eGFR・Cr・urine_alb・K 計算（Visit3：Visit2からの継続効果）=====
-    const baseEgfr = patient.labs?.egfr || 60
-    const baseCr = patient.labs?.cr || 1.0
-    const baseUrineAlb = patient.labs?.urine_alb || 30
-    const baseK = patient.labs?.k || 4.0
+    const ckdBaseEgfr = patient.labs?.egfr || 60
+    const ckdBaseCr = patient.labs?.cr || 1.0
+    const ckdBaseUrineAlb = patient.labs?.urine_alb || 30
+    const ckdBaseK = patient.labs?.k || 4.0
 
-    let egfrDelta = 0
+    let egfrDeltaCKD = 0
     if (diseaseName === '慢性腎臓病') {
       // Visit3はVisit2からの継続（4〜8週後）
       // SGLT2 initial dipは解消しプラトーまたは改善傾向へ
@@ -408,22 +408,22 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
       let treatmentEffect = 0
       if (hasRAS_CKD) treatmentEffect += 0.8 // RAS阻害薬の継続効果
       if (hasSGLT2_CKD) treatmentEffect += 1.0 // SGLT2 initial dip解消→保護効果
-      egfrDelta = (naturalDecline + treatmentEffect) * adherenceFactor
-      if (baseEgfr < 15) egfrDelta = egfrDelta * 0.5
+      egfrDeltaCKD = (naturalDecline + treatmentEffect) * adherenceFactor
+      if (ckdBaseEgfr < 15) egfrDeltaCKD = egfrDeltaCKD * 0.5
     }
 
-    let urineAlbDelta = 0
+    let urineAlbDeltaCKD = 0
     if (diseaseName === '慢性腎臓病') {
-      if (hasRAS_CKD) urineAlbDelta -= baseUrineAlb * 0.30 // Visit3では効果累積
-      if (hasSGLT2_CKD) urineAlbDelta -= baseUrineAlb * 0.25
-      urineAlbDelta *= adherenceFactor
+      if (hasRAS_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.30 // Visit3では効果累積
+      if (hasSGLT2_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.25
+      urineAlbDeltaCKD *= adherenceFactor
     }
 
-    let kDelta = 0
+    let kDeltaCKD = 0
     if (diseaseName === '慢性腎臓病') {
-      if (hasRAS_CKD) kDelta += 0.2 + Math.random() * 0.2
-      if (hasLoopDiuretic) kDelta -= 0.3
-      kDelta = Math.min(kDelta, 0.5)
+      if (hasRAS_CKD) kDeltaCKD += 0.2 + Math.random() * 0.2
+      if (hasLoopDiuretic) kDeltaCKD -= 0.3
+      kDeltaCKD = Math.min(kDeltaCKD, 0.5)
     }
 
       // AST/ALT (条件付き、cumulative cap V1-20)
@@ -491,11 +491,11 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
       if (visit3Labs.hdl != null) {
         // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
       if (diseaseName === '慢性腎臓病') {
-        visit3Labs.egfr = Math.max(5, Math.round((baseEgfr + egfrDelta) * 10) / 10)
-        const egfrRatio = baseEgfr / Math.max(5, visit3Labs.egfr)
-        visit3Labs.cr = Math.round(baseCr * egfrRatio * 100) / 100
-        visit3Labs.urine_alb = Math.max(0, Math.round((baseUrineAlb + urineAlbDelta) * 10) / 10)
-        visit3Labs.k = Math.round((baseK + kDelta) * 10) / 10
+        visit3Labs.egfr = Math.max(5, Math.round((ckdBaseEgfr + egfrDeltaCKD) * 10) / 10)
+        const egfrRatioCKD = ckdBaseEgfr / Math.max(5, visit3Labs.egfr)
+        visit3Labs.cr = Math.round(ckdBaseCr * egfrRatioCKD * 100) / 100
+        visit3Labs.urine_alb = Math.max(0, Math.round((ckdBaseUrineAlb + urineAlbDeltaCKD) * 10) / 10)
+        visit3Labs.k = Math.round((ckdBaseK + kDeltaCKD) * 10) / 10
       }
 
       if (visit3Labs.hdl < 30) visit3Labs.hdl = 30
