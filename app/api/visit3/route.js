@@ -323,6 +323,10 @@ export async function POST(req) {
       const hasGlinide = /ナテグリニド|スターシス|ファスティック|レパグリニド|シュアポスト|ミチグリニド|グルファスト/.test(v3MedNames)
       const hasPCSK9 = /エボロクマブ|レパーサ|アリロクマブ|プラルエント|PCSK9/.test(v3MedNames)
       const hasEPA = /イコサペント酸|エパデール|ロトリガ|エイコサペンタエン|オメガ3|オメガ-3/.test(v3MedNames)
+const hasRAS_CKD = /ARB|ACE|RAS|バルサルタン|オルメサルタン|アジルサルタン|テルミサルタン|ロサルタン|カンデサルタン|イルベサルタン|エナラプリル|ペリンドプリル/.test(v3MedNames)
+const hasSGLT2_CKD = /エンパグリフロジン|ダパグリフロジン|カナグリフロジン|イプラグリフロジン|トホグリフロジン|SGLT2/.test(v3MedNames)
+const hasLoopDiuretic = /フロセミド|ラシックス|トラセミド|ルプラック/.test(v3MedNames)
+const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedNames)
       const dmDrugCount = [hasMetformin, hasSGLT2, hasGLP1, hasDPP4, hasSU, hasInsulin].filter(function(b) { return b }).length
       const lifestyleFactor = totalLE * 0.01
 
@@ -390,6 +394,38 @@ export async function POST(req) {
       let uaDelta = -(wKg * 0.05 + lifestyleFactor * 0.2 + (hasSGLT2 ? 0.3 : 0) + (hasXOI ? 2.5 : 0) + (hasUricosuric ? 1.7 : 0)) + (hasDiuretic ? 0.5 : 0)
       uaDelta *= adherenceFactor
 
+    // ===== CKD: eGFR・Cr・urine_alb・K 計算（Visit3：Visit2からの継続効果）=====
+    const baseEgfr = patient.labs?.egfr || 60
+    const baseCr = patient.labs?.cr || 1.0
+    const baseUrineAlb = patient.labs?.urine_alb || 30
+    const baseK = patient.labs?.k || 4.0
+
+    let egfrDelta = 0
+    if (diseaseName === '慢性腎臓病') {
+      // Visit3はVisit2からの継続（4〜8週後）
+      // SGLT2 initial dipは解消しプラトーまたは改善傾向へ
+      const naturalDecline = -(0.5 + Math.random() * 0.5)
+      let treatmentEffect = 0
+      if (hasRAS_CKD) treatmentEffect += 0.8 // RAS阻害薬の継続効果
+      if (hasSGLT2_CKD) treatmentEffect += 1.0 // SGLT2 initial dip解消→保護効果
+      egfrDelta = (naturalDecline + treatmentEffect) * adherenceFactor
+      if (baseEgfr < 15) egfrDelta = egfrDelta * 0.5
+    }
+
+    let urineAlbDelta = 0
+    if (diseaseName === '慢性腎臓病') {
+      if (hasRAS_CKD) urineAlbDelta -= baseUrineAlb * 0.30 // Visit3では効果累積
+      if (hasSGLT2_CKD) urineAlbDelta -= baseUrineAlb * 0.25
+      urineAlbDelta *= adherenceFactor
+    }
+
+    let kDelta = 0
+    if (diseaseName === '慢性腎臓病') {
+      if (hasRAS_CKD) kDelta += 0.2 + Math.random() * 0.2
+      if (hasLoopDiuretic) kDelta -= 0.3
+      kDelta = Math.min(kDelta, 0.5)
+    }
+
       // AST/ALT (条件付き、cumulative cap V1-20)
       const v1AST = (patient.labs && typeof patient.labs.ast === 'number') ? patient.labs.ast : null
       const v1ALT = (patient.labs && typeof patient.labs.alt === 'number') ? patient.labs.alt : null
@@ -453,7 +489,16 @@ export async function POST(req) {
       if (visit3Labs.hba1c != null && visit3Labs.hba1c < 5.0) visit3Labs.hba1c = 5.0
       if (visit3Labs.ldl != null && visit3Labs.ldl < 50) visit3Labs.ldl = 50
       if (visit3Labs.hdl != null) {
-        if (visit3Labs.hdl < 30) visit3Labs.hdl = 30
+        // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
+      if (diseaseName === '慢性腎臓病') {
+        visit3Labs.egfr = Math.max(5, Math.round((baseEgfr + egfrDelta) * 10) / 10)
+        const egfrRatio = baseEgfr / Math.max(5, visit3Labs.egfr)
+        visit3Labs.cr = Math.round(baseCr * egfrRatio * 100) / 100
+        visit3Labs.urine_alb = Math.max(0, Math.round((baseUrineAlb + urineAlbDelta) * 10) / 10)
+        visit3Labs.k = Math.round((baseK + kDelta) * 10) / 10
+      }
+
+      if (visit3Labs.hdl < 30) visit3Labs.hdl = 30
         if (visit3Labs.hdl > 100) visit3Labs.hdl = 100
       }
       if (visit3Labs.tg != null && visit3Labs.tg < 50) visit3Labs.tg = 50
