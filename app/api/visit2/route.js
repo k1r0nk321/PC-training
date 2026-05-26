@@ -430,6 +430,16 @@ export async function POST(req) {
       // === 臨床的妥当性 floor / cap ===
       if (visit2Labs.hba1c != null && visit2Labs.hba1c < 5.0) visit2Labs.hba1c = 5.0
       if (visit2Labs.ldl != null && visit2Labs.ldl < 50) visit2Labs.ldl = 50
+      // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
+      if (diseaseName === '慢性腎臓病') {
+        visit2Labs.egfr = Math.max(5, Math.round((baseEgfr + egfrDelta) * 10) / 10)
+        // cr は eGFR から逆算（簡易式）
+        const egfrRatio = baseEgfr / Math.max(5, visit2Labs.egfr)
+        visit2Labs.cr = Math.round(baseCr * egfrRatio * 100) / 100
+        visit2Labs.urine_alb = Math.max(0, Math.round((baseUrineAlb + urineAlbDelta) * 10) / 10)
+        visit2Labs.k = Math.round((baseK + kDelta) * 10) / 10
+      }
+
       if (visit2Labs.hdl != null) {
         if (visit2Labs.hdl < 30) visit2Labs.hdl = 30
         if (visit2Labs.hdl > 100) visit2Labs.hdl = 100
