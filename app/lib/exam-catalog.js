@@ -127,6 +127,33 @@ export const DISEASE_ITEMS = {
       { id: 'PWV', label: 'PWV' },
     ],
   },
+  '慢性腎臓病': {
+    physical: [
+      { id: 'edema_check', label: '浮腫の確認（下腿・顔面）', subcategory: '身体所見' },
+      { id: 'body_weight_daily', label: '体重測定', subcategory: '身体所見' },
+    ],
+    lab: [
+      { id: 'cystatin_c', label: 'シスタチンC', subcategory: '腎機能', unit: 'mg/L' },
+      { id: 'urine_alb_cr', label: '尿中アルブミン/Cr比（uACR）', subcategory: '蛋白尿', unit: 'mg/gCr' },
+      { id: 'urine_protein_cr', label: '尿蛋白/Cr比（UPCR）', subcategory: '蛋白尿', unit: 'g/gCr' },
+      { id: 'urine_occult_blood', label: '尿潜血', subcategory: '尿検査', unit: '' },
+      { id: 'urine_sediment', label: '尿沈渣', subcategory: '尿検査', unit: '' },
+      { id: 'bun', label: 'BUN（血中尿素窒素）', subcategory: '腎機能', unit: 'mg/dL' },
+      { id: 'ca', label: 'カルシウム（Ca）', subcategory: '電解質', unit: 'mg/dL' },
+      { id: 'p', label: 'リン（P）', subcategory: '電解質', unit: 'mg/dL' },
+      { id: 'pth', label: 'iPTH（副甲状腺ホルモン）', subcategory: '骨ミネラル代謝', unit: 'pg/mL' },
+      { id: 'hb', label: 'ヘモグロビン（Hb）', subcategory: '貧血', unit: 'g/dL' },
+      { id: 'ferritin', label: 'フェリチン', subcategory: '鉄代謝', unit: 'ng/mL' },
+      { id: 'tsat', label: 'トランスフェリン飽和度（TSAT）', subcategory: '鉄代謝', unit: '%' },
+      { id: 'bnp', label: 'BNP', subcategory: '心機能', unit: 'pg/mL' },
+      { id: 'uric_acid_ckd', label: '尿酸（UA）', subcategory: '代謝', unit: 'mg/dL' },
+    ],
+    imaging: [
+      { id: 'renal_us', label: '腎臓エコー', subcategory: '画像' },
+      { id: 'renal_doppler', label: '腎血流ドプラエコー', subcategory: '画像' },
+    ],
+    physiology: [],
+  },
 }
 
 // ──────────────────────────────────────────────
@@ -144,6 +171,10 @@ export const BASELINE_PANELS = {
   '脂質異常症': {
     label: 'ベースライン採血セット',
     description: 'LDL, HDL, TG, TC, non-HDL-C, AST, ALT, CK, HbA1c, 血糖, Cr, eGFR 等',
+  },
+  '慢性腎臓病': {
+    label: 'CKD ベースライン採血セット',
+    description: 'Cr, eGFR, BUN, 尿Alb/Cr比, Na, K, Ca, P, UA, LDL, HDL, TG, HbA1c, Hb, 尿一般・沈渣',
   },
 }
 
@@ -180,6 +211,16 @@ export const DISEASE_THEMES = {
     baselineBg: '#fdf2f8',
     baselineText: '#831843',
     badgeLabel: 'HL',
+  },
+  '慢性腎臓病': {
+    primary: '#0891b2',
+    primaryDark: '#0e7490',
+    accentBg: '#e0f2fe',
+    accentText: '#0c4a6e',
+    accentBorder: '#38bdf8',
+    baselineBg: '#f0f9ff',
+    baselineText: '#0c4a6e',
+    badgeLabel: 'CKD',
   },
 }
 
