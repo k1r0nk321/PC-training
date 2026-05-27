@@ -124,7 +124,7 @@ export async function POST(req) {
       hidden.eating_habit === 'irregular' ? 1 : 0,
       hidden.stress_level === 'high' ? 1 : 0,
       hidden.work_busyness === 'high' ? 1 : 0,
-      parseFloat(patient.vitals.bmi) >= 28 ? 2 : parseFloat(patient.vitals.bmi) >= 25 ? 1 : 0,
+      (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 28 ? 2 : (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 25 ? 1 : 0,
     ].reduce(function(a, b) { return a + b }, 0)
     // lifestyleBadness: 0〜9（高いほど改善余地が大きい）
 
@@ -203,10 +203,11 @@ export async function POST(req) {
     const diastolic2 = Math.max(68, diastolic1 - Math.round(totalBpReduction * 0.5) + Math.floor(Math.random() * 4) - 2)
 
 // ===== 体重変化 =====
-    const weight1 = parseFloat(patient.vitals.weight) || 70
-    const bmi1 = parseFloat(patient.vitals.bmi) || 25
+    // weight/bmi/height はトップレベル（patient.weight等）またはvitals内に存在
+    const weight1 = parseFloat(patient.weight) || parseFloat(patient.vitals?.weight) || 70
+    const bmi1 = parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25
     // 身長: 明示指定 > BMI と体重から逆算 > 165cm のフォールバック
-    let height = parseFloat(patient.vitals.height)
+    let height = parseFloat(patient.height) || parseFloat(patient.vitals?.height)
     if (!height || isNaN(height)) {
       if (weight1 > 0 && bmi1 > 0) {
         height = Math.round(Math.sqrt(weight1 / bmi1) * 100 * 10) / 10
