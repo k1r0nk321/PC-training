@@ -41,13 +41,21 @@ function groupSubOptions(subOptions) {
     referral: '専門機関紹介', weight_goal: '体重目標',
     emergency_education: '緊急時の説明', emergency_tool: '緊急時ツール', emergency_social: '家族への説明',
     none: 'その他',
+    diet: '食事指導',
+    smoking: '禁煙指導',
+    exercise: '運動指導',
+    lifestyle: '生活習慣改善',
+    medication: '服薬指導',
+    emergency: '緊急時対応',
+    drinking: '飲酒指導',
   }
   const categoryOrder = [
     'calorie','salt','eating_out','night_eating','alcohol',
     'aerobic','resistance','flexibility','lifestyle',
     'education','strategy','tool','social','monitoring',
     'mental','referral','weight_goal',
-    'emergency_education','emergency_tool','emergency_social','none'
+    'emergency_education','emergency_tool','emergency_social','none',
+    'diet','smoking','exercise','lifestyle','medication','emergency','drinking'
   ]
   const groups = {}
   if (!subOptions) return groups
