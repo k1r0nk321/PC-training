@@ -131,7 +131,7 @@ export async function POST(req) {
       hidden.eating_habit === 'irregular' ? 1 : 0,
       hidden.stress_level === 'high' ? 1 : 0,
       hidden.work_busyness === 'high' ? 1 : 0,
-      parseFloat(patient.vitals.bmi) >= 28 ? 2 : parseFloat(patient.vitals.bmi) >= 25 ? 1 : 0,
+      (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 28 ? 2 : (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 25 ? 1 : 0,
     ].reduce(function(a, b) { return a + b }, 0)
 
     // ===== 介入の強度評価 =====
@@ -174,8 +174,8 @@ export async function POST(req) {
     const v2BpMatch = v2BpStr.match(/(\d+)\/(\d+)/)
     const startSystolic = v2BpMatch ? parseInt(v2BpMatch[1]) : 158
     const startDiastolic = v2BpMatch ? parseInt(v2BpMatch[2]) : 96
-    const startWeight = parseFloat(v2Vitals.weight) || parseFloat(patient.vitals.weight) || 70
-    const startBmi = parseFloat(v2Vitals.bmi) || parseFloat(patient.vitals.bmi) || 25
+    const startWeight = parseFloat(v2Vitals.weight) || parseFloat(patient.weight) || parseFloat(patient.vitals?.weight) || 70
+    const startBmi = parseFloat(v2Vitals.bmi) || (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) || 25
 
     // ===== 降圧効果の計算（V2のときの式 × 逓減係数） =====
     // V2 で既に効果が出ているため、継続治療では追加効果は小さい
@@ -222,10 +222,10 @@ export async function POST(req) {
 
     // ===== 体重変化 =====
     // 身長: 明示指定 > V2 vitals または初期 BMI と体重から逆算 > 165cm
-    let height = parseFloat(patient.vitals.height)
+    let height = parseFloat(patient.height) || parseFloat(patient.vitals?.height)
     if (!height || isNaN(height)) {
-      const refWeight = parseFloat(patient.vitals.weight) || startWeight || 70
-      const refBmi = parseFloat(patient.vitals.bmi) || startBmi || 25
+      const refWeight = parseFloat(patient.weight) || parseFloat(patient.vitals?.weight) || startWeight || 70
+      const refBmi = (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) || startBmi || 25
       if (refWeight > 0 && refBmi > 0) {
         height = Math.round(Math.sqrt(refWeight / refBmi) * 100 * 10) / 10
       } else {
