@@ -661,6 +661,21 @@ export default function CaseDetailPage({ params }) {
         }
       } catch (e) {}
 
+      // hidden_paramsからsmoking_label・drinking_labelの初期値を補完
+      const hp = (data.patient_data && data.patient_data.hidden_params) || {}
+      const smokingInitLabel = hp.smoking_status === 'current'
+        ? (hp.smoking_pack_year > 20 ? '喫煙中（ヘビー）' : '喫煙中')
+        : hp.smoking_status === 'former' ? '禁煙済み' : null
+      const drinkingInitLabel = (hp.drinking_amount && hp.drinking_amount !== '飲酒なし') ? hp.drinking_amount : null
+      if (smokingInitLabel || drinkingInitLabel) {
+        setVisitParams(function(prev) {
+          const patch = {}
+          if (smokingInitLabel && !(prev && prev.smoking_label)) patch.smoking_label = smokingInitLabel
+          if (drinkingInitLabel && !(prev && prev.drinking_label)) patch.drinking_label = drinkingInitLabel
+          return Object.keys(patch).length > 0 ? Object.assign({}, prev || {}, patch) : prev
+        })
+      }
+
       // マスタデータを先に取得（再開時の復元に必要）
       const [medsRes, eduRes, devRes] = await Promise.all([
         fetch('/api/medications?diseaseId=' + data.disease_id),
