@@ -300,8 +300,8 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
                   {bpChange > 0 ? '↓' : '→'} {Math.abs(bpChange)}mmHg {bpChange > 0 ? '低下' : '変化なし'}
                 </p>
               )}
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}　身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : (patient.vitals.weight || '—')}{(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight) && !String(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{visit2Vitals ? visit2Vitals.bmi : patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}　身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : ((patient.weight || patient.vitals?.weight) || '—')}{(visit2Vitals ? visit2Vitals.weight : (patient.weight || patient.vitals?.weight)) && !String(visit2Vitals ? visit2Vitals.weight : (patient.weight || patient.vitals?.weight)).match(/kg/) ? 'kg' : ''}　BMI：{visit2Vitals ? visit2Vitals.bmi : (patient.bmi || patient.vitals?.bmi)}</p>
               {weightChange !== undefined && (
                 <p style={{ fontSize: '11px', color: weightChange < 0 ? '#16a34a' : '#64748b' }}>
                   {weightChange < 0 ? '↓' : '→'} {Math.abs(weightChange)}kg {weightChange < 0 ? '減少' : '変化なし'}
@@ -311,7 +311,7 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>初診時バイタル</p>
               <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}　体重：{(patient.weight || patient.vitals?.weight) || '—'}{(patient.weight || patient.vitals?.weight) && !String((patient.weight || patient.vitals?.weight)).match(/kg/) ? 'kg' : ''}　BMI：{(patient.bmi || patient.vitals?.bmi)}</p>
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
             </div>
           </div>
@@ -1041,7 +1041,7 @@ export default function Visit2Page({ params }) {
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
-        '体重：' + (v2?.visit2Vitals?.weight || patient.vitals.weight) + 'kg。' +
+        '体重：' + (v2?.visit2Vitals?.weight || (patient.weight || patient.vitals?.weight)) + 'kg。' +
         '【前回(Visit 1)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
         '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
         '患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。' +
