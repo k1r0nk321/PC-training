@@ -432,7 +432,7 @@ export async function POST(req) {
       if (visit2Labs.hba1c != null && visit2Labs.hba1c < 5.0) visit2Labs.hba1c = 5.0
       if (visit2Labs.ldl != null && visit2Labs.ldl < 50) visit2Labs.ldl = 50
       // ===== CKD: egfr/cr/urine_alb を専用計算で上書き =====
-      if (diseaseName === '慢性腎臓病') {
+      if (disease === '慢性腎臓病') {
         const ckdEgfrBase = baseLabs.egfr || 60
         const ckdCrBase = baseLabs.cr || 1.0
         const ckdUalbBase = baseLabs.urine_alb || 30
