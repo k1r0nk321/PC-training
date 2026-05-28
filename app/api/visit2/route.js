@@ -303,6 +303,9 @@ export async function POST(req) {
       const hasGlinide = /ナテグリニド|スターシス|ファスティック|レパグリニド|シュアポスト|ミチグリニド|グルファスト/.test(consentedMedNames)
       const hasPCSK9 = /エボロクマブ|レパーサ|アリロクマブ|プラルエント|PCSK9/.test(consentedMedNames)
       const hasEPA = /イコサペント酸|エパデール|ロトリガ|エイコサペンタエン|オメガ3|オメガ-3/.test(consentedMedNames)
+const hasRAS_CKD = /ARB|ACE|RAS|バルサルタン|オルメサルタン|アジルサルタン|テルミサルタン|ロサルタン|カンデサルタン|イルベサルタン|エナラプリル|ペリンドプリル/.test(consentedMedNames)
+const hasSGLT2_CKD = /エンパグリフロジン|ダパグリフロジン|カナグリフロジン|イプラグリフロジン|トホグリフロジン|SGLT2/.test(consentedMedNames)
+const hasLoopDiuretic = /フロセミド|ラシックス|トラセミド|ルプラック/.test(consentedMedNames)
       const lifestyleFactor = Math.min(totalLE * 0.01, 1.0)
 
       // === 包括的 lab 計算（先生指定式、全疾患共通）===
