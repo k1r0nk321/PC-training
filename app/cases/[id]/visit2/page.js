@@ -1191,7 +1191,7 @@ export default function Visit2Page({ params }) {
     const patient = caseData.patient_data || {}
     const v1 = caseData.visit1_data || {}
     const v1Meds = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'
     const params = visitParams || {}
     const stars = function(n) { var v = Math.max(0, Math.min(5, n||0)); return '★'.repeat(v) + '☆'.repeat(5-v) }
     const v2Msgs = messages.filter(function(m) { return m.role !== 'system' })
@@ -1647,7 +1647,7 @@ export default function Visit2Page({ params }) {
               <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 治療方針</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 専門医コンサルト</h3>
               {renderConsultation((caseData && caseData.visit1_consultation) || (caseData && caseData.visit1_data && (caseData.visit1_data.consultations || caseData.visit1_data.consultation)))}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 既存薬の継続/中止</h3>
@@ -1694,7 +1694,7 @@ export default function Visit2Page({ params }) {
                 <p style={{ margin: '0 0 12px' }}>血圧：{caseData.visit3_data?.vitals?.bp || '—'}　体重：{caseData.visit3_data?.vitals?.weight || '—'}kg　BMI：{caseData.visit3_data?.vitals?.bmi || '—'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針</h3>
                 <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit3_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 専門医コンサルト</h3>
                 {renderConsultation((caseData && caseData.visit3_consultation) || (caseData && caseData.visit3_data && (caseData.visit3_data.consultations || caseData.visit3_data.consultation)))}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 既存薬の継続/中止</h3>
@@ -1927,7 +1927,7 @@ export default function Visit2Page({ params }) {
                       return (
                         <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
-                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
+                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_detail || edu.instruction_key}
                         </div>
                       )
                     })
@@ -1948,7 +1948,7 @@ export default function Visit2Page({ params }) {
                       return (
                         <div key={item.id} onClick={function() { handleEduCategorySelect(item) }}
                           style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_key}</span>
+                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_detail || item.instruction_key}</span>
                           {hasSubOptions && <span style={{ fontSize: '9px', color: '#0369a1' }}>▼</span>}
                           {subCount > 0 && <span style={{ fontSize: '9px', backgroundColor: '#0369a1', color: 'white', borderRadius: '8px', padding: '0 4px' }}>{subCount}</span>}
                         </div>
@@ -2116,7 +2116,7 @@ export default function Visit2Page({ params }) {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_detail || activeEduModal.instruction_key}</h2>
                 <button onClick={function() { setActiveEduModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
               </div>
               {Object.entries(groupSubOptions(activeEduModal.sub_options)).map(function([groupKey, group]) {
@@ -2145,7 +2145,7 @@ export default function Visit2Page({ params }) {
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <div>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_detail || activeSubGroupModal.edu.instruction_key}</p>
                   <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
                 </div>
                 <button onClick={function() { setActiveSubGroupModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
