@@ -1600,32 +1600,38 @@ export default function CaseDetailPage({ params }) {
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>Visit 1 フィードバック</h1>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={async function() {
-                  try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
-                  window.location.href = '/cases/' + params.id + '/visit2'
-                }}
-                style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                Visit 2へ進む →
-              </button>
-              <button onClick={function() { window.location.href = '/cases' }}
-                style={{ padding: '8px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                別の症例へ
-              </button>
-              <button onClick={openKarte} style={{ padding: '8px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1 フィードバック</h1>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
             </div>
+            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
-          {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
+          {!scoring ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+              <p>フィードバックを生成中...</p>
+            </div>
+          ) : (
             <div>
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
                   {scoring}
                 </div>
               </div>
-              <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd' }}>
-                <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>📋 次のステップ</p>
-                <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>「Visit 2へ進む」をクリックして4週後の再診をシミュレーションしてください。</p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={async function() {
+                    try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
+                    window.location.href = '/cases/' + params.id + '/visit2'
+                  }}
+                  style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                  Visit 2（4週後）へ進む →
+                </button>
+                <button
+                  onClick={function() { window.location.href = '/cases' }}
+                  style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
+                  症例選択へ
+                </button>
+                <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
               </div>
             </div>
           )}
@@ -1634,8 +1640,7 @@ export default function CaseDetailPage({ params }) {
       </div>
     )
   }
-
-  // ===== 治療方針決定画面 =====
+    // ===== 治療方針決定画面 =====
   if (step === 'treatment') {
     const eduByCategory = educationItems.reduce(function(acc, edu) {
       if (!acc[edu.category]) acc[edu.category] = []
