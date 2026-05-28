@@ -401,7 +401,7 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
     const ckdBaseK = patient.labs?.k || 4.0
 
     let egfrDeltaCKD = 0
-    if (diseaseName === '慢性腎臓病') {
+    if (disease === '慢性腎臓病') {
       // Visit3はVisit2からの継続（4〜8週後）
       // SGLT2 initial dipは解消しプラトーまたは改善傾向へ
       const naturalDecline = -(0.5 + Math.random() * 0.5)
@@ -413,14 +413,14 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
     }
 
     let urineAlbDeltaCKD = 0
-    if (diseaseName === '慢性腎臓病') {
+    if (disease === '慢性腎臓病') {
       if (hasRAS_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.30 // Visit3では効果累積
       if (hasSGLT2_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.25
       urineAlbDeltaCKD *= adherenceFactor
     }
 
     let kDeltaCKD = 0
-    if (diseaseName === '慢性腎臓病') {
+    if (disease === '慢性腎臓病') {
       if (hasRAS_CKD) kDeltaCKD += 0.2 + Math.random() * 0.2
       if (hasLoopDiuretic) kDeltaCKD -= 0.3
       kDeltaCKD = Math.min(kDeltaCKD, 0.5)
@@ -490,7 +490,7 @@ const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedN
       if (visit3Labs.ldl != null && visit3Labs.ldl < 50) visit3Labs.ldl = 50
       if (visit3Labs.hdl != null) {
         // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
-      if (diseaseName === '慢性腎臓病') {
+      if (disease === '慢性腎臓病') {
         visit3Labs.egfr = Math.max(5, Math.round((ckdBaseEgfr + egfrDeltaCKD) * 10) / 10)
         const egfrRatioCKD = ckdBaseEgfr / Math.max(5, visit3Labs.egfr)
         visit3Labs.cr = Math.round(ckdBaseCr * egfrRatioCKD * 100) / 100
