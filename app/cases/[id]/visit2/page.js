@@ -19,14 +19,14 @@ const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', mod
 
 function calcRecommendedCalories(patient) {
   if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
+  const h = parseFloat(patient.height || patient.vitals?.height) / 100
   const age = patient.age
   if (!h || !age) return null
   const idealWeight = Math.round(h * h * 22 * 10) / 10
   const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
   const recCalRaw = idealWeight * actCoef
   const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const currentBmi = parseFloat(patient.bmi || patient.vitals?.bmi || 22)
   const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
   return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
 }
@@ -1369,7 +1369,7 @@ export default function Visit2Page({ params }) {
       id: 'edu_' + edu.id,
       selectionType: 'education',
       item: edu,
-      labelText: '✅ ' + edu.instruction_key + '（問診合意で確定）',
+      labelText: '✅ ' + (edu.instruction_detail || edu.instruction_key) + '（問診合意で確定）',
       reaction: {
         acceptance_level: 'accepted',
         emotion: 'positive',
@@ -1397,7 +1397,7 @@ export default function Visit2Page({ params }) {
         setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'edu_' + edu.id }) })
       } else {
         setSelectedEducation(function(prev) { return [...prev, edu.id] })
-        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + edu.instruction_key, null)
+        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + (edu.instruction_detail || edu.instruction_key), null)
       }
     }
   }
@@ -1430,7 +1430,7 @@ export default function Visit2Page({ params }) {
     setSelectedEducation(function(prev) { return prev.includes(edu.id) ? prev : [...prev, edu.id] })
     await addOrReplaceReaction('sub_' + edu.id + '_' + groupKey, 'education_sub',
       Object.assign({}, subOption, { eduKey: edu.instruction_key }),
-      '📋 ' + edu.instruction_key + '：' + subOption.label, null)
+      '📋 ' + (edu.instruction_detail || edu.instruction_key) + '：' + subOption.label, null)
   }
 
   async function confirmDeviceSelect(device) {
