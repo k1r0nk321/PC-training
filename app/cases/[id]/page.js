@@ -64,6 +64,8 @@ const DISEASE_LAB_MAP = {
   '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
   '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt'],
   '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr'],
+  '高尿酸血症': ['ua', 'cr', 'egfr', 'urine_alb', 'k', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
+  '慢性腎臓病': ['cr', 'egfr', 'urine_alb', 'k', 'na', 'ua', 'bnp', 'hb', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
 }
 function diseaseLabKeys(disease) {
   return DISEASE_LAB_MAP[disease] || LAB_ORDER
@@ -212,14 +214,14 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
 
 function calcRecommendedCalories(patient) {
   if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
+  const h = parseFloat(patient.height || patient.height || patient.vitals?.height) / 100
   const age = patient.age
   if (!h || !age) return null
   const idealWeight = Math.round(h * h * 22 * 10) / 10
   const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
   const recCalRaw = idealWeight * actCoef
   const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const currentBmi = parseFloat(patient.bmi || patient.bmi || patient.vitals?.bmi || 22)
   const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
   return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
 }
@@ -239,13 +241,22 @@ function groupSubOptions(subOptions) {
     emergency_tool: '緊急時ツール',
     emergency_social: '家族への説明',
     none: 'その他',
+    // CKD専用カテゴリ（patient_educationのcategoryフィールド）
+    diet: '食事指導',
+    smoking: '禁煙指導',
+    exercise: '運動指導',
+    lifestyle: '生活習慣改善',
+    medication: '服薬指導',
+    emergency: '緊急時対応',
+    drinking: '飲酒指導',
   }
   const categoryOrder = [
     'calorie','salt','eating_out','night_eating','alcohol',
     'aerobic','resistance','flexibility','lifestyle',
     'education','strategy','tool','social','monitoring',
     'mental','referral','weight_goal',
-    'emergency_education','emergency_tool','emergency_social','none'
+    'emergency_education','emergency_tool','emergency_social','none',
+    'diet','smoking','exercise','lifestyle','medication','emergency','drinking'
   ]
   const groups = {}
   if (!subOptions) return groups
@@ -293,7 +304,7 @@ function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, a
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
               <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong>　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? ' kg' : ''}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}　体重：{(patient.weight || patient.vitals?.weight) || '—'}{(patient.weight || patient.vitals?.weight) && !String((patient.weight || patient.vitals?.weight)).match(/kg/) ? ' kg' : ''}　BMI：{(patient.bmi || patient.vitals?.bmi)}</p>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -649,6 +660,21 @@ export default function CaseDetailPage({ params }) {
           setVisitParams(pd.params)
         }
       } catch (e) {}
+
+      // hidden_paramsからsmoking_label・drinking_labelの初期値を補完
+      const hp = (data.patient_data && data.patient_data.hidden_params) || {}
+      const smokingInitLabel = hp.smoking_status === 'current'
+        ? (hp.smoking_pack_year > 20 ? '喫煙中（ヘビー）' : '喫煙中')
+        : hp.smoking_status === 'former' ? '禁煙済み' : null
+      const drinkingInitLabel = (hp.drinking_amount && hp.drinking_amount !== '飲酒なし') ? hp.drinking_amount : null
+      if (smokingInitLabel || drinkingInitLabel) {
+        setVisitParams(function(prev) {
+          const patch = {}
+          if (smokingInitLabel && !(prev && prev.smoking_label)) patch.smoking_label = smokingInitLabel
+          if (drinkingInitLabel && !(prev && prev.drinking_label)) patch.drinking_label = drinkingInitLabel
+          return Object.keys(patch).length > 0 ? Object.assign({}, prev || {}, patch) : prev
+        })
+      }
 
       // マスタデータを先に取得（再開時の復元に必要）
       const [medsRes, eduRes, devRes] = await Promise.all([
@@ -1208,7 +1234,7 @@ export default function CaseDetailPage({ params }) {
       id: 'edu_' + edu.id,
       selectionType: 'education',
       item: edu,
-      labelText: '✅ ' + edu.instruction_key + '（問診合意で確定）',
+      labelText: '✅ ' + (edu.instruction_detail || edu.instruction_key) + '（問診合意で確定）',
       reaction: {
         acceptance_level: 'accepted',
         emotion: 'positive',
@@ -1236,7 +1262,7 @@ export default function CaseDetailPage({ params }) {
         setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'edu_' + edu.id }) })
       } else {
         setSelectedEducation(function(prev) { return [...prev, edu.id] })
-        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + edu.instruction_key, null)
+        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + (edu.instruction_detail || edu.instruction_key), null)
       }
     }
   }
@@ -1271,7 +1297,7 @@ export default function CaseDetailPage({ params }) {
     await addOrReplaceReaction(
       'sub_' + edu.id + '_' + groupKey, 'education_sub',
       Object.assign({}, subOption, { eduKey: edu.instruction_key }),
-      '📋 ' + edu.instruction_key + '：' + subOption.label, null)
+      '📋 ' + (edu.instruction_detail || edu.instruction_key) + '：' + subOption.label, null)
   }
 
   async function confirmDeviceSelect(device) {
@@ -1574,32 +1600,38 @@ export default function CaseDetailPage({ params }) {
       <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1' }}>Visit 1 フィードバック</h1>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={async function() {
-                  try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
-                  window.location.href = '/cases/' + params.id + '/visit2'
-                }}
-                style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                Visit 2へ進む →
-              </button>
-              <button onClick={function() { window.location.href = '/cases' }}
-                style={{ padding: '8px 14px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                別の症例へ
-              </button>
-              <button onClick={openKarte} style={{ padding: '8px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1 フィードバック</h1>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>指導医からのコメント</p>
             </div>
+            <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
-          {!scoring ? <p style={{ textAlign: 'center', color: '#64748b' }}>読み込み中...</p> : (
+          {!scoring ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+              <p>フィードバックを生成中...</p>
+            </div>
+          ) : (
             <div>
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#1e293b', lineHeight: '1.8' }}>
                   {scoring}
                 </div>
               </div>
-              <div style={{ backgroundColor: '#f0f9ff', borderRadius: '10px', padding: '14px', border: '1px solid #bae6fd' }}>
-                <p style={{ fontSize: '13px', color: '#0369a1', fontWeight: 'bold', margin: '0 0 6px' }}>📋 次のステップ</p>
-                <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>「Visit 2へ進む」をクリックして4週後の再診をシミュレーションしてください。</p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={async function() {
+                    try { await fetch('/api/save-record?caseId=' + params.id, { method: 'DELETE' }) } catch (e) {}
+                    window.location.href = '/cases/' + params.id + '/visit2'
+                  }}
+                  style={{ flex: 1, padding: '14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '15px', fontWeight: 'bold' }}>
+                  Visit 2（4週後）へ進む →
+                </button>
+                <button
+                  onClick={function() { window.location.href = '/cases' }}
+                  style={{ padding: '14px 20px', backgroundColor: 'white', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontSize: '14px' }}>
+                  症例選択へ
+                </button>
+                <button onClick={openKarte} style={{ padding: '6px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
               </div>
             </div>
           )}
@@ -1608,8 +1640,7 @@ export default function CaseDetailPage({ params }) {
       </div>
     )
   }
-
-  // ===== 治療方針決定画面 =====
+    // ===== 治療方針決定画面 =====
   if (step === 'treatment') {
     const eduByCategory = educationItems.reduce(function(acc, edu) {
       if (!acc[edu.category]) acc[edu.category] = []
@@ -1731,7 +1762,7 @@ export default function CaseDetailPage({ params }) {
                       return (
                         <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
-                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
+                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_detail || edu.instruction_key}
                           {info.detail && <span style={{ fontWeight: 'normal', marginLeft: '4px', opacity: 0.8 }}>（{info.detail}）</span>}
                         </div>
                       )
@@ -1754,7 +1785,7 @@ export default function CaseDetailPage({ params }) {
                       return (
                         <div key={item.id} onClick={function() { handleEduCategorySelect(item) }}
                           style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_key}</span>
+                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_detail || item.instruction_key}</span>
                           {hasSubOptions && <span style={{ fontSize: '9px', color: '#0369a1' }}>▼</span>}
                           {subCount > 0 && <span style={{ fontSize: '9px', backgroundColor: '#0369a1', color: 'white', borderRadius: '8px', padding: '0 4px' }}>{subCount}</span>}
                         </div>
@@ -1959,7 +1990,7 @@ export default function CaseDetailPage({ params }) {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_detail || activeEduModal.instruction_key}</h2>
                 <button onClick={function() { setActiveEduModal(null) }}
                   style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
               </div>
@@ -1994,7 +2025,7 @@ export default function CaseDetailPage({ params }) {
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <div>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_detail || activeSubGroupModal.edu.instruction_key}</p>
                   <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
                 </div>
                 <button onClick={function() { setActiveSubGroupModal(null) }}
@@ -2207,14 +2238,14 @@ export default function CaseDetailPage({ params }) {
   function handleExportPDF() {
     const patient = (caseData && caseData.patient_data) || {}
     const v1Meds = (selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'
     const v1Msgs = messages.filter(function(m) { return m.role !== 'system' })
     const msgHtml = v1Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>カルテ</title><style>body{font-family:sans-serif;padding:20px;color:#1e293b}h1{color:#0369a1;font-size:18px;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{color:#0369a1;font-size:14px;margin-top:14px;border-left:3px solid #0369a1;padding-left:6px}p{font-size:12px;line-height:1.6}</style></head><body>'
       + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
       + '<p>疾患：' + ((caseData && caseData.disease_name)||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
       + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '<br>家族歴：' + (patient.family_history||'') + '<br>既往歴：' + (patient.past_history||'') + '</p>'
-      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.vitals && patient.vitals.weight)||'') + 'kg　BMI：' + ((patient.vitals && patient.vitals.bmi)||'') + '</p>'
+      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.weight || (patient.vitals && (patient.weight || patient.vitals?.weight)))||'') + 'kg　BMI：' + ((patient.bmi || (patient.vitals && (patient.bmi || patient.vitals?.bmi)))||'') + '</p>'
       + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
       + '<h2>【Visit 1 問診内容】</h2>' + msgHtml + '</body></html>'
     var win = window.open('', '_blank')

@@ -19,14 +19,14 @@ const STRICTNESS_LABEL = { very_strict: '非常に厳格', strict: '厳格', mod
 
 function calcRecommendedCalories(patient) {
   if (!patient) return null
-  const h = parseFloat(patient.vitals?.height) / 100
+  const h = parseFloat(patient.height || patient.vitals?.height) / 100
   const age = patient.age
   if (!h || !age) return null
   const idealWeight = Math.round(h * h * 22 * 10) / 10
   const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
   const recCalRaw = idealWeight * actCoef
   const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.vitals?.bmi || 22)
+  const currentBmi = parseFloat(patient.bmi || patient.vitals?.bmi || 22)
   const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
   return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
 }
@@ -41,13 +41,21 @@ function groupSubOptions(subOptions) {
     referral: '専門機関紹介', weight_goal: '体重目標',
     emergency_education: '緊急時の説明', emergency_tool: '緊急時ツール', emergency_social: '家族への説明',
     none: 'その他',
+    diet: '食事指導',
+    smoking: '禁煙指導',
+    exercise: '運動指導',
+    lifestyle: '生活習慣改善',
+    medication: '服薬指導',
+    emergency: '緊急時対応',
+    drinking: '飲酒指導',
   }
   const categoryOrder = [
     'calorie','salt','eating_out','night_eating','alcohol',
     'aerobic','resistance','flexibility','lifestyle',
     'education','strategy','tool','social','monitoring',
     'mental','referral','weight_goal',
-    'emergency_education','emergency_tool','emergency_social','none'
+    'emergency_education','emergency_tool','emergency_social','none',
+    'diet','smoking','exercise','lifestyle','medication','emergency','drinking'
   ]
   const groups = {}
   if (!subOptions) return groups
@@ -108,6 +116,8 @@ const DISEASE_LAB_MAP = {
   '高血圧症': ['na', 'k', 'cr', 'bun', 'egfr', 'ua', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
   '2型糖尿病': ['hba1c', 'glucose', 'ldl', 'hdl', 'tg', 'cr', 'bun', 'egfr', 'ua', 'urine_alb', 'urine_protein', 'ast', 'alt'],
   '脂質異常症': ['ldl', 'hdl', 'tg', 'total_cholesterol', 'non_hdl_c', 'ast', 'alt', 'ck', 'hba1c', 'glucose', 'cr', 'egfr'],
+  '高尿酸血症': ['ua', 'cr', 'egfr', 'urine_alb', 'k', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
+  '慢性腎臓病': ['cr', 'egfr', 'urine_alb', 'k', 'na', 'ua', 'bnp', 'hb', 'ldl', 'hdl', 'tg', 'hba1c', 'glucose'],
 }
 function diseaseLabKeys(disease) {
   return DISEASE_LAB_MAP[disease] || LAB_ORDER
@@ -290,8 +300,8 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
                   {bpChange > 0 ? '↓' : '→'} {Math.abs(bpChange)}mmHg {bpChange > 0 ? '低下' : '変化なし'}
                 </p>
               )}
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}　身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : (patient.vitals.weight || '—')}{(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight) && !String(visit2Vitals ? visit2Vitals.weight : patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{visit2Vitals ? visit2Vitals.bmi : patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}　身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>体重：{visit2Vitals ? visit2Vitals.weight : ((patient.weight || patient.vitals?.weight) || '—')}{(visit2Vitals ? visit2Vitals.weight : (patient.weight || patient.vitals?.weight)) && !String(visit2Vitals ? visit2Vitals.weight : (patient.weight || patient.vitals?.weight)).match(/kg/) ? 'kg' : ''}　BMI：{visit2Vitals ? visit2Vitals.bmi : (patient.bmi || patient.vitals?.bmi)}</p>
               {weightChange !== undefined && (
                 <p style={{ fontSize: '11px', color: weightChange < 0 ? '#16a34a' : '#64748b' }}>
                   {weightChange < 0 ? '↓' : '→'} {Math.abs(weightChange)}kg {weightChange < 0 ? '減少' : '変化なし'}
@@ -301,7 +311,7 @@ function PatientInfoCard({ patient, diseaseName, visit2Vitals, visit2Labs, visit
             <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>初診時バイタル</p>
               <p style={{ fontSize: '12px', color: '#475569' }}>血圧：{patient.vitals.bp}　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? 'kg' : ''}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}　体重：{(patient.weight || patient.vitals?.weight) || '—'}{(patient.weight || patient.vitals?.weight) && !String((patient.weight || patient.vitals?.weight)).match(/kg/) ? 'kg' : ''}　BMI：{(patient.bmi || patient.vitals?.bmi)}</p>
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>主訴：{patient.chief_complaint}</p>
             </div>
           </div>
@@ -1031,7 +1041,7 @@ export default function Visit2Page({ params }) {
         '名前：' + patient.name + '（' + patient.age + '歳・' + patient.gender + '）。性格：' + (patient.hidden_params.personality_type || 'cooperative') + '。' +
         '服薬意欲：' + patient.hidden_params.adherence_level + '。' +
         '現在の血圧：' + (v2?.visit2Vitals?.bp || patient.vitals.bp) + '。' +
-        '体重：' + (v2?.visit2Vitals?.weight || patient.vitals.weight) + 'kg。' +
+        '体重：' + (v2?.visit2Vitals?.weight || (patient.weight || patient.vitals?.weight)) + 'kg。' +
         '【前回(Visit 1)の治療内容 - 厳守すること】処方薬：' + v1Meds + '。生活指導：' + v1Edu + '。' +
         '【絶対遵守】処方されていない薬を服用していると言ってはならない。処方なしなら「お薬はもらっていません」と答える。指導されていない生活指導内容を実行していると言ってはならない。前回の治療内容と矛盾する発言をしてはならない。' +
         '患者として自然な日本語で150文字以内で応答する。検査結果や身体所見の生成はしない(別ボタンから出力される)。もし医師から検査や診察を求められたら、患者として自然に応じる(例:「はい、お願いします」「どうぞ」)のみで、結果や所見は一切返さないこと。' +
@@ -1181,7 +1191,7 @@ export default function Visit2Page({ params }) {
     const patient = caseData.patient_data || {}
     const v1 = caseData.visit1_data || {}
     const v1Meds = (v1.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Edu = (v1.selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'
     const params = visitParams || {}
     const stars = function(n) { var v = Math.max(0, Math.min(5, n||0)); return '★'.repeat(v) + '☆'.repeat(5-v) }
     const v2Msgs = messages.filter(function(m) { return m.role !== 'system' })
@@ -1359,7 +1369,7 @@ export default function Visit2Page({ params }) {
       id: 'edu_' + edu.id,
       selectionType: 'education',
       item: edu,
-      labelText: '✅ ' + edu.instruction_key + '（問診合意で確定）',
+      labelText: '✅ ' + (edu.instruction_detail || edu.instruction_key) + '（問診合意で確定）',
       reaction: {
         acceptance_level: 'accepted',
         emotion: 'positive',
@@ -1387,7 +1397,7 @@ export default function Visit2Page({ params }) {
         setReactionLog(function(prev) { return prev.filter(function(e) { return e.id !== 'edu_' + edu.id }) })
       } else {
         setSelectedEducation(function(prev) { return [...prev, edu.id] })
-        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + edu.instruction_key, null)
+        await addOrReplaceReaction('edu_' + edu.id, 'education', edu, '📋 ' + (edu.instruction_detail || edu.instruction_key), null)
       }
     }
   }
@@ -1420,7 +1430,7 @@ export default function Visit2Page({ params }) {
     setSelectedEducation(function(prev) { return prev.includes(edu.id) ? prev : [...prev, edu.id] })
     await addOrReplaceReaction('sub_' + edu.id + '_' + groupKey, 'education_sub',
       Object.assign({}, subOption, { eduKey: edu.instruction_key }),
-      '📋 ' + edu.instruction_key + '：' + subOption.label, null)
+      '📋 ' + (edu.instruction_detail || edu.instruction_key) + '：' + subOption.label, null)
   }
 
   async function confirmDeviceSelect(device) {
@@ -1637,7 +1647,7 @@ export default function Visit2Page({ params }) {
               <p style={{ margin: '0 0 12px' }}>血圧：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bp) || '—'}　体重：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.weight) || '—'}kg　BMI：{(caseData && caseData.patient_data && caseData.patient_data.vitals && caseData.patient_data.vitals.bmi) || '—'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 治療方針</h3>
               <p style={{ margin: '0 0 4px' }}><b>処方：</b>{((caseData.visit1_data && caseData.visit1_data.selectedMedications) || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+              <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{((caseData.visit1_data && caseData.visit1_data.selectedEducation) || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'}</p>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 専門医コンサルト</h3>
               {renderConsultation((caseData && caseData.visit1_consultation) || (caseData && caseData.visit1_data && (caseData.visit1_data.consultations || caseData.visit1_data.consultation)))}
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', borderLeft: '3px solid #0369a1', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 1 既存薬の継続/中止</h3>
@@ -1684,7 +1694,7 @@ export default function Visit2Page({ params }) {
                 <p style={{ margin: '0 0 12px' }}>血圧：{caseData.visit3_data?.vitals?.bp || '—'}　体重：{caseData.visit3_data?.vitals?.weight || '—'}kg　BMI：{caseData.visit3_data?.vitals?.bmi || '—'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 治療方針</h3>
                 <p style={{ margin: '0 0 4px' }}><b>処方：</b>{(caseData.visit3_data?.selectedMedications || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'}</p>
-                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'}</p>
+                <p style={{ margin: '0 0 12px' }}><b>生活指導：</b>{(caseData.visit3_data?.selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'}</p>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 専門医コンサルト</h3>
                 {renderConsultation((caseData && caseData.visit3_consultation) || (caseData && caseData.visit3_data && (caseData.visit3_data.consultations || caseData.visit3_data.consultation)))}
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#059669', borderLeft: '3px solid #059669', paddingLeft: '8px', margin: '0 0 8px' }}>Visit 3 既存薬の継続/中止</h3>
@@ -1917,7 +1927,7 @@ export default function Visit2Page({ params }) {
                       return (
                         <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
-                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
+                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_detail || edu.instruction_key}
                         </div>
                       )
                     })
@@ -1938,7 +1948,7 @@ export default function Visit2Page({ params }) {
                       return (
                         <div key={item.id} onClick={function() { handleEduCategorySelect(item) }}
                           style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_key}</span>
+                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_detail || item.instruction_key}</span>
                           {hasSubOptions && <span style={{ fontSize: '9px', color: '#0369a1' }}>▼</span>}
                           {subCount > 0 && <span style={{ fontSize: '9px', backgroundColor: '#0369a1', color: 'white', borderRadius: '8px', padding: '0 4px' }}>{subCount}</span>}
                         </div>
@@ -2106,7 +2116,7 @@ export default function Visit2Page({ params }) {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_detail || activeEduModal.instruction_key}</h2>
                 <button onClick={function() { setActiveEduModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
               </div>
               {Object.entries(groupSubOptions(activeEduModal.sub_options)).map(function([groupKey, group]) {
@@ -2135,7 +2145,7 @@ export default function Visit2Page({ params }) {
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <div>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_detail || activeSubGroupModal.edu.instruction_key}</p>
                   <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
                 </div>
                 <button onClick={function() { setActiveSubGroupModal(null) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>

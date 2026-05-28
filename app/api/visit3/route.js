@@ -131,7 +131,7 @@ export async function POST(req) {
       hidden.eating_habit === 'irregular' ? 1 : 0,
       hidden.stress_level === 'high' ? 1 : 0,
       hidden.work_busyness === 'high' ? 1 : 0,
-      parseFloat(patient.vitals.bmi) >= 28 ? 2 : parseFloat(patient.vitals.bmi) >= 25 ? 1 : 0,
+      (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 28 ? 2 : (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) >= 25 ? 1 : 0,
     ].reduce(function(a, b) { return a + b }, 0)
 
     // ===== 介入の強度評価 =====
@@ -174,8 +174,8 @@ export async function POST(req) {
     const v2BpMatch = v2BpStr.match(/(\d+)\/(\d+)/)
     const startSystolic = v2BpMatch ? parseInt(v2BpMatch[1]) : 158
     const startDiastolic = v2BpMatch ? parseInt(v2BpMatch[2]) : 96
-    const startWeight = parseFloat(v2Vitals.weight) || parseFloat(patient.vitals.weight) || 70
-    const startBmi = parseFloat(v2Vitals.bmi) || parseFloat(patient.vitals.bmi) || 25
+    const startWeight = parseFloat(v2Vitals.weight) || parseFloat(patient.weight) || parseFloat(patient.vitals?.weight) || 70
+    const startBmi = parseFloat(v2Vitals.bmi) || (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) || 25
 
     // ===== 降圧効果の計算（V2のときの式 × 逓減係数） =====
     // V2 で既に効果が出ているため、継続治療では追加効果は小さい
@@ -222,10 +222,10 @@ export async function POST(req) {
 
     // ===== 体重変化 =====
     // 身長: 明示指定 > V2 vitals または初期 BMI と体重から逆算 > 165cm
-    let height = parseFloat(patient.vitals.height)
+    let height = parseFloat(patient.height) || parseFloat(patient.vitals?.height)
     if (!height || isNaN(height)) {
-      const refWeight = parseFloat(patient.vitals.weight) || startWeight || 70
-      const refBmi = parseFloat(patient.vitals.bmi) || startBmi || 25
+      const refWeight = parseFloat(patient.weight) || parseFloat(patient.vitals?.weight) || startWeight || 70
+      const refBmi = (parseFloat(patient.bmi) || parseFloat(patient.vitals?.bmi) || 25) || startBmi || 25
       if (refWeight > 0 && refBmi > 0) {
         height = Math.round(Math.sqrt(refWeight / refBmi) * 100 * 10) / 10
       } else {
@@ -323,6 +323,10 @@ export async function POST(req) {
       const hasGlinide = /ナテグリニド|スターシス|ファスティック|レパグリニド|シュアポスト|ミチグリニド|グルファスト/.test(v3MedNames)
       const hasPCSK9 = /エボロクマブ|レパーサ|アリロクマブ|プラルエント|PCSK9/.test(v3MedNames)
       const hasEPA = /イコサペント酸|エパデール|ロトリガ|エイコサペンタエン|オメガ3|オメガ-3/.test(v3MedNames)
+const hasRAS_CKD = /ARB|ACE|RAS|バルサルタン|オルメサルタン|アジルサルタン|テルミサルタン|ロサルタン|カンデサルタン|イルベサルタン|エナラプリル|ペリンドプリル/.test(v3MedNames)
+const hasSGLT2_CKD = /エンパグリフロジン|ダパグリフロジン|カナグリフロジン|イプラグリフロジン|トホグリフロジン|SGLT2/.test(v3MedNames)
+const hasLoopDiuretic = /フロセミド|ラシックス|トラセミド|ルプラック/.test(v3MedNames)
+const hasPemafibrate = /ペマフィブラート|パルモディア/.test(v3MedNames)
       const dmDrugCount = [hasMetformin, hasSGLT2, hasGLP1, hasDPP4, hasSU, hasInsulin].filter(function(b) { return b }).length
       const lifestyleFactor = totalLE * 0.01
 
@@ -390,6 +394,38 @@ export async function POST(req) {
       let uaDelta = -(wKg * 0.05 + lifestyleFactor * 0.2 + (hasSGLT2 ? 0.3 : 0) + (hasXOI ? 2.5 : 0) + (hasUricosuric ? 1.7 : 0)) + (hasDiuretic ? 0.5 : 0)
       uaDelta *= adherenceFactor
 
+    // ===== CKD: eGFR・Cr・urine_alb・K 計算（Visit3：Visit2からの継続効果）=====
+    const ckdBaseEgfr = patient.labs?.egfr || 60
+    const ckdBaseCr = patient.labs?.cr || 1.0
+    const ckdBaseUrineAlb = patient.labs?.urine_alb || 30
+    const ckdBaseK = patient.labs?.k || 4.0
+
+    let egfrDeltaCKD = 0
+    if (disease === '慢性腎臓病') {
+      // Visit3はVisit2からの継続（4〜8週後）
+      // SGLT2 initial dipは解消しプラトーまたは改善傾向へ
+      const naturalDecline = -(0.5 + Math.random() * 0.5)
+      let treatmentEffect = 0
+      if (hasRAS_CKD) treatmentEffect += 0.8 // RAS阻害薬の継続効果
+      if (hasSGLT2_CKD) treatmentEffect += 1.0 // SGLT2 initial dip解消→保護効果
+      egfrDeltaCKD = (naturalDecline + treatmentEffect) * adherenceFactor
+      if (ckdBaseEgfr < 15) egfrDeltaCKD = egfrDeltaCKD * 0.5
+    }
+
+    let urineAlbDeltaCKD = 0
+    if (disease === '慢性腎臓病') {
+      if (hasRAS_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.30 // Visit3では効果累積
+      if (hasSGLT2_CKD) urineAlbDeltaCKD -= ckdBaseUrineAlb * 0.25
+      urineAlbDeltaCKD *= adherenceFactor
+    }
+
+    let kDeltaCKD = 0
+    if (disease === '慢性腎臓病') {
+      if (hasRAS_CKD) kDeltaCKD += 0.2 + Math.random() * 0.2
+      if (hasLoopDiuretic) kDeltaCKD -= 0.3
+      kDeltaCKD = Math.min(kDeltaCKD, 0.5)
+    }
+
       // AST/ALT (条件付き、cumulative cap V1-20)
       const v1AST = (patient.labs && typeof patient.labs.ast === 'number') ? patient.labs.ast : null
       const v1ALT = (patient.labs && typeof patient.labs.alt === 'number') ? patient.labs.alt : null
@@ -453,7 +489,16 @@ export async function POST(req) {
       if (visit3Labs.hba1c != null && visit3Labs.hba1c < 5.0) visit3Labs.hba1c = 5.0
       if (visit3Labs.ldl != null && visit3Labs.ldl < 50) visit3Labs.ldl = 50
       if (visit3Labs.hdl != null) {
-        if (visit3Labs.hdl < 30) visit3Labs.hdl = 30
+        // ===== CKD: egfr/cr/urine_alb/k を専用計算で上書き =====
+      if (disease === '慢性腎臓病') {
+        visit3Labs.egfr = Math.max(5, Math.round((ckdBaseEgfr + egfrDeltaCKD) * 10) / 10)
+        const egfrRatioCKD = ckdBaseEgfr / Math.max(5, visit3Labs.egfr)
+        visit3Labs.cr = Math.round(ckdBaseCr * egfrRatioCKD * 100) / 100
+        visit3Labs.urine_alb = Math.max(0, Math.round((ckdBaseUrineAlb + urineAlbDeltaCKD) * 10) / 10)
+        visit3Labs.k = Math.round((ckdBaseK + kDeltaCKD) * 10) / 10
+      }
+
+      if (visit3Labs.hdl < 30) visit3Labs.hdl = 30
         if (visit3Labs.hdl > 100) visit3Labs.hdl = 100
       }
       if (visit3Labs.tg != null && visit3Labs.tg < 50) visit3Labs.tg = 50
