@@ -304,7 +304,7 @@ function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, a
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
               <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>バイタル</p>
               <p style={{ fontSize: '12px', color: '#1e293b' }}>血圧：<strong style={{ color: '#dc2626' }}>{patient.vitals.bp}</strong>　脈拍：{patient.vitals.pulse || patient.vitals.hr || '—'}{(patient.vitals.pulse || patient.vitals.hr) && !String(patient.vitals.pulse || patient.vitals.hr).match(/\/分|bpm/) ? '/分' : ''}</p>
-              <p style={{ fontSize: '12px', color: '#1e293b' }}>身長：{patient.vitals.height || '—'}{patient.vitals.height && !String(patient.vitals.height).match(/cm/) ? ' cm' : ''}　体重：{patient.vitals.weight || '—'}{patient.vitals.weight && !String(patient.vitals.weight).match(/kg/) ? ' kg' : ''}　BMI：{patient.vitals.bmi}</p>
+              <p style={{ fontSize: '12px', color: '#1e293b' }}>身長：{(patient.height || patient.vitals?.height) || '—'}{(patient.height || patient.vitals?.height) && !String((patient.height || patient.vitals?.height)).match(/cm/) ? ' cm' : ''}　体重：{(patient.weight || patient.vitals?.weight) || '—'}{(patient.weight || patient.vitals?.weight) && !String((patient.weight || patient.vitals?.weight)).match(/kg/) ? ' kg' : ''}　BMI：{(patient.bmi || patient.vitals?.bmi)}</p>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -2240,7 +2240,7 @@ export default function CaseDetailPage({ params }) {
       + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
       + '<p>疾患：' + ((caseData && caseData.disease_name)||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
       + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '<br>家族歴：' + (patient.family_history||'') + '<br>既往歴：' + (patient.past_history||'') + '</p>'
-      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.weight || (patient.vitals && patient.vitals.weight))||'') + 'kg　BMI：' + ((patient.bmi || (patient.vitals && patient.vitals.bmi))||'') + '</p>'
+      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.weight || (patient.vitals && (patient.weight || patient.vitals?.weight)))||'') + 'kg　BMI：' + ((patient.bmi || (patient.vitals && (patient.bmi || patient.vitals?.bmi)))||'') + '</p>'
       + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
       + '<h2>【Visit 1 問診内容】</h2>' + msgHtml + '</body></html>'
     var win = window.open('', '_blank')
