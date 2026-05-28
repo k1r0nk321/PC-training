@@ -214,14 +214,14 @@ function AccordionSection({ title, badge, badgeColor, defaultOpen, children }) {
 
 function calcRecommendedCalories(patient) {
   if (!patient) return null
-  const h = parseFloat(patient.height || patient.vitals?.height) / 100
+  const h = parseFloat(patient.height || patient.height || patient.vitals?.height) / 100
   const age = patient.age
   if (!h || !age) return null
   const idealWeight = Math.round(h * h * 22 * 10) / 10
   const actCoef = age >= 75 ? 27.5 : age >= 65 ? 30 : 32.5
   const recCalRaw = idealWeight * actCoef
   const recCal = Math.round(recCalRaw / 200) * 200
-  const currentBmi = parseFloat(patient.bmi || patient.vitals?.bmi || 22)
+  const currentBmi = parseFloat(patient.bmi || patient.bmi || patient.vitals?.bmi || 22)
   const lenientCal = currentBmi >= 25 ? Math.round((recCalRaw + 300) / 200) * 200 : null
   return { idealWeight, actCoef, recCal, lenientCal, currentBmi }
 }
@@ -2240,7 +2240,7 @@ export default function CaseDetailPage({ params }) {
       + '<h1>📋 カルテ　' + (patient.name||'') + '（' + (patient.age||'') + '歳・' + (patient.gender||'') + '）</h1>'
       + '<p>疾患：' + ((caseData && caseData.disease_name)||'') + '　保存日時：' + new Date().toLocaleString('ja-JP') + '</p>'
       + '<h2>【患者基本情報】</h2><p>職業：' + (patient.occupation||'') + '<br>家族歴：' + (patient.family_history||'') + '<br>既往歴：' + (patient.past_history||'') + '</p>'
-      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.vitals && patient.vitals.weight)||'') + 'kg　BMI：' + ((patient.vitals && patient.vitals.bmi)||'') + '</p>'
+      + '<h2>【Visit 1 診察所見】</h2><p>血圧：' + ((patient.vitals && patient.vitals.bp)||'') + '　体重：' + ((patient.weight || (patient.vitals && patient.vitals.weight))||'') + 'kg　BMI：' + ((patient.bmi || (patient.vitals && patient.vitals.bmi))||'') + '</p>'
       + '<h2>【Visit 1 治療方針】</h2><p>処方薬：' + v1Meds + '<br>生活指導：' + v1Edu + '</p>'
       + '<h2>【Visit 1 問診内容】</h2>' + msgHtml + '</body></html>'
     var win = window.open('', '_blank')
