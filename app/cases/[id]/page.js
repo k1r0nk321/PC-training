@@ -1757,7 +1757,7 @@ export default function CaseDetailPage({ params }) {
                       return (
                         <div key={edu.id} onClick={function() { if (!isAlreadySelected) handleAgreementApply(edu, info) }}
                           style={{ padding: '6px 12px', borderRadius: '14px', fontSize: '11px', border: isAlreadySelected ? '2px solid #16a34a' : '1.5px solid #86efac', backgroundColor: isAlreadySelected ? '#dcfce7' : 'white', cursor: isAlreadySelected ? 'default' : 'pointer', color: '#166534', fontWeight: 'bold' }}>
-                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_key}
+                          {isAlreadySelected ? '✓ ' : '+ '}{edu.instruction_detail || edu.instruction_key}
                           {info.detail && <span style={{ fontWeight: 'normal', marginLeft: '4px', opacity: 0.8 }}>（{info.detail}）</span>}
                         </div>
                       )
@@ -1780,7 +1780,7 @@ export default function CaseDetailPage({ params }) {
                       return (
                         <div key={item.id} onClick={function() { handleEduCategorySelect(item) }}
                           style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '12px', border: isSelected ? '2px solid #0369a1' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_key}</span>
+                          <span style={{ color: isSelected ? '#0369a1' : '#374151' }}>{item.instruction_detail || item.instruction_key}</span>
                           {hasSubOptions && <span style={{ fontSize: '9px', color: '#0369a1' }}>▼</span>}
                           {subCount > 0 && <span style={{ fontSize: '9px', backgroundColor: '#0369a1', color: 'white', borderRadius: '8px', padding: '0 4px' }}>{subCount}</span>}
                         </div>
@@ -1985,7 +1985,7 @@ export default function CaseDetailPage({ params }) {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_key}</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeEduModal.instruction_detail || activeEduModal.instruction_key}</h2>
                 <button onClick={function() { setActiveEduModal(null) }}
                   style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
               </div>
@@ -2020,7 +2020,7 @@ export default function CaseDetailPage({ params }) {
             <div style={{ backgroundColor: 'white', borderRadius: '16px 16px 0 0', padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <div>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_key}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{activeSubGroupModal.edu.instruction_detail || activeSubGroupModal.edu.instruction_key}</p>
                   <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>{activeSubGroupModal.groupLabel}</h2>
                 </div>
                 <button onClick={function() { setActiveSubGroupModal(null) }}
@@ -2233,7 +2233,7 @@ export default function CaseDetailPage({ params }) {
   function handleExportPDF() {
     const patient = (caseData && caseData.patient_data) || {}
     const v1Meds = (selectedMeds || []).map(function(m) { return m.drug_name_generic }).join('、') || 'なし'
-    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_key }).join('、') || 'なし'
+    const v1Edu = (selectedEducation || []).map(function(e) { return e.instruction_detail || e.instruction_key }).join('、') || 'なし'
     const v1Msgs = messages.filter(function(m) { return m.role !== 'system' })
     const msgHtml = v1Msgs.map(function(m) { return '<div style="margin:3px 0"><b style="color:'+(m.role==='user'?'#0369a1':'#333')+'">'+(m.role==='user'?'医師':'患者')+'：</b>'+m.content+'</div>' }).join('')
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>カルテ</title><style>body{font-family:sans-serif;padding:20px;color:#1e293b}h1{color:#0369a1;font-size:18px;border-bottom:2px solid #0369a1;padding-bottom:6px}h2{color:#0369a1;font-size:14px;margin-top:14px;border-left:3px solid #0369a1;padding-left:6px}p{font-size:12px;line-height:1.6}</style></head><body>'
