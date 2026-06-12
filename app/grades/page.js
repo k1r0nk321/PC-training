@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import RankBadge from '../components/RankBadge'
 
 // 全ランク一覧（フェーズ別）
 const ALL_RANKS = [
@@ -245,12 +246,15 @@ export default function GradesPage() {
             boxShadow: '0 4px 12px rgba(3,105,161,0.25)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <RankBadge size={62} showTitle={false} />
+                <div>
                 <p style={{ fontSize: '11px', opacity: 0.9, margin: '0 0 4px' }}>{progress.phase}フェーズ Rank {progress.rank}</p>
                 <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 6px' }}>🏆 {progress.title}</h2>
                 <p style={{ fontSize: '12px', opacity: 0.9, margin: 0 }}>
                   合格 <b style={{ fontSize: '14px' }}>{progress.passCount}</b> 例 ・ 達成疾患 <b style={{ fontSize: '14px' }}>{progress.completedDiseases}</b> 疾患
                 </p>
+              </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 {progress.requirementMet && progress.nextRankCount != null && (
