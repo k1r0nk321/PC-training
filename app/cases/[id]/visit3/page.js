@@ -1878,10 +1878,10 @@ export default function Visit3Page({ params }) {
                 <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定（Visit 3）</h1>
                 <GoalsButton patient={caseData.patient_data} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)}
                   live={{
-                    eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }),
+                    eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }).concat((((caseData.visit1_data || {}).selectedEducation) || []).map(function(e) { return e && e.category })).concat((((caseData.visit2_data || {}).selectedEducation) || []).map(function(e) { return e && e.category })),
                     medsSelected: (selectedMeds || []).length > 0,
-                    examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0),
-                    consultationDone: (consultations || []).length > 0,
+                    examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0) || !!((caseData.visit1_data || {}).labsRevealed) || (((caseData.visit1_data || {}).additionalLabs || []).length > 0) || (((caseData.visit1_data || {}).additionalImaging || []).length > 0) || !!((caseData.visit2_data || {}).labsRevealed) || (((caseData.visit2_data || {}).additionalLabs || []).length > 0) || (((caseData.visit2_data || {}).additionalImaging || []).length > 0),
+                    consultationDone: (consultations || []).length > 0 || (((caseData.visit1_data || {}).consultations || []).length > 0) || (((caseData.visit2_data || {}).consultations || []).length > 0),
                     trustLevel: visitParams ? visitParams.trust_level : null,
                   }} />
               </div>
@@ -2337,10 +2337,10 @@ export default function Visit3Page({ params }) {
               <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 3｜8週後の再診</h1>
               <GoalsButton patient={caseData.patient_data} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)}
                 live={{
-                  eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }),
+                  eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }).concat((((caseData.visit1_data || {}).selectedEducation) || []).map(function(e) { return e && e.category })).concat((((caseData.visit2_data || {}).selectedEducation) || []).map(function(e) { return e && e.category })),
                   medsSelected: (selectedMeds || []).length > 0,
-                  examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0),
-                  consultationDone: (consultations || []).length > 0,
+                  examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0) || !!((caseData.visit1_data || {}).labsRevealed) || (((caseData.visit1_data || {}).additionalLabs || []).length > 0) || (((caseData.visit1_data || {}).additionalImaging || []).length > 0) || !!((caseData.visit2_data || {}).labsRevealed) || (((caseData.visit2_data || {}).additionalLabs || []).length > 0) || (((caseData.visit2_data || {}).additionalImaging || []).length > 0),
+                  consultationDone: (consultations || []).length > 0 || (((caseData.visit1_data || {}).consultations || []).length > 0) || (((caseData.visit2_data || {}).consultations || []).length > 0),
                   trustLevel: visitParams ? visitParams.trust_level : null,
                 }} />
             </div>

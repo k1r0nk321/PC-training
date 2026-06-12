@@ -122,14 +122,18 @@ const DISEASE_RULES = {
     ],
   },
   '高血圧症': {
-    appropriate: [
+    appropriate: [],
+    conditional: [
       {
         specialty: '眼科',
         purpose: '高血圧性網膜症・臓器障害評価',
-        comment: '高血圧性網膜症の評価や臓器障害精査として眼底検査の眼科依頼は適切です。Ⅱ度以上の高血圧や臓器障害が疑われる症例で有用。',
+        condition: function (p) {
+          const sbp = parseSystolicBP(p)
+          return sbp >= 160
+        },
+        commentTrue: 'Ⅱ度以上（SBP≥160）の高血圧では高血圧性網膜症・臓器障害評価として眼底検査（眼科依頼）が有用です。',
+        commentFalse: '軽症（Ⅰ度、SBP<160）の高血圧では高血圧性網膜症のリスクは低く、眼科コンサルトは通常不要です。まずはプライマリケアでの降圧と家庭血圧測定を優先してください。',
       },
-    ],
-    conditional: [
       {
         specialty: '循環器',
         purpose: '治療抵抗性・心病変併存例',
