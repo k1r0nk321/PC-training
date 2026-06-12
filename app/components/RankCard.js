@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 // 画像の拡張子（jpg / png）。差し替え時はここを変更。
-const AVATAR_EXT = 'jpg'
+const AVATAR_EXT = 'png'
 
 const PHASE_NUM = { '初期研修医': 1, '専攻医': 2, '指導医': 3, 'ジェネラリスト': 4 }
 const PHASE_COLOR = { 1: '#0369a1', 2: '#059669', 3: '#d97706', 4: '#7c3aed' }
