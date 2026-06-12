@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 import ExamOrderModal from '../../../components/ExamOrderModal'
 import { NON_PHYSICIAN_POSITIONS, isNonPhysicianRole } from '../../../lib/auto-treatment-rules'
+import GoalsButton from '../../../components/GoalsButton'
 
 const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
 const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
@@ -2258,7 +2259,10 @@ export default function Visit2Page({ params }) {
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2｜4週後の再診</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 2｜4週後の再診</h1>
+              <GoalsButton patient={caseData.patient_data} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)} />
+            </div>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>

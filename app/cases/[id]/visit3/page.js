@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 import ExamOrderModal from '../../../components/ExamOrderModal'
 import { NON_PHYSICIAN_POSITIONS, isNonPhysicianRole } from '../../../lib/auto-treatment-rules'
+import GoalsButton from '../../../components/GoalsButton'
 
 const EMOTION_ICON = { relieved: '😌', anxious: '😟', resistant: '😤', neutral: '😐', angry: '😠', convinced: '🙂' }
 const ACCEPTANCE_COLOR = { accepted: '#16a34a', partial: '#d97706', rejected: '#dc2626', negotiating: '#0369a1' }
@@ -656,6 +657,8 @@ export default function Visit3Page({ params }) {
   const [feedback, setFeedback] = useState(null)
   const [finalScore, setFinalScore] = useState(null)
   const [scoreBreakdown, setScoreBreakdown] = useState(null)
+  const [passed, setPassed] = useState(null)
+  const [goalBreakdown, setGoalBreakdown] = useState(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const messagesEndRef = useRef(null)
@@ -1490,7 +1493,8 @@ export default function Visit3Page({ params }) {
       const data = await res.json()
       if (data.error) { alert('フィードバック取得エラー：' + data.error); return }
       setFeedback(data.feedback)
-      if (typeof data.score === 'number') setFinalScore(data.score)
+      if (typeof data.passed === 'boolean') setPassed(data.passed)
+      if (data.goals) setGoalBreakdown(data.goals)
       if (data.breakdown) setScoreBreakdown(data.breakdown)
       setStep('feedback')
     } catch (e) {
@@ -1746,21 +1750,46 @@ export default function Visit3Page({ params }) {
             <button onClick={openKarte} style={{ padding: '7px 14px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #0369a1', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>📋 カルテ（一時保存）</button>
           </div>
 
-          {/* 🏆 最終スコア（大きく表示） */}
+          {/* 🏆 最終合否（大きく表示） */}
           <div style={{
-            background: 'linear-gradient(135deg, #059669 0%, #0369a1 100%)',
-            borderRadius: '16px', padding: '32px 24px', marginBottom: '16px',
+            background: passed === false
+              ? 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)'
+              : 'linear-gradient(135deg, #059669 0%, #0369a1 100%)',
+            borderRadius: '16px', padding: '28px 24px', marginBottom: '16px',
             color: 'white', textAlign: 'center', boxShadow: '0 4px 20px rgba(3,105,161,0.25)'
           }}>
-            <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.95 }}>🏆 最終総合評価</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '64px', fontWeight: 'bold', lineHeight: 1 }}>{finalScore !== null ? finalScore : '—'}</span>
-              <span style={{ fontSize: '24px', fontWeight: 'bold', opacity: 0.85 }}>/ 100</span>
+            <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.95 }}>🏆 最終判定（到達目標）</p>
+            <div style={{ fontSize: '48px', fontWeight: 'bold', lineHeight: 1.1 }}>
+              {passed === null ? '—' : (passed ? '🟢 合格' : '🔴 不合格')}
             </div>
             <p style={{ fontSize: '12px', margin: '8px 0 0', opacity: 0.85 }}>
-              （Visit 1〜3 を総合した3ヶ月間の診療評価）
+              4つの到達目標をすべて達成すると合格です（Visit 1〜3 通算）
             </p>
           </div>
+
+          {/* 到達目標の達成状況 */}
+          {Array.isArray(goalBreakdown) && goalBreakdown.length > 0 && (
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px 18px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1', margin: '0 0 10px' }}>🎯 到達目標の達成状況</p>
+              {goalBreakdown.map(function(it, idx) {
+                const applicable = it.applicable !== false
+                const mark = !applicable ? '⚪' : (it.achieved === true ? '🟢' : (it.achieved === false ? '🔴' : '⚪'))
+                const stat = !applicable ? '対象外' : (it.achieved === true ? '達成' : (it.achieved === false ? '未達成' : '判定中'))
+                return (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '7px 0', borderBottom: idx < goalBreakdown.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                    <span style={{ fontSize: '15px' }}>{mark}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#334155', margin: 0 }}>
+                        {it.label}
+                        <span style={{ fontSize: '11px', marginLeft: '6px', color: (applicable && it.achieved === false) ? '#dc2626' : '#64748b' }}>（{stat}）</span>
+                      </p>
+                      {it.detail && <p style={{ fontSize: '11px', color: '#94a3b8', margin: '2px 0 0' }}>{it.detail}</p>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* 総評コメント */}
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
@@ -2277,7 +2306,10 @@ export default function Visit3Page({ params }) {
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 3｜8週後の再診</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 3｜8週後の再診</h1>
+              <GoalsButton patient={caseData.patient_data} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)} />
+            </div>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>

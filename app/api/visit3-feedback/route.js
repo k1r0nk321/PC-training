@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeCreate } from '../../lib/claude-client'
 import { buildConsultationEvaluationBlock, normalizeConsultations } from '../../lib/consultation-evaluator'
+import { evaluateGoals } from '../../lib/achievement-goals'
 // 喫煙・飲酒介入の判定ヘルパー
 const SMOKING_STRONG = ['smoke_5A', 'smoke_motivational', 'smoke_quit_date', 'smoke_clinic_referral']
 const SMOKING_MODERATE = ['smoke_brief', 'smoke_nicotine_assess', 'smoke_relapse_prep']
@@ -81,6 +82,15 @@ export async function POST(req) {
     const patient = caseData.patient_data
     const v1 = caseData.visit1_data || {}
     const v2 = caseData.visit2_data || {}
+
+    // Visit 3 終了時の信頼度を取得（後段で visit_parameters を削除する前に読む）
+    let v3TrustLevel = null
+    try {
+      const { data: vp3 } = await supabase
+        .from('visit_parameters').select('trust_level')
+        .eq('case_id', caseId).eq('visit_number', 3).single()
+      if (vp3) v3TrustLevel = vp3.trust_level
+    } catch (e) {}
 
     // ===== Helper: format Visit summary for prompt =====
     function formatVisitMeds(meds) {
@@ -250,8 +260,17 @@ ${(() => {
 })()}
 
 ================================================================
-【評価基準】
-各 Visit で以下の4軸を評価してください。各 Visit は約 33 点満点（合計 100 点）。
+【この症例の模範解答（到達目標「適切な投薬」の判定根拠）】
+${(() => {
+  const sc = scenarioData || caseData.scenario_data || {}
+  const dx = sc.expected_diagnosis || '（記載なし）'
+  const meds = Array.isArray(sc.expected_medications) ? sc.expected_medications.join(' / ') : (sc.expected_medications || '（記載なし）')
+  return '- 想定される診断：' + dx + '\n- 想定される投薬：' + meds
+})()}
+
+================================================================
+【評価の観点】
+各 Visit について以下の観点から研修医の診療を評価し、COMMENT に反映してください（点数は付けません）。
 
 ${autoTreatmentUsed ? '【学習モード(担当医に任せる)が使用されています】\n- 投薬・機器・専門医コンサルトは「担当医の推奨」を自動入力しており、学習者本人が選択していません\n- 評価対象は **問診(情報収集)・生活指導/患者教育・患者対応(コミュニケーション)** の3軸のみ\n- 以下は **完全に評価対象外** とし、コメントでも触れないこと:\n  • 投薬選択(良し悪し・第一選択かどうか)\n  • 医療機器選択\n  • 専門医コンサルトの判断(必須/推奨・適切/過剰の判定はすべて無視)\n  • 既存薬の継続/中止判断\n  • 治療効果(検査値の改善幅)\n- 配点: Visit 1〜3 合計 問診33点 + 生活指導/患者教育34点 + 患者対応33点 = 100点満点\n- 学習者の身分は医師ではない(医学生・医療従事者・その他・学習者(デモ利用者))ため、治療選択能力ではなく、患者教育・生活指導スキルを重点評価\n- **フィードバック文中で「医師」「先生」「あなた(医師として)」等の呼称は使わない**。代わりに「学習者」「あなた」などの中立的な呼び方を使うこと\n\n' : ''}評価軸（各 Visit 共通）：
 1. **問診（情報収集）**：適切な質問・症状確認・既往/家族歴/生活歴の聴取ができたか（約8点）
@@ -278,10 +297,9 @@ ${autoTreatmentUsed ? '【学習モード(担当医に任せる)が使用され�
 ================================================================
 【出力形式】※必ずこの順番・形式で出力してください
 
-TOTAL_SCORE: [0〜100の整数]
-VISIT_1_SCORE: [0〜33の整数]
-VISIT_2_SCORE: [0〜33の整数]
-VISIT_3_SCORE: [0〜34の整数]
+MED_VERDICT: [APPROPRIATE または INAPPROPRIATE]
+（研修医が Visit 3 までに選択・確定した投薬が、上記「模範解答（想定される投薬）」やガイドラインに照らしてこの症例の標準治療として妥当なら APPROPRIATE、不適切・不足・過剰なら INAPPROPRIATE）
+MED_REASON: [投薬妥当性の理由を一文で]
 
 COMMENT:
 （以下、研修医への建設的なフィードバック。具体的な強み・改善点を含めて 400〜700 文字程度。各 Visit ごとの簡潔な振り返りと、最終的な総評を含めること。Markdown は使わずプレーンテキストで。）`
@@ -295,26 +313,19 @@ COMMENT:
     const aiResponse = message.content[0].text.trim()
 
     // ===== Parse AI response =====
-    const totalMatch = aiResponse.match(/TOTAL_SCORE:\s*(\d+)/)
-    const v1Match = aiResponse.match(/VISIT_1_SCORE:\s*(\d+)/)
-    const v2Match = aiResponse.match(/VISIT_2_SCORE:\s*(\d+)/)
-    const v3Match = aiResponse.match(/VISIT_3_SCORE:\s*(\d+)/)
+    const medMatch = aiResponse.match(/MED_VERDICT:\s*([A-Za-z_]+)/)
+    const medReasonMatch = aiResponse.match(/MED_REASON:\s*(.+)/)
     const commentMatch = aiResponse.match(/COMMENT:\s*([\s\S]*)/)
 
-    let totalScore = totalMatch ? parseInt(totalMatch[1]) : null
-    const breakdown = {
-      v1: v1Match ? parseInt(v1Match[1]) : 0,
-      v2: v2Match ? parseInt(v2Match[1]) : 0,
-      v3: v3Match ? parseInt(v3Match[1]) : 0,
+    // 投薬の適否（APPROPRIATE / INAPPROPRIATE）。判定不能なら null
+    let medAppropriate = null
+    if (medMatch) {
+      const v = medMatch[1].toUpperCase()
+      medAppropriate = (v.indexOf('INAPPROPRIATE') < 0 && v.indexOf('APPROPRIATE') >= 0)
     }
-    // Sanity: if TOTAL not parsed but breakdown is, sum it
-    if (totalScore === null && (breakdown.v1 || breakdown.v2 || breakdown.v3)) {
-      totalScore = breakdown.v1 + breakdown.v2 + breakdown.v3
-    }
-    if (totalScore === null) totalScore = 0
-    if (totalScore > 100) totalScore = 100
-    if (totalScore < 0) totalScore = 0
+    const medReason = medReasonMatch ? medReasonMatch[1].trim() : ''
 
+    const breakdown = {}
     const commentText = commentMatch ? commentMatch[1].trim() : aiResponse
 
     // ===== Phase C-2: 検査値サマリ保持（重量データ破棄前に抽出）=====
@@ -344,6 +355,41 @@ COMMENT:
     breakdown.labSummary = labSummary
     breakdown.auto_treatment_used = !!autoTreatmentUsed
 
+    // ===== 到達目標の達成判定（点数制に代わる合否判定）=====
+    // 生活指導カテゴリを全Visitから集約
+    const eduCategories = []
+    ;[(v1 && v1.selectedEducation), (v2 && v2.selectedEducation), selectedEducation].forEach(function(list) {
+      (list || []).forEach(function(e) {
+        if (e && e.category && eduCategories.indexOf(e.category) < 0) eduCategories.push(e.category)
+      })
+    })
+    // 検査オーダーの有無を全Visitから集約
+    const examOrdered = ['v1', 'v2', 'v3'].some(function(k) {
+      const s = labSummary[k]
+      return s && (s.labsRevealed || (s.additional && s.additional.length > 0) || (s.imaging && s.imaging.length > 0))
+    })
+    // コンサルト依頼の有無を全Visitから集約
+    const consultationDone = [
+      normalizeConsultations(v1.consultations || v1.consultation),
+      normalizeConsultations(v2.consultations || v2.consultation),
+      normalizeConsultations(consultations || consultation),
+    ].some(function(arr) { return arr && arr.length > 0 })
+
+    const goalResult = evaluateGoals({
+      patient: patient,
+      scenarioData: scenarioData || caseData.scenario_data,
+      eduCategories: eduCategories,
+      examOrdered: examOrdered,
+      consultationDone: consultationDone,
+      trustLevel: v3TrustLevel,
+      autoTreatmentUsed: autoTreatmentUsed,
+      medAppropriate: medAppropriate,
+    })
+    const passed = goalResult.passed
+    const legacyScore = passed ? 100 : 0
+    breakdown.goal_breakdown = goalResult.items
+    breakdown.med_reason = medReason
+
     // ===== Save to DB and ARCHIVE (Phase F: 軽量化) =====
     // 成績評価で必要な情報だけ残し、重量データはクリア
     const updateData = {
@@ -352,8 +398,10 @@ COMMENT:
         const arr = normalizeConsultations(consultations || consultation)
         return arr.length > 0 ? arr : null
       })(),
-      final_score: totalScore,
+      final_score: legacyScore,
       final_score_breakdown: breakdown,
+      passed: passed,
+      goal_breakdown: goalResult.items,
       completed_at: new Date().toISOString(),
       status: 'completed',
       // 重量データを null にして容量を解放
@@ -416,7 +464,8 @@ await supabase.from('cases').update(updateData).eq('id', caseId)
 
     return Response.json({
       feedback: commentText,
-      score: totalScore,
+      passed: passed,
+      goals: goalResult.items,
       breakdown: breakdown,
     })
 
