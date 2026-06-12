@@ -158,14 +158,20 @@ export async function POST(req) {
     const motivationBoost = persuasionSuccessRate >= 0.7 ? 0.25
       : persuasionSuccessRate >= 0.5 ? 0.15 : 0.05
 
-    // 服薬指導 sub_options 選択による adherence bonus(最大 +0.20)
+    // 服薬指導 sub_options 選択による adherence bonus
+    // 服薬遵守に課題のある患者ほど効果が大きい（伸びしろが大きい）。高アドヒアランス患者にはほぼ効かない。
     const medicationSubs = consentedSubs.filter(function(s) { return s.category === 'medication' })
-    const medicationGuidanceBonus = Math.min(0.20, medicationSubs.length * 0.05)
+    const adherenceNeedFactor = { low: 1.8, medium: 1.0, high: 0.4 }[hidden.adherence_level] || 1.0
+    const medicationGuidanceBonus = Math.min(0.30, medicationSubs.length * 0.05 * adherenceNeedFactor)
+
+    // 心理社会的支援（ストレス管理）: ストレスが強い患者で効果が出る
+    const psychosocialSelected = consentedEdu.some(function(e) { return e && e.category === 'psychosocial' })
+    const stressManagementBonus = (hidden.stress_level === 'high' && psychosocialSelected) ? 0.12 : 0
 
     // ===== 実効アドヒアランス =====
     const baseAdherence = { high: 0.85, medium: 0.6, low: 0.35 }[hidden.adherence_level] || 0.6
     const effectiveAdherence = Math.min(1.0, Math.max(0.1,
-      baseAdherence + motivationBoost + medicationGuidanceBonus - overloadPenalty
+      baseAdherence + motivationBoost + medicationGuidanceBonus + stressManagementBonus - overloadPenalty
     ))
 
     // ===== Visit 3 の出発点：Visit 2 のバイタル =====
