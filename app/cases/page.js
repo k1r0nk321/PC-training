@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import RankCard from '../components/RankCard'
 
 const DIFFICULTY_STAR = { 1: '★☆☆', 2: '★★☆', 3: '★★★' }
 const DIFFICULTY_COLOR = { 1: '#16a34a', 2: '#d97706', 3: '#dc2626' }
@@ -39,6 +40,7 @@ export default function CasesPage() {
   const [selectedModelCase, setSelectedModelCase] = useState(null)
   const [inProgressCases, setInProgressCases] = useState([])
   const [demoInfo, setDemoInfo] = useState(null)
+  const [avatarGender, setAvatarGender] = useState('male')
   const [showDemoLimitModal, setShowDemoLimitModal] = useState(false)
   const [demoRole, setDemoRole] = useState('physician')  // 'physician' | 'non_physician' (デモ利用者の身分)
 
@@ -46,6 +48,10 @@ export default function CasesPage() {
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (!session) { window.location.href = '/'; return }
       setUser(session.user)
+      try {
+        const savedGender = window.localStorage.getItem('pc_avatar_gender')
+        if (savedGender === 'male' || savedGender === 'female') setAvatarGender(savedGender)
+      } catch (e) {}
       // 匿名(デモ)利用者: localStorage から身分選択を読み取る(デフォルトは医師)
       if (session.user.is_anonymous) {
         try {
@@ -262,6 +268,13 @@ export default function CasesPage() {
             </button>
           </div>
         </div>
+
+        {/* ランクカード（自分の称号・進捗・アバター） */}
+        <RankCard
+          progress={demoInfo}
+          gender={avatarGender}
+          onGenderChange={function(v) { setAvatarGender(v); try { window.localStorage.setItem('pc_avatar_gender', v) } catch (e) {} }}
+        />
 
         {/* プレビュー環境バナー(開発環境のみ表示) */}
         {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
