@@ -41,6 +41,8 @@ export default function CasesPage() {
   const [inProgressCases, setInProgressCases] = useState([])
   const [demoInfo, setDemoInfo] = useState(null)
   const [avatarGender, setAvatarGender] = useState('male')
+  const [passedModelCaseIds, setPassedModelCaseIds] = useState([])
+  const [reviewMode, setReviewMode] = useState(false)
   const [showDemoLimitModal, setShowDemoLimitModal] = useState(false)
   const [demoRole, setDemoRole] = useState('physician')  // 'physician' | 'non_physician' (デモ利用者の身分)
 
@@ -173,6 +175,19 @@ export default function CasesPage() {
         return da - db
       })
       setModelCases(sortedCases)
+      // 合格済みモデル症例を取得（順次解放の判定用）
+      setReviewMode(false)
+      try {
+        const sess = await supabase.auth.getSession()
+        const uid = sess && sess.data && sess.data.session && sess.data.session.user ? sess.data.session.user.id : null
+        if (uid) {
+          const { data: done } = await supabase
+            .from('cases').select('model_case_id, passed, final_score')
+            .eq('user_id', uid).eq('disease_id', disease.id).not('completed_at', 'is', null)
+          const ids = (done || []).filter(function(c) { return c.model_case_id && (c.passed === true || (typeof c.final_score === 'number' && c.final_score >= 70)) }).map(function(c) { return c.model_case_id })
+          setPassedModelCaseIds(Array.from(new Set(ids)))
+        } else { setPassedModelCaseIds([]) }
+      } catch (e2) { setPassedModelCaseIds([]) }
     } catch (e) {
       console.error(e)
       setModelCases([])
@@ -242,6 +257,13 @@ export default function CasesPage() {
       </div>
     )
   }
+
+  const passedSet = new Set(passedModelCaseIds || [])
+  let nextModelId = null
+  for (let i = 0; i < modelCases.length; i++) { if (!passedSet.has(modelCases[i].id)) { nextModelId = modelCases[i].id; break } }
+  const passedModelList = modelCases.filter(function(m) { return passedSet.has(m.id) })
+  const allModelCleared = modelCases.length > 0 && passedModelList.length === modelCases.length
+  const visibleModelCases = reviewMode ? passedModelList : modelCases.filter(function(m) { return !passedSet.has(m.id) })
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
@@ -612,20 +634,36 @@ export default function CasesPage() {
                       <p>この疾患のモデル症例はまだ登録されていません</p>
                     </div>
                   ) : (
+                    <div>
+                      {passedModelList.length > 0 && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                          <button onClick={function() { setReviewMode(false); setSelectedModelCase(null) }} style={{ flex: 1, padding: '7px', fontSize: '12px', borderRadius: '8px', border: '1px solid ' + (!reviewMode ? '#0369a1' : '#cbd5e1'), backgroundColor: !reviewMode ? '#eff6ff' : 'white', color: !reviewMode ? '#0369a1' : '#64748b', fontWeight: !reviewMode ? 'bold' : 'normal', cursor: 'pointer' }}>▶ 次の症例に挑戦</button>
+                          <button onClick={function() { setReviewMode(true); setSelectedModelCase(null) }} style={{ flex: 1, padding: '7px', fontSize: '12px', borderRadius: '8px', border: '1px solid ' + (reviewMode ? '#16a34a' : '#cbd5e1'), backgroundColor: reviewMode ? '#f0fdf4' : 'white', color: reviewMode ? '#16a34a' : '#64748b', fontWeight: reviewMode ? 'bold' : 'normal', cursor: 'pointer' }}>✅ 合格済みから選択（{passedModelList.length}）</button>
+                        </div>
+                      )}
+                      {!reviewMode && allModelCleared && (
+                        <div style={{ textAlign: 'center', padding: '16px', color: '#16a34a' }}><p style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>🎉 全モデル症例を合格しました</p><p style={{ fontSize: '12px', color: '#64748b', margin: '6px 0 0' }}>「合格済みから選択」で復習、または「🎲 ランダム生成」で新しい患者に挑戦できます。</p></div>
+                      )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                      {modelCases.map(function(mc) {
+                      {visibleModelCases.map(function(mc) {
                         const isSelected = selectedModelCase && selectedModelCase.id === mc.id
+                        const isPassed = passedSet.has(mc.id)
+                        const isLocked = !reviewMode && !isPassed && mc.id !== nextModelId
+                        const isNext = !reviewMode && mc.id === nextModelId
                         const hidden = mc.patient_data.hidden_params
                         const difficulty = mc.scenario_data?.difficulty || 1
                         return (
                           <div key={mc.id}
-                            onClick={function() { setSelectedModelCase(mc) }}
-                            style={{ padding: '14px', borderRadius: '10px', border: '2px solid ' + (isSelected ? '#0369a1' : '#e2e8f0'), backgroundColor: isSelected ? '#eff6ff' : 'white', cursor: 'pointer' }}>
+                            onClick={function() { if (!isLocked) setSelectedModelCase(mc) }}
+                            style={{ padding: '14px', borderRadius: '10px', border: '2px solid ' + (isSelected || isNext ? '#0369a1' : '#e2e8f0'), backgroundColor: isLocked ? '#f8fafc' : (isSelected ? '#eff6ff' : 'white'), cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.55 : 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
                                   <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: isSelected ? '5px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                                   <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{mc.title}</p>
+                                  {isPassed && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>✅ 合格済</span>}
+                                  {isNext && <span style={{ fontSize: '10px', backgroundColor: '#dbeafe', color: '#0369a1', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>▶ 次はこれ</span>}
+                                  {isLocked && <span style={{ fontSize: '13px' }}>🔒</span>}
                                 </div>
                                 <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 0 26px' }}>{mc.description}</p>
                               </div>
@@ -682,6 +720,7 @@ export default function CasesPage() {
                           </div>
                         )
                       })}
+                    </div>
                     </div>
                   )}
 
