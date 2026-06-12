@@ -1256,7 +1256,15 @@ export default function CaseDetailPage({ params }) {
   async function handleEduCategorySelect(edu) {
     const hasSubOptions = edu.sub_options && Array.isArray(edu.sub_options) && edu.sub_options.length > 0
     if (hasSubOptions) {
-      setActiveEduModal(edu)
+      // グループが1つだけなら、グループ一覧を飛ばして詳細選択へ直行
+      const groups = groupSubOptions(edu.sub_options)
+      const groupKeys = Object.keys(groups)
+      if (groupKeys.length === 1) {
+        const k = groupKeys[0]
+        openSubGroupModal(edu, k, groups[k].label, groups[k].items)
+      } else {
+        setActiveEduModal(edu)
+      }
     } else {
       const isSelected = selectedEducation.includes(edu.id)
       if (isSelected) {
@@ -2091,7 +2099,7 @@ export default function CaseDetailPage({ params }) {
                 )
               })}
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                <button onClick={function() { setActiveSubGroupModal(null); setActiveEduModal(activeSubGroupModal.edu) }}
+                <button onClick={function() { const e = activeSubGroupModal.edu; setActiveSubGroupModal(null); if (Object.keys(groupSubOptions(e.sub_options)).length > 1) { setActiveEduModal(e) } }}
                   style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
                   ← 戻る
                 </button>
