@@ -88,12 +88,12 @@ function GradeRow({ c, onRetry, onShowDetail, retrying, isAnon }) {
       <div style={{ textAlign: 'center', minWidth: '80px' }}>
         <span style={{
           display: 'inline-block', padding: '4px 12px', borderRadius: '999px',
-          background: c.score >= 70 ? 'linear-gradient(135deg, #059669, #047857)'
-                    : c.score >= 60 ? 'linear-gradient(135deg, #0369a1, #075985)'
-                    : 'linear-gradient(135deg, #d97706, #b45309)',
-          color: 'white', fontWeight: 'bold', fontSize: '14px'
+          background: c.score == null ? '#94a3b8'
+                    : c.score >= 70 ? 'linear-gradient(135deg, #059669, #047857)'
+                    : 'linear-gradient(135deg, #dc2626, #991b1b)',
+          color: 'white', fontWeight: 'bold', fontSize: '13px'
         }}>
-          {c.score != null ? c.score + '点' : '—'}
+          {c.score == null ? '—' : (c.score >= 70 ? '合格' : '不合格')}
         </span>
       </div>
       <div style={{ fontSize: '11px', color: '#94a3b8', minWidth: '90px' }}>
@@ -421,7 +421,7 @@ export default function GradesPage() {
                   borderRadius: '8px', fontSize: '11px', color: '#64748b',
                   border: '1px solid #e2e8f0', marginTop: '8px',
                 }}>
-                  <b>📌 凡例</b>: 「N例〜」は累積合格症例数（70点以上）の閾値。<br />
+                  <b>📌 凡例</b>: 「N例〜」は累積合格症例数（到達目標をすべて達成）の閾値。<br />
                   専攻医フェーズ以降は累積数に加え、各疾患の全モデル症例で合格した疾患数の要件があります。
                 </div>
               </div>
@@ -447,10 +447,20 @@ export default function GradesPage() {
                 </p>
                 {detail.breakdown && (
                   <div>
-                    <h3 style={{ fontSize: '14px', color: '#0369a1', margin: '12px 0 4px' }}>スコア内訳</h3>
-                    <p style={{ fontSize: '13px', margin: '0 0 12px' }}>
-                      Visit 1: {detail.breakdown.v1 || 0} / Visit 2: {detail.breakdown.v2 || 0} / Visit 3: {detail.breakdown.v3 || 0} → 合計: <b>{detail.score}/100</b>
+                    <h3 style={{ fontSize: '14px', color: '#0369a1', margin: '12px 0 4px' }}>判定</h3>
+                    <p style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 8px', color: detail.score >= 70 ? '#16a34a' : '#dc2626' }}>
+                      {detail.score == null ? '—' : (detail.score >= 70 ? '🟢 合格' : '🔴 不合格')}
                     </p>
+                    {Array.isArray(detail.breakdown.goal_breakdown) && detail.breakdown.goal_breakdown.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        {detail.breakdown.goal_breakdown.map(function(it, idx) {
+                          const applicable = it.applicable !== false
+                          const mk = !applicable ? '⚪' : (it.achieved === true ? '🟢' : '🔴')
+                          const st = !applicable ? '対象外' : (it.achieved === true ? '達成' : '未達成')
+                          return <p key={idx} style={{ fontSize: '12px', color: '#475569', margin: '2px 0' }}>{mk} {it.label}（{st}）</p>
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
                 <h3 style={{ fontSize: '14px', color: '#0369a1', margin: '12px 0 4px' }}>指導医のコメント</h3>
