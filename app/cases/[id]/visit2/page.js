@@ -2141,9 +2141,9 @@ export default function Visit2Page({ params }) {
                       <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{group.label}</p>
                       {selected && <span style={{ fontSize: '10px', color: '#0369a1', backgroundColor: '#dbeafe', padding: '1px 6px', borderRadius: '8px' }}>{selected.label}</span>}
                     </div>
-                    <button onClick={function() { openSubGroupModal(activeEduModal, groupKey, group.label, group.items) }}
+                    <button onClick={function() { if (group.items && group.items.length === 1) { handleSubOptionSelect(activeEduModal, groupKey, group.items[0]) } else { openSubGroupModal(activeEduModal, groupKey, group.label, group.items) } }}
                       style={{ width: '100%', padding: '7px', backgroundColor: selected ? '#0369a1' : 'white', color: selected ? 'white' : '#0369a1', border: '1px solid #0369a1', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                      {selected ? '変更する →' : '選択する →'}
+                      {(group.items && group.items.length === 1) ? (selected ? '✓ 選択済み（クリックで解除）' : '＋ この内容で選択') : (selected ? '変更する →' : '選択する →')}
                     </button>
                   </div>
                 )
