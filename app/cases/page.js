@@ -159,7 +159,7 @@ export default function CasesPage() {
 
   async function handleDiseaseSelect(disease) {
     setSelectedDisease(disease)
-    setMode(null)
+    setMode('model')
     setSelectedModelCase(null)
     setShowModal(true)
 
@@ -263,7 +263,7 @@ export default function CasesPage() {
   for (let i = 0; i < modelCases.length; i++) { if (!passedSet.has(modelCases[i].id)) { nextModelId = modelCases[i].id; break } }
   const passedModelList = modelCases.filter(function(m) { return passedSet.has(m.id) })
   const allModelCleared = modelCases.length > 0 && passedModelList.length === modelCases.length
-  const visibleModelCases = reviewMode ? passedModelList : modelCases.filter(function(m) { return !passedSet.has(m.id) })
+  const visibleModelCases = reviewMode ? passedModelList : modelCases.filter(function(m) { return m.id === nextModelId })
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f9ff', padding: '16px' }}>
@@ -608,19 +608,7 @@ export default function CasesPage() {
 
             <div style={{ padding: '16px 20px' }}>
 
-              {/* モード選択タブ */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <button onClick={function() { setMode('model'); setSelectedModelCase(null) }}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'model' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'model' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'model' ? 'bold' : 'normal', color: mode === 'model' ? '#0369a1' : '#475569' }}>
-                  📋 モデル症例から選ぶ
-                </button>
-                {!(user && user.is_anonymous) && (
-                  <button onClick={function() { setMode('random'); setSelectedModelCase(null) }}
-                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid ' + (mode === 'random' ? '#0369a1' : '#e2e8f0'), backgroundColor: mode === 'random' ? '#eff6ff' : 'white', cursor: 'pointer', fontSize: '13px', fontWeight: mode === 'random' ? 'bold' : 'normal', color: mode === 'random' ? '#0369a1' : '#475569' }}>
-                    🎲 ランダム生成
-                  </button>
-                )}
-              </div>
+              {/* 症例タイプ：モデル症例（次の1例）を既定表示。ランダム生成・合格済みは下のボタンから */}
 
               {/* モデル症例リスト */}
               {mode === 'model' && (
@@ -635,12 +623,17 @@ export default function CasesPage() {
                     </div>
                   ) : (
                     <div>
-                      {passedModelList.length > 0 && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                          <button onClick={function() { setReviewMode(false); setSelectedModelCase(null) }} style={{ flex: 1, padding: '7px', fontSize: '12px', borderRadius: '8px', border: '1px solid ' + (!reviewMode ? '#0369a1' : '#cbd5e1'), backgroundColor: !reviewMode ? '#eff6ff' : 'white', color: !reviewMode ? '#0369a1' : '#64748b', fontWeight: !reviewMode ? 'bold' : 'normal', cursor: 'pointer' }}>▶ 次の症例に挑戦</button>
-                          <button onClick={function() { setReviewMode(true); setSelectedModelCase(null) }} style={{ flex: 1, padding: '7px', fontSize: '12px', borderRadius: '8px', border: '1px solid ' + (reviewMode ? '#16a34a' : '#cbd5e1'), backgroundColor: reviewMode ? '#f0fdf4' : 'white', color: reviewMode ? '#16a34a' : '#64748b', fontWeight: reviewMode ? 'bold' : 'normal', cursor: 'pointer' }}>✅ 合格済みから選択（{passedModelList.length}）</button>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        {!(user && user.is_anonymous) && (
+                          <button onClick={function() { setMode('random'); setReviewMode(false); setSelectedModelCase(null) }} style={{ flex: 1, padding: '8px', fontSize: '12px', borderRadius: '8px', border: '1px solid #059669', backgroundColor: 'white', color: '#059669', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>🎲 ランダム生成</button>
+                        )}
+                        {passedModelList.length > 0 && !reviewMode && (
+                          <button onClick={function() { setReviewMode(true); setSelectedModelCase(null) }} style={{ flex: 1, padding: '8px', fontSize: '12px', borderRadius: '8px', border: '1px solid #16a34a', backgroundColor: 'white', color: '#16a34a', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>✅ 合格済みから選択（{passedModelList.length}）</button>
+                        )}
+                        {reviewMode && (
+                          <button onClick={function() { setReviewMode(false); setSelectedModelCase(null) }} style={{ flex: 1, padding: '8px', fontSize: '12px', borderRadius: '8px', border: '1px solid #0369a1', backgroundColor: 'white', color: '#0369a1', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>▶ 次の症例に戻る</button>
+                        )}
+                      </div>
                       {!reviewMode && allModelCleared && (
                         <div style={{ textAlign: 'center', padding: '16px', color: '#16a34a' }}><p style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>🎉 全モデル症例を合格しました</p><p style={{ fontSize: '12px', color: '#64748b', margin: '6px 0 0' }}>「合格済みから選択」で復習、または「🎲 ランダム生成」で新しい患者に挑戦できます。</p></div>
                       )}
@@ -662,8 +655,6 @@ export default function CasesPage() {
                                   <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: isSelected ? '5px solid #0369a1' : '2px solid #cbd5e1', flexShrink: 0 }} />
                                   <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>{mc.title}</p>
                                   {isPassed && <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>✅ 合格済</span>}
-                                  {isNext && <span style={{ fontSize: '10px', backgroundColor: '#dbeafe', color: '#0369a1', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>▶ 次はこれ</span>}
-                                  {isLocked && <span style={{ fontSize: '13px' }}>🔒</span>}
                                 </div>
                                 <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 0 26px' }}>{mc.description}</p>
                               </div>
@@ -738,6 +729,7 @@ export default function CasesPage() {
               {/* ランダム生成 */}
               {mode === 'random' && (
                 <div>
+                  <button onClick={function() { setMode('model') }} style={{ marginBottom: '10px', padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#64748b', cursor: 'pointer' }}>← モデル症例に戻る</button>
                   <div style={{ backgroundColor: '#f8fafc', borderRadius: '10px', padding: '16px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
                     <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>🎲 ランダム症例生成</p>
                     <p style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>AIが毎回異なる患者像を生成します。</p>
