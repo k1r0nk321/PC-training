@@ -31,7 +31,24 @@ export async function GET(req) {
       return Response.json({ error: error.message }, { status: 500 })
     }
 
-    return Response.json({ items: data })
+    // instruction_detail を必ず「短いラベル」に正規化する。
+    // 疾患によって instruction_key が日本語の短ラベル + instruction_detail が長文、というデータがあり
+    // そのまま表示すると治療方針画面の生活指導が長文化して崩れるため。
+    // 日本語(非ASCII)の instruction_key があればそれを表示ラベルに採用し、元の長文は instruction_long に退避（保持）。
+    const hasNonAscii = function (s) {
+      if (typeof s !== 'string') return false
+      for (let i = 0; i < s.length; i++) { if (s.charCodeAt(i) > 127) return true }
+      return false
+    }
+    const items = (data || []).map(function (row) {
+      const label = hasNonAscii(row.instruction_key) ? row.instruction_key : (row.instruction_detail || row.instruction_key)
+      return Object.assign({}, row, {
+        instruction_long: row.instruction_detail,
+        instruction_detail: label,
+      })
+    })
+
+    return Response.json({ items: items })
 
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 })
