@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import RankBadge from './components/RankBadge'
 
 export default function Home() {
   const router = useRouter()
@@ -266,6 +267,9 @@ export default function Home() {
             <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>
               {user.is_anonymous ? '—' : (userProfile && userProfile.affiliation) || '所属未設定'}
             </p>
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+              <RankBadge size={48} />
+            </div>
             {!user.is_anonymous && (
               <button onClick={function() { router.push('/profile/edit') }}
                 style={{
