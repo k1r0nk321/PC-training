@@ -234,7 +234,7 @@ function groupSubOptions(subOptions) {
     eating_out: '外食の制限', night_eating: '夜食・間食の制限',
     alcohol: '飲酒制限の目標', aerobic: '有酸素運動',
     resistance: '筋力トレーニング', flexibility: 'ストレッチ・柔軟',
-    lifestyle: '生活習慣', education: '服薬指導の説明',
+    lifestyle: '生活習慣', education: '概要・説明',
     strategy: '服薬の工夫・戦略', tool: '服薬サポートツール',
     social: '周囲のサポート', monitoring: 'モニタリング方法',
     mental: '心理的ケア', referral: '専門機関紹介',
