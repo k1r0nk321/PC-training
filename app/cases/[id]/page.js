@@ -1667,7 +1667,17 @@ export default function CaseDetailPage({ params }) {
           {/* ヘッダー */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>治療方針の決定</h1>
+                <GoalsButton patient={caseData.patient_data} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)}
+                  live={{
+                    eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }),
+                    medsSelected: (selectedMeds || []).length > 0,
+                    examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0),
+                    consultationDone: (consultations || []).length > 0,
+                    trustLevel: visitParams ? visitParams.trust_level : null,
+                  }} />
+              </div>
               <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>Visit 1｜{caseData.disease_name}</p>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -2273,7 +2283,14 @@ export default function CaseDetailPage({ params }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0369a1', margin: 0 }}>Visit 1｜初診</h1>
-              <GoalsButton patient={patient} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)} />
+              <GoalsButton patient={patient} scenarioData={caseData.scenario_data} autoTreatmentUsed={isNonPhysicianRole(userPosition)}
+                live={{
+                  eduCategories: (selectedEducation || []).map(function(e) { return e && e.category }),
+                  medsSelected: (selectedMeds || []).length > 0,
+                  examOrdered: labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0),
+                  consultationDone: (consultations || []).length > 0,
+                  trustLevel: visitParams ? visitParams.trust_level : null,
+                }} />
             </div>
             <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>{caseData.disease_name}</p>
           </div>
