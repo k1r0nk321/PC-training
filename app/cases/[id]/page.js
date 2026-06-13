@@ -983,6 +983,32 @@ export default function CaseDetailPage({ params }) {
     setInput('')
 
     setMessages(function(prev) { return [...prev, { role: 'user', content: userMessage }] })
+
+    // ===== 紹介状の表示（「紹介状」と入力したとき・紹介状つき症例のみ） =====
+    const refContext = (caseData.patient_data.chief_complaint || '') + (caseData.patient_data.history || '')
+    const hasReferralCase = ['紹介', 'かかりつけ', '前医', '閉院', '転医', '引き継ぎ'].some(function(k) { return refContext.includes(k) })
+    if (userMessage.includes('紹介状') && hasReferralCase) {
+      setAiLoading(true)
+      try {
+        const refRes = await fetch('/api/referral-letter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientData: caseData.patient_data }),
+        })
+        const refData = await refRes.json()
+        if (refRes.ok && refData.letter) {
+          setMessages(function(prev) { return [...prev, { role: 'system', content: '📄 前医からの紹介状\n\n' + refData.letter }] })
+        } else {
+          setMessages(function(prev) { return [...prev, { role: 'system', content: '⚠️ 紹介状の取得に失敗しました。少し時間をおいて、もう一度「紹介状」と入力してください。' }] })
+        }
+      } catch (refErr) {
+        setMessages(function(prev) { return [...prev, { role: 'system', content: '⚠️ 紹介状の取得に失敗しました。少し時間をおいて、もう一度「紹介状」と入力してください。' }] })
+      } finally {
+        setAiLoading(false)
+      }
+      return
+    }
+
     setAiLoading(true)
     try {
       const patient = caseData.patient_data
@@ -995,7 +1021,7 @@ export default function CaseDetailPage({ params }) {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }), turnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1 }),
+        body: JSON.stringify({ system, prompt: userMessage, history: messages.filter(function(m) { if (m.role === 'system' && (m.content.indexOf('📚') === 0 || m.content.indexOf('💡') === 0 || m.content.indexOf('📄') === 0)) return false; return true }).map(function(m) { return { role: m.role === 'system' ? 'assistant' : m.role, content: m.content } }), turnCount: messages.filter(function(m) { return m.role === 'user' }).length + 1 }),
       })
       const data = await res.json()
       setMessages(function(prev) { return [...prev, { role: 'assistant', content: data.text }] })
