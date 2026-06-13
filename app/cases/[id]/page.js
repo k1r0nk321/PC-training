@@ -2399,22 +2399,18 @@ export default function CaseDetailPage({ params }) {
             <input type="text" value={input}
               onChange={function(e) { setInput(e.target.value) }}
               onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              placeholder="💬 患者への質問を入力してください..."
+              placeholder="患者への質問を入力してEnterを押してください。"
               style={{ width: '100%', padding: '12px 16px', border: '2px solid #0369a1', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: '#f0f9ff', boxSizing: 'border-box', marginBottom: '8px', boxShadow: '0 2px 8px rgba(3,105,161,0.15)' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-              <button onClick={handleSend} disabled={aiLoading || !input.trim()}
-                style={{ padding: '12px', backgroundColor: aiLoading || !input.trim() ? '#93c5fd' : '#0369a1', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                💬 発言
-              </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <button onClick={function() { setShowExamModal(true) }} disabled={aiLoading || examLoading}
                 style={{ padding: '12px', backgroundColor: aiLoading || examLoading ? '#86efac' : '#16a34a', color: 'white', border: 'none', borderRadius: '10px', cursor: aiLoading || examLoading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
                 🔬 診察・検査{examLoading ? '...' : ''}
               </button>
+              <button onClick={function() { setStep('treatment') }}
+                style={{ padding: '12px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
+                治療方針を決定する →
+              </button>
             </div>
-            <button onClick={function() { setStep('treatment') }}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
-              治療方針を決定する →
-            </button>
           </div>
         </div>
       </div>
