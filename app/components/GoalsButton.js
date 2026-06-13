@@ -141,17 +141,6 @@ export default function GoalsButton({ patient, scenarioData, autoTreatmentUsed, 
         >
           🎯 到達目標{ev ? '　' + num + '/' + denom : ''}
         </button>
-        <button
-          onClick={function () { setHelpOpen(true) }}
-          title="到達目標について"
-          style={{
-            padding: '6px 10px', backgroundColor: 'white', color: '#64748b',
-            border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer',
-            fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap',
-          }}
-        >
-          ❓ 説明
-        </button>
       </div>
 
       {/* 到達目標パネル */}
@@ -162,7 +151,20 @@ export default function GoalsButton({ patient, scenarioData, autoTreatmentUsed, 
               <h2 style={{ fontSize: '17px', fontWeight: 'bold', color: '#b45309', margin: 0 }}>
                 🎯 この症例の到達目標{ev ? '（' + num + '/' + denom + ' 達成）' : ''}
               </h2>
-              <button onClick={function () { setOpen(false) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={function () { setHelpOpen(true) }}
+                  title="到達目標について"
+                  style={{
+                    padding: '5px 10px', backgroundColor: 'white', color: '#64748b',
+                    border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer',
+                    fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap',
+                  }}
+                >
+                  ❓ 説明
+                </button>
+                <button onClick={function () { setOpen(false) }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px' }}>
               {ev ? '現在の達成状況（リアルタイム）です。' : '次の項目が評価されます。'}
