@@ -249,7 +249,10 @@ function renderImagingFindings(imaging) {
   )
 }
 
-function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, labsRevealed, v1Revealed, v2Revealed, additionalLabs, additionalImaging, v1AdditionalLabs, v1AdditionalImaging, v2AdditionalLabs, v2AdditionalImaging, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit3Labs, visit1Data, labsRevealed, v1Revealed, v2Revealed, additionalLabs, additionalImaging, v1AdditionalLabs, v1AdditionalImaging, v2AdditionalLabs, v2AdditionalImaging }) {
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [labsOpen, setLabsOpen] = useState(false)
+  const hasLabs = v1Revealed || v2Revealed || labsRevealed
   const [labsStep, setLabsStep] = useState(v1Revealed ? 1 : (v2Revealed ? 2 : (labsRevealed ? 3 : 1)))
   const bpChange = visit3Vitals?.bp_change
   const weightChange = visit3Vitals?.weight_change
@@ -275,17 +278,20 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
   }
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div onClick={onToggle} style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>👤</span>
-          <div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1' }}>{patient.name}</span>
-            <span style={{ fontSize: '12px', color: '#0369a1', marginLeft: '6px' }}>{patient.age}歳・{patient.gender}・{diseaseName}</span>
-          </div>
+      {/* 患者名ストリップ（常時表示） */}
+      <div style={{ padding: '8px 14px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '16px' }}>👤</span>
+        <div>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1' }}>{patient.name}</span>
+          <span style={{ fontSize: '12px', color: '#0369a1', marginLeft: '6px' }}>{patient.age}歳・{patient.gender}・{diseaseName}</span>
         </div>
-        <span style={{ fontSize: '12px', color: '#0369a1' }}>{collapsed ? '▼ 詳細' : '▲ 閉じる'}</span>
       </div>
-      {!collapsed && (
+      {/* 患者情報セクション（個別開閉） */}
+      <div onClick={function() { setInfoOpen(!infoOpen) }} style={{ padding: '9px 14px', borderTop: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1' }}>📋 患者情報（バイタル・前回の治療方針）</span>
+        <span style={{ fontSize: '12px', color: '#0369a1' }}>{infoOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+      </div>
+      {infoOpen && (
         <div style={{ padding: '10px 14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
             <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '8px' }}>
@@ -353,9 +359,17 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>前回の治療方針データがありません</p>
             )}
           </div>
-          {(v1Revealed || v2Revealed || labsRevealed) && (
-          <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
-            <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 6px' }}>💉 検査結果</p>
+        </div>
+      )}
+      {/* 検査データセクション（個別開閉） */}
+      {hasLabs && (
+        <>
+          <div onClick={function() { setLabsOpen(!labsOpen) }} style={{ padding: '9px 14px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f0fdf4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#166534' }}>💉 検査データ</span>
+            <span style={{ fontSize: '12px', color: '#166534' }}>{labsOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+          </div>
+          {labsOpen && (
+          <div style={{ padding: '10px 14px', backgroundColor: '#f0fdf4' }}>
             <div style={{ display: 'flex', gap: '0', marginBottom: '8px', borderBottom: '1px solid #d1d5db', flexWrap: 'wrap' }}>
               {v1Revealed && (
                 <button onClick={function() { setLabsStep(1) }}
@@ -387,7 +401,7 @@ function PatientInfoCard({ patient, diseaseName, visit3Vitals, visit2Data, visit
             {labsStep === 3 && renderImagingFindings(additionalImaging)}
           </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )

@@ -281,22 +281,26 @@ function groupSubOptions(subOptions) {
 }
 
 // 患者情報コンパクトカード（治療方針画面用）
-function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, additionalImaging, collapsed, onToggle }) {
+function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, additionalImaging }) {
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [labsOpen, setLabsOpen] = useState(false)
+  const hasLabs = labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0)
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '12px', overflow: 'hidden' }}>
-      <div
-        onClick={onToggle}
-        style={{ padding: '10px 14px', backgroundColor: '#e0f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>👤</span>
-          <div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1' }}>{patient.name}</span>
-            <span style={{ fontSize: '12px', color: '#0369a1', marginLeft: '6px' }}>{patient.age}歳・{patient.gender}・{diseaseName}</span>
-          </div>
+      {/* 患者名ストリップ（常時表示） */}
+      <div style={{ padding: '8px 14px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '16px' }}>👤</span>
+        <div>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#0369a1' }}>{patient.name}</span>
+          <span style={{ fontSize: '12px', color: '#0369a1', marginLeft: '6px' }}>{patient.age}歳・{patient.gender}・{diseaseName}</span>
         </div>
-        <span style={{ fontSize: '12px', color: '#0369a1' }}>{collapsed ? '▼ 詳細' : '▲ 閉じる'}</span>
       </div>
-      {!collapsed && (
+      {/* 患者情報セクション（個別開閉） */}
+      <div onClick={function() { setInfoOpen(!infoOpen) }} style={{ padding: '9px 14px', borderTop: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#0369a1' }}>📋 患者情報（主訴・バイタル・既往・生活歴）</span>
+        <span style={{ fontSize: '12px', color: '#0369a1' }}>{infoOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+      </div>
+      {infoOpen && (
         <div style={{ padding: '10px 14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
             <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '8px' }}>
@@ -321,15 +325,23 @@ function PatientInfoCard({ patient, diseaseName, labsRevealed, additionalLabs, a
               <p style={{ fontSize: '12px', color: '#475569' }}>{patient.social_history}</p>
             </div>
           </div>
-          {(labsRevealed || (additionalLabs && additionalLabs.length > 0) || (additionalImaging && additionalImaging.length > 0)) && (
-            <div style={{ marginTop: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', border: '1px solid #bbf7d0' }}>
-              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534', margin: '0 0 4px' }}>💉 検査結果（Visit 1 初診時）</p>
+        </div>
+      )}
+      {/* 検査データセクション（個別開閉） */}
+      {hasLabs && (
+        <>
+          <div onClick={function() { setLabsOpen(!labsOpen) }} style={{ padding: '9px 14px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f0fdf4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#166534' }}>💉 検査データ（Visit 1 初診時）</span>
+            <span style={{ fontSize: '12px', color: '#166534' }}>{labsOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+          </div>
+          {labsOpen && (
+            <div style={{ padding: '10px 14px', backgroundColor: '#f0fdf4' }}>
               {labsRevealed && patient.labs && renderLabTags(patient.labs, null, diseaseName)}
               {renderAdditionalLabTags(additionalLabs, null)}
               {renderImagingFindings(additionalImaging)}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
